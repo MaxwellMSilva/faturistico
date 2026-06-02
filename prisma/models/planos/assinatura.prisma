@@ -1,0 +1,15 @@
+model Assinatura {
+  id String @id @default(cuid())
+
+  usuarioId String
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  status String
+
+  valorMensal Decimal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modulos AssinaturaModulo[]
+}

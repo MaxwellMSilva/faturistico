@@ -1,0 +1,13 @@
+model Modulo {
+  id String @id @default(cuid())
+
+  nome String
+
+  codigo String @unique
+
+  valor Decimal
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}

@@ -25,10 +25,17 @@ model Empresa {
 
   uf String?
 
+  codigoPais String? @default("1058")
+  pais       String? @default("BRASIL")
+
   ativo Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  usuarioId String
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
 
   usuarios          Usuario[]
   clientes          Cliente[]

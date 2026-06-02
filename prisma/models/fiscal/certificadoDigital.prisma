@@ -18,6 +18,12 @@ model CertificadoDigital {
 
   validadeFim DateTime
 
+  arquivoOriginal String?
+
+  thumbprint String?
+
+  diasParaExpirar Int?
+
   ativo Boolean @default(true)
 
   createdAt DateTime @default(now())

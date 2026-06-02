@@ -37,6 +37,10 @@ model Cliente {
 
   notasFiscais NotaFiscal[]
 
+  codigoPais String? @default("1058")
+
+  pais String? @default("BRASIL")
+
   @@unique([empresaId, cpfCnpj])
   @@index([empresaId])
 }

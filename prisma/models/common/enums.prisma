@@ -33,10 +33,10 @@ enum TipoItem {
 
 enum StatusNotaFiscal {
   RASCUNHO
-  EM_PROCESSAMENTO
+  VALIDANDO
   AUTORIZADA
-  CANCELADA
   REJEITADA
+  CANCELADA
 }
 
 enum RoleUsuario {

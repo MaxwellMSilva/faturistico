@@ -12,6 +12,12 @@ model ConfiguracaoFiscal {
 
   serieNfce Int @default(1)
 
+  csc String?
+
+  idCsc String?
+
+  tokenNuvemFiscal String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

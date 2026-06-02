@@ -1,0 +1,11 @@
+model AssinaturaModulo {
+  id String @id @default(cuid())
+
+  assinaturaId String
+  assinatura Assinatura @relation(fields: [assinaturaId], references: [id])
+
+  moduloId String
+  modulo Modulo @relation(fields: [moduloId], references: [id])
+
+  @@unique([assinaturaId, moduloId])
+}
