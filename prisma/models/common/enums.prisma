@@ -1,0 +1,54 @@
+enum TipoDocumentoFiscal {
+  NFE
+  NFCE
+}
+
+enum TipoEventoFiscal {
+  CANCELAMENTO
+  CARTA_CORRECAO
+  INUTILIZACAO
+}
+
+enum AmbienteFiscal {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
+enum RegimeTributario {
+  SIMPLES_NACIONAL
+  SIMPLES_EXCESSO_SUBLIMITE
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+}
+
+enum TipoPessoa {
+  FISICA
+  JURIDICA
+}
+
+enum TipoItem {
+  PRODUTO
+  SERVICO
+}
+
+enum StatusNotaFiscal {
+  RASCUNHO
+  EM_PROCESSAMENTO
+  AUTORIZADA
+  CANCELADA
+  REJEITADA
+}
+
+enum RoleUsuario {
+  OWNER
+  ADMIN
+  FATURISTA
+  VISUALIZADOR
+}
+
+enum FinalidadeNfe {
+  NORMAL
+  COMPLEMENTAR
+  AJUSTE
+  DEVOLUCAO
+}

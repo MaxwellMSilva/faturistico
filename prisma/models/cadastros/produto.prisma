@@ -1,0 +1,55 @@
+model Produto {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  tipo TipoItem
+
+  codigo String
+
+  descricao String
+
+  descricaoCompleta String?
+
+  unidade String
+
+  ean String?
+
+  valorUnitario Decimal
+
+  custoUnitario Decimal?
+
+  estoqueAtual Decimal? @default(0)
+
+  ncm  String?
+  cest String?
+
+  cfopPadrao String?
+
+  origemMercadoria Int?
+
+  codigoServico String?
+
+  cstIcms String?
+
+  cstPis String?
+
+  cstCofins String?
+
+  aliquotaIcms Decimal?
+
+  aliquotaPis Decimal?
+
+  aliquotaCofins Decimal?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  itensNotaFiscal ItemNotaFiscal[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId])
+}

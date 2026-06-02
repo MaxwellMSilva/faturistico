@@ -1,0 +1,17 @@
+model ConfiguracaoFiscal {
+  id String @id @default(cuid())
+
+  empresaId String  @unique
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  ambiente AmbienteFiscal
+
+  regimeTributario RegimeTributario
+
+  serieNfe Int @default(1)
+
+  serieNfce Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

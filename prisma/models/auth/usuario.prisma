@@ -1,0 +1,19 @@
+model Usuario {
+  id String @id @default(cuid())
+
+  nome String
+
+  email String @unique
+
+  senhaHash String
+
+  role RoleUsuario @default(OWNER)
+
+  ativo Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

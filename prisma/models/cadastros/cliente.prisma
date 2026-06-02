@@ -1,0 +1,42 @@
+model Cliente {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  tipoPessoa TipoPessoa
+
+  nome String
+
+  cpfCnpj String
+
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+  suframa            String?
+
+  email    String?
+  telefone String?
+
+  cep String?
+
+  logradouro  String?
+  numero      String?
+  complemento String?
+
+  bairro String?
+
+  municipio       String?
+  codigoMunicipio String?
+
+  uf String?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notasFiscais NotaFiscal[]
+
+  @@unique([empresaId, cpfCnpj])
+  @@index([empresaId])
+}

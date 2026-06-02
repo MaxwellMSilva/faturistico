@@ -1,0 +1,18 @@
+model ItemNotaFiscal {
+  id String @id @default(cuid())
+
+  notaFiscalId String
+  notaFiscal   NotaFiscal @relation(fields: [notaFiscalId], references: [id])
+
+  produtoId String
+  produto   Produto @relation(fields: [produtoId], references: [id])
+
+  quantidade Decimal
+
+  valorUnitario Decimal
+
+  valorTotal Decimal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

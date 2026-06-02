@@ -1,0 +1,382 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum TipoPessoa {
+  FISICA
+  JURIDICA
+}
+
+enum TipoItem {
+  PRODUTO
+  SERVICO
+}
+
+enum StatusNotaFiscal {
+  RASCUNHO
+  EM_PROCESSAMENTO
+  AUTORIZADA
+  CANCELADA
+  REJEITADA
+}
+
+enum RoleUsuario {
+  OWNER
+  ADMIN
+  FATURISTA
+  VISUALIZADOR
+}
+
+model Empresa {
+  id String @id @default(cuid())
+
+  razaoSocial  String
+  nomeFantasia String?
+
+  cnpj String @unique
+
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+
+  email    String?
+  telefone String?
+
+  cep String?
+
+  logradouro  String?
+  numero      String?
+  complemento String?
+
+  bairro String?
+
+  municipio       String?
+  codigoMunicipio String?
+
+  uf String?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usuarios     Usuario[]
+  clientes     Cliente[]
+  produtos     Produto[]
+  notasFiscais NotaFiscal[]
+  certificados CertificadoDigital[]
+
+  sequenciaFiscal SequenciaFiscal?
+  configuracaoFiscal ConfiguracaoFiscal?
+}
+
+model Usuario {
+  id String @id @default(cuid())
+
+  nome String
+
+  email String @unique
+
+  senhaHash String
+
+  role RoleUsuario @default(OWNER)
+
+  ativo Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cliente {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  tipoPessoa TipoPessoa
+
+  nome String
+
+  cpfCnpj String
+
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+  suframa String?
+
+  email    String?
+  telefone String?
+
+  cep String?
+
+  logradouro  String?
+  numero      String?
+  complemento String?
+
+  bairro String?
+
+  municipio       String?
+  codigoMunicipio String?
+
+  uf String?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notasFiscais NotaFiscal[]
+
+  @@unique([empresaId, cpfCnpj])
+  @@index([empresaId])
+}
+
+model Produto {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  tipo TipoItem
+
+  codigo String
+
+  descricao String
+
+  unidade String
+
+  ean String?
+
+  valorUnitario Decimal
+
+  estoqueAtual Decimal? @default(0)
+
+  ncm  String?
+  cest String?
+
+  cfopPadrao String?
+
+  origemMercadoria Int?
+
+  codigoServico String?
+
+  cstIcms String?
+
+  cstPis String?
+
+  cstCofins String?
+
+  aliquotaIcms Decimal?
+
+  aliquotaPis Decimal?
+
+  aliquotaCofins Decimal?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  itensNotaFiscal ItemNotaFiscal[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId])
+}
+
+model NotaFiscal {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  numero Int
+
+  serie Int @default(1)
+
+  dataEmissao DateTime @default(now())
+
+  status StatusNotaFiscal @default(RASCUNHO)
+
+  tipoDocumento TipoDocumentoFiscal @default(NFE)
+
+  naturezaOperacaoId String?
+
+  naturezaOperacao NaturezaOperacao? @relation(fields: [naturezaOperacaoId], references: [id])
+
+  codigoRetorno String?
+
+  mensagemRetorno String?
+
+  eventos EventoFiscal[]
+
+  valorProdutos Decimal @default(0)
+
+  valorServicos Decimal @default(0)
+
+  valorTotal Decimal @default(0)
+
+  observacoes String?
+
+  chaveAcesso String?
+
+  protocolo String?
+
+  xmlPath String?
+
+  pdfPath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  itens ItemNotaFiscal[]
+
+  @@unique([empresaId, numero, serie])
+  @@index([empresaId])
+  @@index([clienteId])
+  @@index([status])
+}
+
+model ItemNotaFiscal {
+  id String @id @default(cuid())
+
+  notaFiscalId String
+  notaFiscal   NotaFiscal @relation(fields: [notaFiscalId], references: [id])
+
+  produtoId String
+  produto   Produto @relation(fields: [produtoId], references: [id])
+
+  quantidade Decimal
+
+  valorUnitario Decimal
+
+  valorTotal Decimal
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CertificadoDigital {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  nomeArquivo String
+
+  senhaCriptografada String
+
+  validadeInicio DateTime
+
+  validadeFim DateTime
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum AmbienteFiscal {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
+enum RegimeTributario {
+  SIMPLES_NACIONAL
+  SIMPLES_EXCESSO_SUBLIMITE
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+}
+
+model ConfiguracaoFiscal {
+  id String @id @default(cuid())
+
+  empresaId String @unique
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  ambiente AmbienteFiscal
+
+  regimeTributario RegimeTributario
+
+  serieNfe Int @default(1)
+
+  serieNfce Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NaturezaOperacao {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  descricao String
+
+  cfopPadrao String
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notasFiscais NotaFiscal[]
+}
+
+enum TipoDocumentoFiscal {
+  NFE
+  NFCE
+}
+
+enum TipoEventoFiscal {
+  CANCELAMENTO
+  CARTA_CORRECAO
+  INUTILIZACAO
+}
+
+model MunicipioIBGE {
+  codigo String @id
+
+  nome String
+
+  uf String
+}
+
+model SequenciaFiscal {
+  id String @id @default(cuid())
+
+  empresaId String @unique
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  ultimaNfe Int @default(0)
+
+  ultimaNfce Int @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+model EventoFiscal {
+  id String @id @default(cuid())
+
+  notaFiscalId String
+  notaFiscal NotaFiscal @relation(fields: [notaFiscalId], references: [id])
+
+  tipo TipoEventoFiscal
+
+  protocolo String?
+
+  justificativa String?
+
+  xmlPath String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

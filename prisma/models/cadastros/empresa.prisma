@@ -1,0 +1,42 @@
+model Empresa {
+  id String @id @default(cuid())
+
+  razaoSocial  String
+  nomeFantasia String?
+
+  cnpj String @unique
+
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+
+  email    String?
+  telefone String?
+
+  cep String?
+
+  logradouro  String?
+  numero      String?
+  complemento String?
+
+  bairro String?
+
+  municipio       String?
+  codigoMunicipio String?
+
+  uf String?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usuarios          Usuario[]
+  clientes          Cliente[]
+  produtos          Produto[]
+  notasFiscais      NotaFiscal[]
+  certificados      CertificadoDigital[]
+  naturezasOperacao NaturezaOperacao[]
+
+  sequenciaFiscal    SequenciaFiscal?
+  configuracaoFiscal ConfiguracaoFiscal?
+}

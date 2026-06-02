@@ -1,0 +1,12 @@
+model SequenciaFiscal {
+  id String @id @default(cuid())
+
+  empresaId String  @unique
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  ultimaNfe Int @default(0)
+
+  ultimaNfce Int @default(0)
+
+  updatedAt DateTime @updatedAt
+}
