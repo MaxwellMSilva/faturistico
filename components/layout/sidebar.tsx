@@ -124,6 +124,14 @@ export function Sidebar() {
                   active={pathname === "/nfe"}
                   collapsed={false}
                 />
+
+                <MenuItem
+                  href="/naturezas-operacao"
+                  icon={<FileText size={16} />}
+                  label="Natureza Operação"
+                  active={pathname === "/naturezas-operacao"}
+                  collapsed={false}
+                />
               </div>
             )}
 

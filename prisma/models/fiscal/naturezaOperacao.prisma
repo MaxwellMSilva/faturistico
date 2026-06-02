@@ -8,8 +8,16 @@ model NaturezaOperacao {
 
   cfop String
 
-  notasFiscais NotaFiscal[]
+  finalidadeNfe FinalidadeNfe @default(NORMAL)
+
+  consumidorFinal Boolean @default(false)
+
+  contribuinteIcms Boolean @default(true)
+
+  ativo Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  notasFiscais NotaFiscal[]
 }

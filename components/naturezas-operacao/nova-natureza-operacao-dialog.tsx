@@ -13,60 +13,56 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { updateNaturezaOperacao } from "@/actions/naturezas-operacao/update-natureza-operacao";
+import { createNaturezaOperacao } from "@/actions/naturezas-operacao/create-natureza-operacao";
 
-type Props = {
-  id: string;
-  descricao: string;
-  cfop: string;
-
-  finalidadeNfe:
-    | "NORMAL"
-    | "COMPLEMENTAR"
-    | "AJUSTE"
-    | "DEVOLUCAO";
-
-  consumidorFinal: boolean;
-
-  contribuinteIcms: boolean;
-};
-
-export function NaturezaOperacaoEditButton({
-  id,
-  descricao: descricaoInicial,
-  cfop: cfopInicial,
-  finalidadeNfe: finalidadeNfeInicial,
-  consumidorFinal: consumidorFinalInicial,
-  contribuinteIcms: contribuinteIcmsInicial,
-}: Props) {
+export function NovaNaturezaOperacaoDialog() {
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
 
-  const [descricao, setDescricao] =
-    useState(descricaoInicial);
-
-  const [cfop, setCfop] =
-    useState(cfopInicial);
+  const [descricao, setDescricao] = useState("");
+  const [cfop, setCfop] = useState("");
 
   const [finalidadeNfe, setFinalidadeNfe] =
-    useState(finalidadeNfeInicial);
+    useState("NORMAL");
 
   const [consumidorFinal, setConsumidorFinal] =
-    useState(consumidorFinalInicial);
+    useState(false);
 
   const [contribuinteIcms, setContribuinteIcms] =
-    useState(contribuinteIcmsInicial);
+    useState(true);
 
   async function handleSave() {
-    await updateNaturezaOperacao({
-      id,
+    if (!descricao.trim()) {
+      alert("Informe a descrição.");
+      return;
+    }
+
+    if (!cfop.trim()) {
+      alert("Informe o CFOP.");
+      return;
+    }
+
+    await createNaturezaOperacao({
       descricao,
       cfop,
-      finalidadeNfe,
+
+      finalidadeNfe: finalidadeNfe as
+        | "NORMAL"
+        | "COMPLEMENTAR"
+        | "AJUSTE"
+        | "DEVOLUCAO",
+
       consumidorFinal,
+
       contribuinteIcms,
     });
+
+    setDescricao("");
+    setCfop("");
+    setFinalidadeNfe("NORMAL");
+    setConsumidorFinal(false);
+    setContribuinteIcms(true);
 
     setOpen(false);
 
@@ -75,12 +71,9 @@ export function NaturezaOperacaoEditButton({
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-lg border px-3 py-1 text-sm hover:bg-muted"
-      >
-        Editar
-      </button>
+      <Button onClick={() => setOpen(true)}>
+        Nova Natureza
+      </Button>
 
       <Dialog
         open={open}
@@ -89,7 +82,7 @@ export function NaturezaOperacaoEditButton({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Editar Natureza de Operação
+              Nova Natureza de Operação
             </DialogTitle>
           </DialogHeader>
 
@@ -114,13 +107,7 @@ export function NaturezaOperacaoEditButton({
             <select
               value={finalidadeNfe}
               onChange={(e) =>
-                setFinalidadeNfe(
-                  e.target.value as
-                    | "NORMAL"
-                    | "COMPLEMENTAR"
-                    | "AJUSTE"
-                    | "DEVOLUCAO"
-                )
+                setFinalidadeNfe(e.target.value)
               }
               className="h-10 rounded-md border px-3"
             >
@@ -166,14 +153,14 @@ export function NaturezaOperacaoEditButton({
                 }
               />
 
-              Contribuinte ICMS
+              Contribuinte de ICMS
             </label>
 
           </div>
 
           <div className="flex justify-end">
             <Button onClick={handleSave}>
-              Salvar Alterações
+              Salvar
             </Button>
           </div>
         </DialogContent>
