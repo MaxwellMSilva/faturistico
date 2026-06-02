@@ -2,20 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import {
   LayoutDashboard,
-  Building2,
   Users,
   Package,
   FileText,
   Settings,
   ChevronDown,
   FolderOpen,
+  Building2,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useSidebarStore } from "@/lib/sidebar-store";
-import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -23,6 +24,8 @@ export function Sidebar() {
 
   const [cadastrosOpen, setCadastrosOpen] = useState(true);
   const [fiscalOpen, setFiscalOpen] = useState(true);
+  const [configuracoesOpen, setConfiguracoesOpen] =
+    useState(true);
 
   return (
     <aside
@@ -35,7 +38,7 @@ export function Sidebar() {
         ${collapsed ? "w-16" : "w-64"}
       `}
     >
-      <div className="border-r border-sidebar-border p-4">
+      <div className="border-b border-sidebar-border p-4">
         <h2 className="font-bold">
           {collapsed ? "F" : "Faturístico"}
         </h2>
@@ -53,8 +56,12 @@ export function Sidebar() {
 
         {!collapsed && (
           <>
+            {/* CADASTROS */}
+
             <button
-              onClick={() => setCadastrosOpen(!cadastrosOpen)}
+              onClick={() =>
+                setCadastrosOpen(!cadastrosOpen)
+              }
               className="mt-4 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted"
             >
               <div className="flex items-center gap-2">
@@ -65,26 +72,23 @@ export function Sidebar() {
               <ChevronDown
                 size={16}
                 className={`transition ${
-                  cadastrosOpen ? "rotate-180" : ""
+                  cadastrosOpen
+                    ? "rotate-180"
+                    : ""
                 }`}
               />
             </button>
 
             {cadastrosOpen && (
               <div className="ml-4 mt-1 space-y-1">
-                <MenuItem
-                  href="/empresas"
-                  icon={<Building2 size={16} />}
-                  label="Empresas"
-                  active={pathname === "/empresas"}
-                  collapsed={false}
-                />
 
                 <MenuItem
                   href="/clientes"
                   icon={<Users size={16} />}
                   label="Clientes"
-                  active={pathname === "/clientes"}
+                  active={
+                    pathname === "/clientes"
+                  }
                   collapsed={false}
                 />
 
@@ -92,14 +96,31 @@ export function Sidebar() {
                   href="/produtos"
                   icon={<Package size={16} />}
                   label="Produtos"
-                  active={pathname === "/produtos"}
+                  active={
+                    pathname === "/produtos"
+                  }
+                  collapsed={false}
+                />
+
+                <MenuItem
+                  href="/naturezas-operacao"
+                  icon={<FileText size={16} />}
+                  label="Naturezas de Operação"
+                  active={
+                    pathname ===
+                    "/naturezas-operacao"
+                  }
                   collapsed={false}
                 />
               </div>
             )}
 
+            {/* FISCAL */}
+
             <button
-              onClick={() => setFiscalOpen(!fiscalOpen)}
+              onClick={() =>
+                setFiscalOpen(!fiscalOpen)
+              }
               className="mt-4 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted"
             >
               <div className="flex items-center gap-2">
@@ -110,13 +131,16 @@ export function Sidebar() {
               <ChevronDown
                 size={16}
                 className={`transition ${
-                  fiscalOpen ? "rotate-180" : ""
+                  fiscalOpen
+                    ? "rotate-180"
+                    : ""
                 }`}
               />
             </button>
 
             {fiscalOpen && (
               <div className="ml-4 mt-1 space-y-1">
+
                 <MenuItem
                   href="/nfe"
                   icon={<FileText size={16} />}
@@ -125,25 +149,63 @@ export function Sidebar() {
                   collapsed={false}
                 />
 
-                <MenuItem
-                  href="/naturezas-operacao"
-                  icon={<FileText size={16} />}
-                  label="Natureza Operação"
-                  active={pathname === "/naturezas-operacao"}
-                  collapsed={false}
-                />
               </div>
             )}
 
-            <div className="mt-4">
-              <MenuItem
-                href="/configuracoes"
-                icon={<Settings size={18} />}
-                label="Configurações"
-                active={pathname === "/configuracoes"}
-                collapsed={false}
+            {/* CONFIGURAÇÕES */}
+
+            <button
+              onClick={() =>
+                setConfiguracoesOpen(
+                  !configuracoesOpen
+                )
+              }
+              className="mt-4 flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted"
+            >
+              <div className="flex items-center gap-2">
+                <Settings size={16} />
+                Configurações
+              </div>
+
+              <ChevronDown
+                size={16}
+                className={`transition ${
+                  configuracoesOpen
+                    ? "rotate-180"
+                    : ""
+                }`}
               />
-            </div>
+            </button>
+
+            {configuracoesOpen && (
+              <div className="ml-4 mt-1 space-y-1">
+
+                <MenuItem
+                  href="/configuracoes/empresa"
+                  icon={<Building2 size={16} />}
+                  label="Empresa"
+                  active={
+                    pathname ===
+                    "/configuracoes/empresa"
+                  }
+                  collapsed={false}
+                />
+
+                <MenuItem
+                  href="/configuracoes/certificado"
+                  icon={
+                    <ShieldCheck size={16} />
+                  }
+                  label="Certificado Digital"
+                  active={
+                    pathname ===
+                    "/configuracoes/certificado"
+                  }
+                  collapsed={false}
+                />
+
+              </div>
+            )}
           </>
         )}
       </nav>
@@ -179,7 +241,9 @@ function MenuItem({
     >
       {icon}
 
-      {!collapsed && <span>{label}</span>}
+      {!collapsed && (
+        <span>{label}</span>
+      )}
     </Link>
   );
 }

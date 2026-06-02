@@ -6,7 +6,13 @@ model CertificadoDigital {
 
   nomeArquivo String
 
-  senhaCriptografada String
+  arquivoPath String?
+
+  senha String
+
+  serialNumber String?
+
+  emitidoPor String?
 
   validadeInicio DateTime
 
