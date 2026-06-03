@@ -13,8 +13,6 @@ type UpdateEmpresaData = {
   inscricaoEstadual: string;
   inscricaoMunicipal: string;
 
-  crt: string;
-
   email: string;
   telefone: string;
 
@@ -29,8 +27,6 @@ type UpdateEmpresaData = {
   codigoMunicipio: string;
 
   uf: string;
-
-  cnaePrincipal: string;
 };
 
 export async function updateEmpresa(
@@ -53,8 +49,6 @@ export async function updateEmpresa(
       inscricaoMunicipal:
         data.inscricaoMunicipal,
 
-      crt: data.crt,
-
       email: data.email,
       telefone: data.telefone,
 
@@ -71,9 +65,6 @@ export async function updateEmpresa(
         data.codigoMunicipio,
 
       uf: data.uf,
-
-      cnaePrincipal:
-        data.cnaePrincipal,
     },
   });
 }

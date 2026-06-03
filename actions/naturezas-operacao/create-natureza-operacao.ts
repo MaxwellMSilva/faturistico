@@ -1,5 +1,6 @@
 "use server";
 
+import { getEmpresaAtual } from "@/lib/get-empresa-atual";
 import { prisma } from "@/lib/prisma";
 
 type CreateNaturezaOperacaoData = {
@@ -17,12 +18,15 @@ type CreateNaturezaOperacaoData = {
   contribuinteIcms: boolean;
 };
 
+const empresa =
+  await getEmpresaAtual();
+
 export async function createNaturezaOperacao(
   data: CreateNaturezaOperacaoData
 ) {
   return await prisma.naturezaOperacao.create({
     data: {
-      empresaId: "empresa-teste",
+      empresaId: empresa.id,
 
       descricao: data.descricao,
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { getEmpresaAtual } from "@/lib/get-empresa-atual";
 import { prisma } from "@/lib/prisma";
 
 type CreateClienteData = {
@@ -9,12 +10,15 @@ type CreateClienteData = {
   telefone?: string;
 };
 
+const empresa =
+  await getEmpresaAtual();
+
 export async function createCliente(
   data: CreateClienteData
 ) {
   return await prisma.cliente.create({
     data: {
-      empresaId: "empresa-teste",
+      empresaId: empresa.id,
 
       tipoPessoa: "JURIDICA",
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { getEmpresaAtual } from "@/lib/get-empresa-atual";
 import { prisma } from "@/lib/prisma";
 
 type ItemData = {
@@ -13,6 +14,9 @@ type CreateNfeData = {
   naturezaOperacaoId: string;
   itens: ItemData[];
 };
+
+const empresa =
+  await getEmpresaAtual();
 
 export async function createNfe(
   data: CreateNfeData
@@ -38,7 +42,7 @@ export async function createNfe(
 
   return await prisma.notaFiscal.create({
     data: {
-      empresaId: "empresa-teste",
+      empresaId: empresa.id,
 
       clienteId: data.clienteId,
 
