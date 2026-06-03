@@ -10,4 +10,7 @@ model Modulo {
   ativo Boolean @default(true)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assinaturas AssinaturaModulo[]
 }

@@ -2,10 +2,10 @@ model NotaFiscal {
   id String @id @default(cuid())
 
   empresaId String
-  empresa Empresa @relation(fields: [empresaId], references: [id])
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
 
   clienteId String
-  cliente Cliente @relation(fields: [clienteId], references: [id])
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
 
   numero Int
 
@@ -37,7 +37,7 @@ model NotaFiscal {
   itens ItemNotaFiscal[]
 
   naturezaOperacaoId String?
-  naturezaOperacao NaturezaOperacao? @relation(fields: [naturezaOperacaoId], references: [id])
+  naturezaOperacao   NaturezaOperacao? @relation(fields: [naturezaOperacaoId], references: [id])
 
   @@unique([empresaId, numero, serie])
 }

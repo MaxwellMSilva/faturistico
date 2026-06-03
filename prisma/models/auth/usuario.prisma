@@ -11,8 +11,9 @@ model Usuario {
 
   ativo Boolean @default(true)
 
-  empresaId String
-  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  assinaturas Assinatura[]
+
+  empresas Empresa[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

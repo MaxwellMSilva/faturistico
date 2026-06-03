@@ -1,7 +1,12 @@
 model Empresa {
   id String @id @default(cuid())
 
-  razaoSocial  String
+  usuarioId String
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  razaoSocial String
+
   nomeFantasia String?
 
   cnpj String @unique
@@ -33,11 +38,6 @@ model Empresa {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  usuarioId String
-
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  usuarios          Usuario[]
   clientes          Cliente[]
   produtos          Produto[]
   notasFiscais      NotaFiscal[]

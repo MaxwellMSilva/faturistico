@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 
 import "./globals.css";
 
+import { AuthProvider } from "@/components/providers/session-provider";
+
 const inter = Inter({
   subsets: ["latin"],
 });
@@ -20,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

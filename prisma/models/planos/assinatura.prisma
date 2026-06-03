@@ -4,9 +4,9 @@ model Assinatura {
   usuarioId String
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
-  status String
+  status StatusAssinatura @default(PENDENTE)
 
-  valorMensal Decimal
+  valorMensal Decimal @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

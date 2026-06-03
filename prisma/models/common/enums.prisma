@@ -52,3 +52,10 @@ enum FinalidadeNfe {
   AJUSTE
   DEVOLUCAO
 }
+
+enum StatusAssinatura {
+  PENDENTE
+  ATIVA
+  SUSPENSA
+  CANCELADA
+}
