@@ -116,7 +116,7 @@ export function EmpresaSidebar({
           nome: "Veículos",
           href: `${baseUrl}/veiculos`,
           icon: CarFront,
-          ativo: false,
+          ativo: true,
         },
         {
           nome: "Motoristas",
