@@ -1,14 +1,3 @@
-enum TipoDocumentoFiscal {
-  NFE
-  NFCE
-}
-
-enum TipoEventoFiscal {
-  CANCELAMENTO
-  CARTA_CORRECAO
-  INUTILIZACAO
-}
-
 enum AmbienteFiscal {
   HOMOLOGACAO
   PRODUCAO
@@ -31,14 +20,6 @@ enum TipoItem {
   SERVICO
 }
 
-enum StatusNotaFiscal {
-  RASCUNHO
-  VALIDANDO
-  AUTORIZADA
-  REJEITADA
-  CANCELADA
-}
-
 enum RoleUsuario {
   OWNER
   ADMIN
@@ -58,4 +39,31 @@ enum StatusAssinatura {
   ATIVA
   SUSPENSA
   CANCELADA
+}
+
+enum PermissaoEmpresa {
+  OWNER
+  ADMIN
+  FATURAMENTO
+  OPERADOR
+  VISUALIZADOR
+}
+
+enum StatusNotaFiscal {
+  RASCUNHO
+  VALIDANDO
+  AUTORIZADA
+  REJEITADA
+  CANCELADA
+}
+
+enum TipoDocumentoFiscal {
+  NFE
+  NFCE
+}
+
+enum TipoEventoFiscal {
+  CANCELAMENTO
+  CARTA_CORRECAO
+  INUTILIZACAO
 }

@@ -1,38 +1,82 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { Trash2 } from "lucide-react";
 
 import { deleteCliente } from "@/actions/clientes/delete-cliente";
 
+import { Button } from "@/components/ui/button";
+
 type Props = {
-  id: string;
-  nome: string;
+  empresaId: string;
+  clienteId: string;
+  clienteNome: string;
 };
 
 export function ClienteDeleteButton({
-  id,
-  nome,
+  empresaId,
+  clienteId,
+  clienteNome,
 }: Props) {
   const router = useRouter();
 
+  const [carregando, setCarregando] =
+    useState(false);
+
   async function handleDelete() {
-    const confirmar = confirm(
-      `Deseja excluir ${nome}?`
+    const confirmado = window.confirm(
+      `Deseja realmente excluir o cliente "${clienteNome}"?`
     );
 
-    if (!confirmar) return;
+    if (!confirmado) {
+      return;
+    }
 
-    await deleteCliente(id);
+    try {
+      setCarregando(true);
 
-    router.refresh();
+      const resultado =
+        await deleteCliente({
+          empresaId,
+          clienteId,
+        });
+
+      if (!resultado.success) {
+        alert(resultado.message);
+        return;
+      }
+
+      alert(
+        "Cliente excluído com sucesso."
+      );
+
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Não foi possível excluir o cliente."
+      );
+    } finally {
+      setCarregando(false);
+    }
   }
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="destructive"
+      size="sm"
       onClick={handleDelete}
-      className="rounded-lg border border-red-300 px-3 py-1 text-sm text-red-500 hover:bg-red-50"
+      disabled={carregando}
     >
-      Excluir
-    </button>
+      <Trash2 size={16} />
+
+      {carregando
+        ? "Excluindo..."
+        : "Excluir"}
+    </Button>
   );
 }

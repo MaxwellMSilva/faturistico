@@ -1,6 +1,6 @@
 "use server";
 
-import { getNfe } from "./get-nfe";
+import { getNfe } from "./get-notas-fiscais";
 import { gerarXml } from "@/lib/nfe/gerar-xml";
 
 export async function gerarXmlNfe(

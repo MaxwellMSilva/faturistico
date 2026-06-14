@@ -1,85 +1,48 @@
 model Empresa {
   id String @id @default(cuid())
 
-  usuarioId String
-
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
-
-  // Dados principais
-
   razaoSocial String
 
   nomeFantasia String?
 
   cnpj String @unique
 
-  inscricaoEstadual String?
-
+  inscricaoEstadual  String?
   inscricaoMunicipal String?
 
-  crt String?
-
-  // Contato
-
-  email String?
-
+  email    String?
   telefone String?
-
-  // Endereço
 
   cep String?
 
-  logradouro String?
-
-  numero String?
-
+  logradouro  String?
+  numero      String?
   complemento String?
 
   bairro String?
 
-  municipio String?
-
+  municipio       String?
   codigoMunicipio String?
 
   uf String?
 
   codigoPais String? @default("1058")
-
-  pais String? @default("BRASIL")
-
-  // Fiscal
-
-  ambiente AmbienteFiscal @default(HOMOLOGACAO)
-
-  serieNfe Int @default(1)
-
-  serieCte Int @default(1)
-
-  serieMdfe Int @default(1)
-
-  // Controle
+  pais       String? @default("BRASIL")
 
   ativo Boolean @default(true)
 
   createdAt DateTime @default(now())
-
   updatedAt DateTime @updatedAt
 
-  // Relacionamentos
+  // Relação de usuários que possuem acesso à empresa
+  usuarios UsuarioEmpresa[]
 
-  clientes Cliente[]
-
-  produtos Produto[]
-
-  notasFiscais NotaFiscal[]
-
-  certificados CertificadoDigital[]
-
+  clientes          Cliente[]
+  produtos          Produto[]
+  notasFiscais      NotaFiscal[]
+  certificados      CertificadoDigital[]
   naturezasOperacao NaturezaOperacao[]
 
-  sequenciaFiscal SequenciaFiscal?
-
+  sequenciasFiscais  SequenciaFiscal[]
   configuracaoFiscal ConfiguracaoFiscal?
-
-  @@index([usuarioId])
 }

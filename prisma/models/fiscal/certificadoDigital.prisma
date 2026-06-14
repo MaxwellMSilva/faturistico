@@ -2,30 +2,34 @@ model CertificadoDigital {
   id String @id @default(cuid())
 
   empresaId String
-  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   nomeArquivo String
 
-  arquivoPath String?
+  // Caminho local durante o desenvolvimento.
+  // Posteriormente poderá ser uma chave de armazenamento em nuvem.
+  arquivoPath String
 
-  senha String
+  // Deve ser criptografada e recuperável para abrir o certificado A1.
+  senhaCriptografada String
 
   serialNumber String?
+  thumbprint   String?
 
-  emitidoPor String?
+  emitidoPor  String?
+  titular     String?
+  cnpjTitular String?
 
   validadeInicio DateTime
-
-  validadeFim DateTime
-
-  arquivoOriginal String?
-
-  thumbprint String?
-
-  diasParaExpirar Int?
+  validadeFim    DateTime
 
   ativo Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([empresaId, ativo])
+  @@index([validadeFim])
 }

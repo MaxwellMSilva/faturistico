@@ -2,16 +2,43 @@ model NotaFiscal {
   id String @id @default(cuid())
 
   empresaId String
-  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   clienteId String
-  cliente   Cliente @relation(fields: [clienteId], references: [id])
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  naturezaOperacaoId String?
+  naturezaOperacao   NaturezaOperacao? @relation(fields: [naturezaOperacaoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  tipoDocumento TipoDocumentoFiscal @default(NFE)
 
   numero Int
+  serie  Int @default(1)
 
-  serie Int @default(1)
+  dataEmissao DateTime @default(now())
 
   status StatusNotaFiscal @default(RASCUNHO)
+
+  valorProdutos Decimal @default(0)
+
+  valorFrete    Decimal @default(0)
+  valorDesconto Decimal @default(0)
+  valorOutros   Decimal @default(0)
+
+  valorBaseIcms Decimal @default(0)
+  valorIcms     Decimal @default(0)
+
+  valorPis    Decimal @default(0)
+  valorCofins Decimal @default(0)
+  valorIpi    Decimal @default(0)
+
+  valorBaseIbsCbs Decimal @default(0)
+
+  valorIbsUf  Decimal @default(0)
+  valorIbsMun Decimal @default(0)
+  valorIbs    Decimal @default(0)
+
+  valorCbs Decimal @default(0)
 
   valorTotal Decimal @default(0)
 
@@ -19,25 +46,25 @@ model NotaFiscal {
 
   numeroAleatorio String?
 
-  chaveAcesso String?
-
+  chaveAcesso          String?
   protocoloAutorizacao String?
 
-  xmlGerado String?
-
+  xmlGerado   String?
   xmlAssinado String?
 
   dataAutorizacao DateTime?
-
-  motivoRejeicao String?
+  motivoRejeicao  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  itens ItemNotaFiscal[]
+  itens   ItemNotaFiscal[]
+  eventos EventoFiscal[]
 
-  naturezaOperacaoId String?
-  naturezaOperacao   NaturezaOperacao? @relation(fields: [naturezaOperacaoId], references: [id])
-
-  @@unique([empresaId, numero, serie])
+  @@unique([empresaId, tipoDocumento, numero, serie])
+  @@index([empresaId])
+  @@index([clienteId])
+  @@index([naturezaOperacaoId])
+  @@index([empresaId, status])
+  @@index([empresaId, dataEmissao])
 }

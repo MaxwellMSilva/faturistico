@@ -1,17 +1,70 @@
 "use server";
 
+import { getServerSession } from "next-auth";
+
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function getEmpresas(
-  usuarioId: string
-) {
-  return prisma.empresa.findMany({
-    where: {
-      usuarioId,
-    },
+export async function getEmpresas() {
+  const session =
+    await getServerSession(
+      authOptions
+    );
 
-    orderBy: {
-      razaoSocial: "asc",
-    },
-  });
+  if (!session?.user?.id) {
+    throw new Error(
+      "Usuário não autenticado."
+    );
+  }
+
+  const vinculos =
+    await prisma.usuarioEmpresa.findMany({
+      where: {
+        usuarioId:
+          session.user.id,
+
+        ativo: true,
+      },
+
+      select: {
+        permissao: true,
+
+        empresa: {
+          select: {
+            id: true,
+
+            razaoSocial: true,
+            nomeFantasia: true,
+
+            cnpj: true,
+
+            municipio: true,
+            uf: true,
+
+            ativo: true,
+
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+  return vinculos
+    .filter(
+      (vinculo) =>
+        vinculo.empresa.ativo
+    )
+    .map((vinculo) => ({
+      ...vinculo.empresa,
+
+      permissao:
+        vinculo.permissao,
+    }))
+    .sort((empresaA, empresaB) =>
+      empresaA.razaoSocial.localeCompare(
+        empresaB.razaoSocial,
+        "pt-BR"
+      )
+    );
 }

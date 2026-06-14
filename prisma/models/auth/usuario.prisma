@@ -7,13 +7,15 @@ model Usuario {
 
   senhaHash String
 
+  // Permissão global da plataforma.
+  // A permissão dentro de cada empresa ficará em UsuarioEmpresa.
   role RoleUsuario @default(OWNER)
 
   ativo Boolean @default(true)
 
   assinaturas Assinatura[]
 
-  empresas Empresa[]
+  empresas UsuarioEmpresa[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

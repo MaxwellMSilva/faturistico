@@ -71,56 +71,56 @@ export function NovaEmpresaForm() {
     useState("");
 
   async function handleSubmit() {
-    try {
-      if (!session?.user?.id) {
-        alert(
-          "Usuário não autenticado."
-        );
+    if (!session?.user?.id) {
+      alert(
+        "Usuário não autenticado."
+      );
 
+      return;
+    }
+
+    try {
+      const resultado =
+        await createEmpresa({
+          razaoSocial,
+          nomeFantasia,
+          cnpj,
+
+          inscricaoEstadual,
+          inscricaoMunicipal,
+
+          email,
+          telefone,
+
+          cep,
+          logradouro,
+          numero,
+          complemento,
+
+          bairro,
+
+          municipio,
+          codigoMunicipio,
+
+          uf,
+        });
+
+      if (!resultado.success) {
+        alert(resultado.message);
         return;
       }
-
-      await createEmpresa({
-        usuarioId:
-          session.user.id,
-
-        razaoSocial,
-        nomeFantasia,
-        cnpj,
-
-        inscricaoEstadual,
-        inscricaoMunicipal,
-
-        email,
-        telefone,
-
-        cep,
-        logradouro,
-        numero,
-        complemento,
-
-        bairro,
-
-        municipio,
-        codigoMunicipio,
-
-        uf,
-      });
 
       alert(
         "Empresa cadastrada com sucesso."
       );
 
-      router.push(
-        "/configuracoes/empresa"
-      );
-
-    } catch (error: any) {
+      router.replace("/empresas");
+      router.refresh();
+    } catch (error) {
       console.error(error);
 
       alert(
-        error?.message ??
-        "Erro ao cadastrar empresa."
+        "Não foi possível cadastrar a empresa."
       );
     }
   }

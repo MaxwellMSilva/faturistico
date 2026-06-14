@@ -10,32 +10,87 @@ type RegisterData = {
   senha: string;
 };
 
+type RegisterResult =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
 export async function register(
   data: RegisterData
-) {
-  const existe =
+): Promise<RegisterResult> {
+  const nome = data.nome.trim();
+
+  const email = data.email
+    .trim()
+    .toLowerCase();
+
+  const senha = data.senha;
+
+  if (!nome || !email || !senha) {
+    return {
+      success: false,
+      message:
+        "Preencha todos os campos.",
+    };
+  }
+
+  if (senha.length < 6) {
+    return {
+      success: false,
+      message:
+        "A senha deve possuir pelo menos 6 caracteres.",
+    };
+  }
+
+  const usuarioExistente =
     await prisma.usuario.findUnique({
       where: {
-        email: data.email,
+        email,
+      },
+      select: {
+        id: true,
       },
     });
 
-  if (existe) {
-    throw new Error(
-      "E-mail já cadastrado."
-    );
+  if (usuarioExistente) {
+    return {
+      success: false,
+      message:
+        "Este e-mail já está cadastrado.",
+    };
   }
 
   const senhaHash = await hash(
-    data.senha,
+    senha,
     10
   );
 
-  return prisma.usuario.create({
-    data: {
-      nome: data.nome,
-      email: data.email,
-      senhaHash,
-    },
-  });
+  try {
+    await prisma.usuario.create({
+      data: {
+        nome,
+        email,
+        senhaHash,
+      },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error(
+      "Erro ao cadastrar usuário:",
+      error
+    );
+
+    return {
+      success: false,
+      message:
+        "Não foi possível cadastrar o usuário.",
+    };
+  }
 }

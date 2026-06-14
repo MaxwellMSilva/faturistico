@@ -31,8 +31,7 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href =
-      "/dashboard";
+    window.location.href = "/painel";
   }
 
   return (

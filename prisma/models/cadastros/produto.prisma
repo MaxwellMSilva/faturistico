@@ -27,21 +27,45 @@ model Produto {
 
   cfopPadrao String?
 
-  origemMercadoria Int?
+  // ICMS
 
-  codigoServico String?
+  origemMercadoria Int @default(0)
 
-  cstIcms String?
+  cstIcms   String?
+  csosnIcms String?
 
-  cstPis String?
+  modalidadeBcIcms Int? @default(3)
 
-  cstCofins String?
+  reducaoBcIcms Decimal? @default(0)
+  aliquotaIcms  Decimal? @default(0)
 
-  aliquotaIcms Decimal?
+  // PIS
 
-  aliquotaPis Decimal?
+  cstPis      String?
+  aliquotaPis Decimal? @default(0)
 
-  aliquotaCofins Decimal?
+  // COFINS
+
+  cstCofins      String?
+  aliquotaCofins Decimal? @default(0)
+
+  // IPI
+
+  cstIpi String?
+
+  codigoEnquadramentoIpi String? @default("999")
+
+  aliquotaIpi Decimal? @default(0)
+
+  // IBS e CBS
+
+  cstIbsCbs String?
+
+  classificacaoTributariaIbsCbs String?
+
+  aliquotaIbsUf  Decimal? @default(0)
+  aliquotaIbsMun Decimal? @default(0)
+  aliquotaCbs    Decimal? @default(0)
 
   ativo Boolean @default(true)
 

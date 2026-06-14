@@ -1,143 +1,492 @@
 "use client";
 
-import { useState } from "react";
+import {
+  type FormEvent,
+  useState,
+} from "react";
+
 import { useRouter } from "next/navigation";
 
+import { Plus } from "lucide-react";
+
+import { createProduto } from "@/actions/produtos/create-produto";
+
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ProdutoIbsCbsFields,
+} from "@/components/produtos/produto-ibs-cbs-fields";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { createProduto } from "@/actions/produtos/create-produto";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
-export function NovoProdutoDialog() {
-  const router = useRouter();
+type Props = {
+  empresaId: string;
+};
 
-  const [open, setOpen] = useState(false);
+type TipoProduto =
+  | "PRODUTO"
+  | "SERVICO";
 
-  const [codigo, setCodigo] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [tipo, setTipo] = useState("PRODUTO");
-  const [unidade, setUnidade] = useState("UN");
-  const [ncm, setNcm] = useState("");
-  const [cfop, setCfop] = useState("");
-  const [valor, setValor] = useState("");
+const estadoInicial = {
+  codigo: "",
+  descricao: "",
 
-  async function handleSave() {
-    if (!codigo.trim()) {
-      alert("Informe o código.");
-      return;
-    }
+  tipo:
+    "PRODUTO" as TipoProduto,
 
-    if (!descricao.trim()) {
-      alert("Informe a descrição.");
-      return;
-    }
+  unidade: "UN",
 
-    await createProduto({
-      codigo,
-      descricao,
-      tipo: tipo as "PRODUTO" | "SERVICO",
-      unidade,
-      ncm,
-      cfopPadrao: cfop,
-      valorUnitario: Number(valor),
-    });
+  ean: "",
+  ncm: "",
+  cest: "",
+  cfopPadrao: "",
 
-    router.refresh();
+  valorUnitario: "",
 
-    setCodigo("");
-    setDescricao("");
-    setTipo("PRODUTO");
-    setUnidade("UN");
-    setNcm("");
-    setCfop("");
-    setValor("");
+  origemMercadoria: "0",
 
-    setOpen(false);
+  cstIcms: "",
+  csosnIcms: "",
+
+  modalidadeBcIcms: "3",
+  reducaoBcIcms: "0",
+  aliquotaIcms: "0",
+
+  cstPis: "",
+  aliquotaPis: "0",
+
+  cstCofins: "",
+  aliquotaCofins: "0",
+
+  cstIpi: "",
+
+  codigoEnquadramentoIpi:
+    "999",
+
+  aliquotaIpi: "0",
+
+  // IBS e CBS
+
+  cstIbsCbs: "",
+
+  classificacaoTributariaIbsCbs:
+    "",
+
+  aliquotaIbsUf: "0",
+  aliquotaIbsMun: "0",
+  aliquotaCbs: "0",
+};
+
+function numeroDecimal(
+  valor: string
+) {
+  const texto =
+    valor.trim();
+
+  if (!texto) {
+    return 0;
   }
 
+  return Number(
+    texto
+      .replace(/\./g, "")
+      .replace(",", ".")
+  );
+}
+
+export function NovoProdutoDialog({
+  empresaId,
+}: Props) {
+  const router = useRouter();
+
+  const [aberto, setAberto] =
+    useState(false);
+
+  const [carregando, setCarregando] =
+    useState(false);
+
+  const [form, setForm] =
+    useState({
+      ...estadoInicial,
+    });
+
+  function atualizarCampo(
+    campo: keyof typeof estadoInicial,
+    valor: string
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+  }
+
+  function limparFormulario() {
+    setForm({
+      ...estadoInicial,
+    });
+  }
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    const valorUnitario =
+      numeroDecimal(
+        form.valorUnitario
+      );
+
+    if (
+      !Number.isFinite(
+        valorUnitario
+      ) ||
+      valorUnitario < 0
+    ) {
+      alert(
+        "Informe um valor unitário válido."
+      );
+
+      return;
+    }
+
+    try {
+      setCarregando(true);
+
+      const resultado =
+        await createProduto({
+          empresaId,
+
+          codigo:
+            form.codigo,
+
+          descricao:
+            form.descricao,
+
+          tipo:
+            form.tipo,
+
+          unidade:
+            form.unidade,
+
+          ean:
+            form.ean,
+
+          ncm:
+            form.ncm,
+
+          cest:
+            form.cest,
+
+          cfopPadrao:
+            form.cfopPadrao,
+
+          valorUnitario,
+
+          origemMercadoria:
+            Number(
+              form.origemMercadoria
+            ),
+
+          // ICMS
+
+          cstIcms:
+            form.cstIcms,
+
+          csosnIcms:
+            form.csosnIcms,
+
+          modalidadeBcIcms:
+            Number(
+              form.modalidadeBcIcms
+            ),
+
+          reducaoBcIcms:
+            numeroDecimal(
+              form.reducaoBcIcms
+            ),
+
+          aliquotaIcms:
+            numeroDecimal(
+              form.aliquotaIcms
+            ),
+
+          // PIS
+
+          cstPis:
+            form.cstPis,
+
+          aliquotaPis:
+            numeroDecimal(
+              form.aliquotaPis
+            ),
+
+          // COFINS
+
+          cstCofins:
+            form.cstCofins,
+
+          aliquotaCofins:
+            numeroDecimal(
+              form.aliquotaCofins
+            ),
+
+          // IPI
+
+          cstIpi:
+            form.cstIpi,
+
+          codigoEnquadramentoIpi:
+            form
+              .codigoEnquadramentoIpi,
+
+          aliquotaIpi:
+            numeroDecimal(
+              form.aliquotaIpi
+            ),
+
+          // IBS e CBS
+
+          cstIbsCbs:
+            form.cstIbsCbs,
+
+          classificacaoTributariaIbsCbs:
+            form
+              .classificacaoTributariaIbsCbs,
+
+          aliquotaIbsUf:
+            numeroDecimal(
+              form.aliquotaIbsUf
+            ),
+
+          aliquotaIbsMun:
+            numeroDecimal(
+              form.aliquotaIbsMun
+            ),
+
+          aliquotaCbs:
+            numeroDecimal(
+              form.aliquotaCbs
+            ),
+        });
+
+      if (!resultado.success) {
+        alert(resultado.message);
+
+        return;
+      }
+
+      alert(
+        "Produto cadastrado com sucesso."
+      );
+
+      limparFormulario();
+      setAberto(false);
+
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+
+      alert(
+        "Não foi possível cadastrar o produto."
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  const produtoFiscal =
+    form.tipo === "PRODUTO";
+
   return (
-    <>
-      <Button onClick={() => setOpen(true)}>
-        Novo Produto
-      </Button>
+    <Dialog
+      open={aberto}
+      onOpenChange={(valor) => {
+        setAberto(valor);
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>
-              Novo Produto
-            </DialogTitle>
-          </DialogHeader>
+        if (!valor) {
+          limparFormulario();
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button">
+          <Plus size={17} />
 
-          <div className="grid gap-4 md:grid-cols-2">
+          Novo Produto
+        </Button>
+      </DialogTrigger>
 
-            <Input
-              placeholder="Código"
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
-            />
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>
+            Novo Produto
+          </DialogTitle>
 
-            <Input
-              placeholder="Descrição"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-            />
+          <DialogDescription>
+            Cadastre os dados comerciais
+            e fiscais do produto.
+          </DialogDescription>
+        </DialogHeader>
 
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              className="h-10 rounded-md border px-3"
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-8"
+        >
+          {/* Dados básicos */}
+
+          <section className="space-y-4">
+            <h3 className="font-semibold">
+              Dados básicos
+            </h3>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                placeholder="Código"
+                value={form.codigo}
+                onChange={(event) =>
+                  atualizarCampo(
+                    "codigo",
+                    event.target.value
+                  )
+                }
+                disabled={carregando}
+                required
+              />
+
+              <select
+                value={form.tipo}
+                onChange={(event) =>
+                  atualizarCampo(
+                    "tipo",
+                    event.target.value
+                  )
+                }
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                disabled={carregando}
+              >
+                <option value="PRODUTO">
+                  Produto
+                </option>
+
+                <option value="SERVICO">
+                  Serviço
+                </option>
+              </select>
+
+              <Input
+                placeholder="Descrição"
+                value={form.descricao}
+                onChange={(event) =>
+                  atualizarCampo(
+                    "descricao",
+                    event.target.value
+                  )
+                }
+                className="md:col-span-2"
+                disabled={carregando}
+                required
+              />
+
+              <Input
+                placeholder="Unidade"
+                value={form.unidade}
+                onChange={(event) =>
+                  atualizarCampo(
+                    "unidade",
+                    event.target.value
+                      .toUpperCase()
+                  )
+                }
+                disabled={carregando}
+                required
+              />
+
+              <Input
+                placeholder="Valor unitário"
+                inputMode="decimal"
+                value={
+                  form.valorUnitario
+                }
+                onChange={(event) =>
+                  atualizarCampo(
+                    "valorUnitario",
+                    event.target.value
+                  )
+                }
+                disabled={carregando}
+                required
+              />
+            </div>
+          </section>
+
+          {produtoFiscal && (
+            <>
+              {/* demais seções fiscais */}
+
+              <ProdutoIbsCbsFields
+                form={{
+                  cstIbsCbs:
+                    form.cstIbsCbs,
+
+                  classificacaoTributariaIbsCbs:
+                    form
+                      .classificacaoTributariaIbsCbs,
+
+                  aliquotaIbsUf:
+                    form.aliquotaIbsUf,
+
+                  aliquotaIbsMun:
+                    form.aliquotaIbsMun,
+
+                  aliquotaCbs:
+                    form.aliquotaCbs,
+                }}
+                atualizarCampo={(
+                  campo,
+                  valor
+                ) =>
+                  atualizarCampo(
+                    campo,
+                    valor
+                  )
+                }
+                disabled={carregando}
+              />
+            </>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setAberto(false)
+              }
+              disabled={carregando}
             >
-              <option value="PRODUTO">
-                Produto
-              </option>
-
-              <option value="SERVICO">
-                Serviço
-              </option>
-            </select>
-
-            <Input
-              placeholder="Unidade"
-              value={unidade}
-              onChange={(e) => setUnidade(e.target.value)}
-            />
-
-            <Input
-              placeholder="NCM"
-              value={ncm}
-              onChange={(e) => setNcm(e.target.value)}
-            />
-
-            <Input
-              placeholder="CFOP"
-              value={cfop}
-              onChange={(e) => setCfop(e.target.value)}
-            />
-
-            <Input
-              type="number"
-              placeholder="Valor Unitário"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-            />
-
-          </div>
-
-          <div className="flex justify-end">
-            <Button onClick={handleSave}>
-              Salvar
+              Cancelar
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+
+            <Button
+              type="submit"
+              disabled={carregando}
+            >
+              {carregando
+                ? "Cadastrando..."
+                : "Cadastrar produto"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

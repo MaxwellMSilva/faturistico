@@ -1,0 +1,20 @@
+model EventoFiscal {
+  id String @id @default(cuid())
+
+  notaFiscalId String
+  notaFiscal   NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  tipo TipoEventoFiscal
+
+  justificativa String?
+  protocolo     String?
+  xmlEvento     String?
+
+  dataEvento DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([notaFiscalId])
+  @@index([notaFiscalId, tipo])
+}

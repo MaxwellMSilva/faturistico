@@ -2,17 +2,105 @@ model ItemNotaFiscal {
   id String @id @default(cuid())
 
   notaFiscalId String
-  notaFiscal   NotaFiscal @relation(fields: [notaFiscalId], references: [id])
+
+  notaFiscal NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   produtoId String
-  produto   Produto @relation(fields: [produtoId], references: [id])
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  // Dados comerciais copiados do produto
+
+  codigoProduto String
+  descricao     String
+  unidade       String
+
+  ean  String?
+  ncm  String?
+  cest String?
+  cfop String?
 
   quantidade Decimal
 
   valorUnitario Decimal
 
+  valorBruto Decimal @default(0)
+
+  valorDesconto Decimal @default(0)
+
   valorTotal Decimal
+
+  // ICMS
+
+  origemMercadoria Int @default(0)
+
+  cstIcms   String?
+  csosnIcms String?
+
+  modalidadeBcIcms Int?
+
+  reducaoBcIcms Decimal @default(0)
+
+  baseCalculoIcms Decimal @default(0)
+
+  aliquotaIcms Decimal @default(0)
+
+  valorIcms Decimal @default(0)
+
+  // PIS
+
+  cstPis String?
+
+  baseCalculoPis Decimal @default(0)
+
+  aliquotaPis Decimal @default(0)
+
+  valorPis Decimal @default(0)
+
+  // COFINS
+
+  cstCofins String?
+
+  baseCalculoCofins Decimal @default(0)
+
+  aliquotaCofins Decimal @default(0)
+
+  valorCofins Decimal @default(0)
+
+  // IPI
+
+  cstIpi String?
+
+  codigoEnquadramentoIpi String?
+
+  baseCalculoIpi Decimal @default(0)
+
+  aliquotaIpi Decimal @default(0)
+
+  valorIpi Decimal @default(0)
+
+  // IBS e CBS
+
+  cstIbsCbs String?
+
+  classificacaoTributariaIbsCbs String?
+
+  baseCalculoIbsCbs Decimal @default(0)
+
+  aliquotaIbsUf Decimal @default(0)
+  valorIbsUf    Decimal @default(0)
+
+  aliquotaIbsMun Decimal @default(0)
+  valorIbsMun    Decimal @default(0)
+
+  valorIbs Decimal @default(0)
+
+  aliquotaCbs Decimal @default(0)
+  valorCbs    Decimal @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([notaFiscalId])
+  @@index([produtoId])
 }

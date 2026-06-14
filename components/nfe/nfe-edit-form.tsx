@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { deleteNfe } from "@/actions/nfe/delete-nfe";
-import { updateNfe } from "@/actions/nfe/update-nfe";
+import { updateDadosNfe } from "@/actions/nfe/update-dados-nfe";
 
 import { gerarXmlNfe } from "@/actions/nfe/gerar-xml";
 

@@ -1,44 +1,139 @@
 "use server";
 
-import { getEmpresaAtual } from "@/lib/get-empresa-atual";
+import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
 
+import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+
+type FinalidadeNfe =
+  | "NORMAL"
+  | "COMPLEMENTAR"
+  | "AJUSTE"
+  | "DEVOLUCAO";
+
 type CreateNaturezaOperacaoData = {
+  empresaId: string;
+
   descricao: string;
   cfop: string;
 
-  finalidadeNfe:
-    | "NORMAL"
-    | "COMPLEMENTAR"
-    | "AJUSTE"
-    | "DEVOLUCAO";
+  finalidadeNfe: FinalidadeNfe;
 
   consumidorFinal: boolean;
-
   contribuinteIcms: boolean;
+
+  ativo: boolean;
 };
 
-const empresa =
-  await getEmpresaAtual();
+type CreateNaturezaOperacaoResult =
+  | {
+      success: true;
+      naturezaId: string;
+    }
+  | {
+      success: false;
+      message: string;
+    };
 
 export async function createNaturezaOperacao(
   data: CreateNaturezaOperacaoData
-) {
-  return await prisma.naturezaOperacao.create({
-    data: {
-      empresaId: empresa.id,
+): Promise<CreateNaturezaOperacaoResult> {
+  await validarAcessoEmpresa(
+    data.empresaId
+  );
 
-      descricao: data.descricao,
+  const descricao =
+    data.descricao.trim();
 
-      cfop: data.cfop,
+  const cfop =
+    data.cfop.replace(/\D/g, "");
 
-      finalidadeNfe: data.finalidadeNfe,
+  if (!descricao) {
+    return {
+      success: false,
+      message:
+        "Informe a descrição da natureza de operação.",
+    };
+  }
 
-      consumidorFinal: data.consumidorFinal,
+  if (cfop.length !== 4) {
+    return {
+      success: false,
+      message:
+        "O CFOP deve possuir 4 números.",
+    };
+  }
 
-      contribuinteIcms: data.contribuinteIcms,
+  const naturezaExistente =
+    await prisma.naturezaOperacao.findFirst({
+      where: {
+        empresaId:
+          data.empresaId,
 
-      ativo: true,
-    },
-  });
+        descricao,
+        cfop,
+      },
+
+      select: {
+        id: true,
+      },
+    });
+
+  if (naturezaExistente) {
+    return {
+      success: false,
+      message:
+        "Esta natureza de operação já está cadastrada.",
+    };
+  }
+
+  try {
+    const natureza =
+      await prisma.naturezaOperacao.create({
+        data: {
+          empresaId:
+            data.empresaId,
+
+          descricao,
+          cfop,
+
+          finalidadeNfe:
+            data.finalidadeNfe,
+
+          consumidorFinal:
+            data.consumidorFinal,
+
+          contribuinteIcms:
+            data.contribuinteIcms,
+
+          ativo:
+            data.ativo,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    revalidatePath(
+      `/empresa/${data.empresaId}/naturezas-operacao`
+    );
+
+    return {
+      success: true,
+      naturezaId: natureza.id,
+    };
+  } catch (error) {
+    console.error(
+      "Erro ao criar natureza de operação:",
+      error
+    );
+
+    return {
+      success: false,
+      message:
+        "Não foi possível cadastrar a natureza de operação.",
+    };
+  }
 }
