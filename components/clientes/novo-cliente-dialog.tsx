@@ -1,15 +1,27 @@
 "use client";
 
 import {
-  FormEvent,
+  type FormEvent,
   useState,
 } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Plus } from "lucide-react";
+import {
+  BadgeCheck,
+  Building2,
+  LoaderCircle,
+  Mail,
+  MapPin,
+  Plus,
+  Save,
+  Search,
+  UserRound,
+} from "lucide-react";
 
 import { createCliente } from "@/actions/clientes/create-cliente";
+
+import { CidadeIbgeSearch } from "@/components/empresa/cidade-ibge-search";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +45,8 @@ type TipoPessoa =
   | "JURIDICA";
 
 const estadoInicial = {
-  tipoPessoa: "JURIDICA" as TipoPessoa,
+  tipoPessoa:
+    "JURIDICA" as TipoPessoa,
 
   nome: "",
   cpfCnpj: "",
@@ -56,6 +69,129 @@ const estadoInicial = {
   uf: "",
 };
 
+type FormCliente =
+  typeof estadoInicial;
+
+type CidadeSelecionada = {
+  municipio: string;
+  uf: string;
+  codigoMunicipio: string;
+};
+
+function somenteNumeros(
+  valor: string
+) {
+  return valor.replace(/\D/g, "");
+}
+
+function formatarCpf(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      11
+    );
+
+  return numeros
+    .replace(
+      /^(\d{3})(\d)/,
+      "$1.$2"
+    )
+    .replace(
+      /^(\d{3})\.(\d{3})(\d)/,
+      "$1.$2.$3"
+    )
+    .replace(
+      /(\d{3})(\d{1,2})$/,
+      "$1-$2"
+    );
+}
+
+function formatarCnpj(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      14
+    );
+
+  return numeros
+    .replace(
+      /^(\d{2})(\d)/,
+      "$1.$2"
+    )
+    .replace(
+      /^(\d{2})\.(\d{3})(\d)/,
+      "$1.$2.$3"
+    )
+    .replace(
+      /\.(\d{3})(\d)/,
+      ".$1/$2"
+    )
+    .replace(
+      /(\d{4})(\d)/,
+      "$1-$2"
+    );
+}
+
+function formatarDocumento(
+  valor: string,
+  tipoPessoa: TipoPessoa
+) {
+  return tipoPessoa === "FISICA"
+    ? formatarCpf(valor)
+    : formatarCnpj(valor);
+}
+
+function formatarCep(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      8
+    );
+
+  return numeros.replace(
+    /^(\d{5})(\d)/,
+    "$1-$2"
+  );
+}
+
+function formatarTelefone(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      11
+    );
+
+  if (numeros.length <= 10) {
+    return numeros
+      .replace(
+        /^(\d{2})(\d)/,
+        "($1) $2"
+      )
+      .replace(
+        /(\d{4})(\d)/,
+        "$1-$2"
+      );
+  }
+
+  return numeros
+    .replace(
+      /^(\d{2})(\d)/,
+      "($1) $2"
+    )
+    .replace(
+      /(\d{5})(\d)/,
+      "$1-$2"
+    );
+}
+
 export function NovoClienteDialog({
   empresaId,
 }: Props) {
@@ -64,24 +200,200 @@ export function NovoClienteDialog({
   const [aberto, setAberto] =
     useState(false);
 
-  const [carregando, setCarregando] =
-    useState(false);
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
+
+  const [
+    buscandoCnpj,
+    setBuscandoCnpj,
+  ] = useState(false);
+
+  const [erro, setErro] =
+    useState("");
+
+  const [
+    mensagem,
+    setMensagem,
+  ] = useState("");
 
   const [form, setForm] =
-    useState(estadoInicial);
+    useState<FormCliente>({
+      ...estadoInicial,
+    });
+
+  function limparMensagens() {
+    setErro("");
+    setMensagem("");
+  }
 
   function atualizarCampo(
-    campo: keyof typeof estadoInicial,
+    campo: keyof FormCliente,
     valor: string
   ) {
     setForm((anterior) => ({
       ...anterior,
       [campo]: valor,
     }));
+
+    limparMensagens();
+  }
+
+  function atualizarCidade({
+    municipio,
+    uf,
+    codigoMunicipio,
+  }: CidadeSelecionada) {
+    setForm((anterior) => ({
+      ...anterior,
+
+      municipio,
+      uf,
+      codigoMunicipio,
+    }));
+
+    limparMensagens();
+  }
+
+  function alterarTipoPessoa(
+    tipoPessoa: TipoPessoa
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+
+      tipoPessoa,
+
+      cpfCnpj: "",
+      nome: "",
+    }));
+
+    limparMensagens();
   }
 
   function limparFormulario() {
-    setForm(estadoInicial);
+    setForm({
+      ...estadoInicial,
+    });
+
+    setErro("");
+    setMensagem("");
+  }
+
+  async function buscarCnpj() {
+    limparMensagens();
+
+    const cnpj =
+      somenteNumeros(
+        form.cpfCnpj
+      );
+
+    if (cnpj.length !== 14) {
+      setErro(
+        "Informe um CNPJ válido com 14 números."
+      );
+
+      return;
+    }
+
+    try {
+      setBuscandoCnpj(true);
+
+      const response =
+        await fetch(
+          `https://brasilapi.com.br/api/cnpj/v1/${cnpj}`
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ??
+            "CNPJ não encontrado."
+        );
+      }
+
+      setForm((anterior) => ({
+        ...anterior,
+
+        cpfCnpj:
+          formatarCnpj(
+            data.cnpj ?? cnpj
+          ),
+
+        nome:
+          data.razao_social ??
+          anterior.nome,
+
+        email:
+          data.email ??
+          anterior.email,
+
+        telefone:
+          formatarTelefone(
+            data.ddd_telefone_1 ??
+              anterior.telefone
+          ),
+
+        cep:
+          formatarCep(
+            data.cep ??
+              anterior.cep
+          ),
+
+        logradouro:
+          data.logradouro ??
+          anterior.logradouro,
+
+        numero:
+          data.numero ??
+          anterior.numero,
+
+        complemento:
+          data.complemento ??
+          anterior.complemento,
+
+        bairro:
+          data.bairro ??
+          anterior.bairro,
+
+        municipio:
+          data.municipio ??
+          anterior.municipio,
+
+        codigoMunicipio:
+          String(
+            data
+              .codigo_municipio_ibge ??
+              anterior
+                .codigoMunicipio
+          ),
+
+        uf:
+          String(
+            data.uf ??
+              anterior.uf
+          ).toUpperCase(),
+      }));
+
+      setMensagem(
+        "Dados do CNPJ encontrados. Revise as informações antes de cadastrar."
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao consultar CNPJ:",
+        error
+      );
+
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível consultar o CNPJ."
+      );
+    } finally {
+      setBuscandoCnpj(false);
+    }
   }
 
   async function handleSubmit(
@@ -89,30 +401,81 @@ export function NovoClienteDialog({
   ) {
     event.preventDefault();
 
-    if (!form.nome.trim()) {
-      alert("Informe o nome do cliente.");
-      return;
-    }
+    limparMensagens();
 
     const documento =
-      form.cpfCnpj.replace(/\D/g, "");
+      somenteNumeros(
+        form.cpfCnpj
+      );
 
     const tamanhoEsperado =
       form.tipoPessoa === "FISICA"
         ? 11
         : 14;
 
+    const cep =
+      somenteNumeros(form.cep);
+
+    const telefone =
+      somenteNumeros(
+        form.telefone
+      );
+
+    const codigoMunicipio =
+      somenteNumeros(
+        form.codigoMunicipio
+      );
+
+    if (!form.nome.trim()) {
+      setErro(
+        form.tipoPessoa === "FISICA"
+          ? "Informe o nome completo do cliente."
+          : "Informe a razão social do cliente."
+      );
+
+      return;
+    }
+
     if (
       documento.length !==
       tamanhoEsperado
     ) {
-      alert(
+      setErro(
         form.tipoPessoa === "FISICA"
-          ? "Informe um CPF válido."
-          : "Informe um CNPJ válido."
+          ? "Informe um CPF válido com 11 números."
+          : "Informe um CNPJ válido com 14 números."
       );
 
       return;
+    }
+
+    if (
+      cep &&
+      cep.length !== 8
+    ) {
+      setErro(
+        "Informe um CEP válido com 8 números."
+      );
+
+      return;
+    }
+
+    if (
+      form.municipio.trim() ||
+      form.uf.trim() ||
+      codigoMunicipio
+    ) {
+      if (
+        !form.municipio.trim() ||
+        form.uf.trim().length !== 2 ||
+        codigoMunicipio.length !== 7
+      ) {
+        setErro(
+          "Pesquise e selecione uma cidade válida na lista do IBGE."
+        );
+
+        return;
+      }
     }
 
     try {
@@ -125,67 +488,88 @@ export function NovoClienteDialog({
           tipoPessoa:
             form.tipoPessoa,
 
-          nome: form.nome,
+          nome:
+            form.nome.trim(),
 
           cpfCnpj:
-            form.cpfCnpj,
+            documento,
 
           inscricaoEstadual:
-            form.inscricaoEstadual,
+            form.inscricaoEstadual
+              .trim(),
 
           inscricaoMunicipal:
-            form.inscricaoMunicipal,
+            form.inscricaoMunicipal
+              .trim(),
 
           suframa:
-            form.suframa,
+            form.suframa.trim(),
 
-          email: form.email,
-          telefone: form.telefone,
+          email:
+            form.email
+              .trim()
+              .toLowerCase(),
 
-          cep: form.cep,
+          telefone,
+
+          cep,
 
           logradouro:
-            form.logradouro,
+            form.logradouro.trim(),
 
-          numero: form.numero,
+          numero:
+            form.numero.trim(),
 
           complemento:
-            form.complemento,
+            form.complemento.trim(),
 
-          bairro: form.bairro,
+          bairro:
+            form.bairro.trim(),
 
           municipio:
-            form.municipio,
+            form.municipio.trim(),
 
-          codigoMunicipio:
-            form.codigoMunicipio,
+          codigoMunicipio,
 
-          uf: form.uf,
+          uf:
+            form.uf
+              .trim()
+              .toUpperCase(),
         });
 
       if (!resultado.success) {
-        alert(resultado.message);
+        setErro(
+          resultado.message
+        );
+
         return;
       }
-
-      alert(
-        "Cliente cadastrado com sucesso."
-      );
 
       limparFormulario();
       setAberto(false);
 
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erro ao cadastrar cliente:",
+        error
+      );
 
-      alert(
-        "Não foi possível cadastrar o cliente."
+      setErro(
+        "Não foi possível cadastrar o cliente. Tente novamente."
       );
     } finally {
       setCarregando(false);
     }
   }
+
+  const bloqueado =
+    carregando ||
+    buscandoCnpj;
+
+  const pessoaJuridica =
+    form.tipoPessoa ===
+    "JURIDICA";
 
   return (
     <Dialog
@@ -198,293 +582,564 @@ export function NovoClienteDialog({
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button type="button">
-          <Plus size={17} />
-          Novo Cliente
-        </Button>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            className="h-11"
+          />
+        }
+      >
+        <Plus size={17} />
+
+        Novo cliente
       </DialogTrigger>
 
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
-            Novo Cliente
+            Novo cliente
           </DialogTitle>
 
           <DialogDescription>
-            Cadastre os dados fiscais e
-            cadastrais do cliente.
+            Cadastre os dados pessoais,
+            fiscais e o endereço do cliente.
           </DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-8"
+          className="space-y-6"
         >
-          <section className="space-y-4">
-            <h3 className="font-semibold">
-              Identificação
-            </h3>
+          {/* Identificação */}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <select
-                value={form.tipoPessoa}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "tipoPessoa",
-                    event.target.value
-                  )
-                }
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-                disabled={carregando}
-              >
-                <option value="JURIDICA">
-                  Pessoa Jurídica
-                </option>
+          <section className="rounded-xl border bg-muted/10 p-5">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                {pessoaJuridica ? (
+                  <Building2 size={20} />
+                ) : (
+                  <UserRound size={20} />
+                )}
+              </div>
 
-                <option value="FISICA">
-                  Pessoa Física
-                </option>
-              </select>
+              <div>
+                <h3 className="font-semibold">
+                  Identificação
+                </h3>
 
-              <Input
-                placeholder={
-                  form.tipoPessoa ===
-                  "FISICA"
-                    ? "Nome completo"
-                    : "Razão social"
-                }
-                value={form.nome}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "nome",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-                required
-              />
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Dados cadastrais e fiscais
+                  do cliente.
+                </p>
+              </div>
+            </div>
 
-              <Input
-                placeholder={
-                  form.tipoPessoa ===
-                  "FISICA"
-                    ? "CPF"
-                    : "CNPJ"
-                }
-                value={form.cpfCnpj}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "cpfCnpj",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-                required
-              />
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor="tipoPessoa"
+                  className="text-sm font-medium"
+                >
+                  Tipo de pessoa
+                </label>
 
-              <Input
-                placeholder="Inscrição Estadual"
-                value={
-                  form.inscricaoEstadual
-                }
-                onChange={(event) =>
-                  atualizarCampo(
-                    "inscricaoEstadual",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
+                <select
+                  id="tipoPessoa"
+                  value={
+                    form.tipoPessoa
+                  }
+                  onChange={(event) =>
+                    alterarTipoPessoa(
+                      event.target
+                        .value as TipoPessoa
+                    )
+                  }
+                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                  disabled={bloqueado}
+                >
+                  <option value="JURIDICA">
+                    Pessoa jurídica
+                  </option>
 
-              <Input
-                placeholder="Inscrição Municipal"
-                value={
-                  form.inscricaoMunicipal
-                }
-                onChange={(event) =>
-                  atualizarCampo(
-                    "inscricaoMunicipal",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
+                  <option value="FISICA">
+                    Pessoa física
+                  </option>
+                </select>
+              </div>
 
-              <Input
-                placeholder="SUFRAMA"
-                value={form.suframa}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "suframa",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
+              <div className="space-y-2">
+                <label
+                  htmlFor="nome"
+                  className="text-sm font-medium"
+                >
+                  {pessoaJuridica
+                    ? "Razão social"
+                    : "Nome completo"}
+                </label>
+
+                <Input
+                  id="nome"
+                  className="h-11"
+                  placeholder={
+                    pessoaJuridica
+                      ? "Razão social do cliente"
+                      : "Nome completo do cliente"
+                  }
+                  value={form.nome}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "nome",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="cpfCnpj"
+                  className="text-sm font-medium"
+                >
+                  {pessoaJuridica
+                    ? "CNPJ"
+                    : "CPF"}
+                </label>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="cpfCnpj"
+                    className="h-11 flex-1"
+                    placeholder={
+                      pessoaJuridica
+                        ? "00.000.000/0000-00"
+                        : "000.000.000-00"
+                    }
+                    inputMode="numeric"
+                    value={
+                      form.cpfCnpj
+                    }
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "cpfCnpj",
+                        formatarDocumento(
+                          event.target
+                            .value,
+                          form.tipoPessoa
+                        )
+                      )
+                    }
+                    disabled={bloqueado}
+                    required
+                  />
+
+                  {pessoaJuridica && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 sm:min-w-36"
+                      onClick={
+                        buscarCnpj
+                      }
+                      disabled={bloqueado}
+                    >
+                      {buscandoCnpj ? (
+                        <>
+                          <LoaderCircle
+                            size={17}
+                            className="animate-spin"
+                          />
+
+                          Consultando...
+                        </>
+                      ) : (
+                        <>
+                          <Search
+                            size={17}
+                          />
+
+                          Buscar CNPJ
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="inscricaoEstadual"
+                  className="text-sm font-medium"
+                >
+                  Inscrição estadual
+                </label>
+
+                <Input
+                  id="inscricaoEstadual"
+                  className="h-11"
+                  placeholder="Inscrição estadual"
+                  value={
+                    form
+                      .inscricaoEstadual
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "inscricaoEstadual",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="inscricaoMunicipal"
+                  className="text-sm font-medium"
+                >
+                  Inscrição municipal
+                </label>
+
+                <Input
+                  id="inscricaoMunicipal"
+                  className="h-11"
+                  placeholder="Inscrição municipal"
+                  value={
+                    form
+                      .inscricaoMunicipal
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "inscricaoMunicipal",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="suframa"
+                  className="text-sm font-medium"
+                >
+                  SUFRAMA
+                </label>
+
+                <Input
+                  id="suframa"
+                  className="h-11"
+                  placeholder="Inscrição SUFRAMA, quando aplicável"
+                  value={form.suframa}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "suframa",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
             </div>
           </section>
 
-          <section className="space-y-4">
-            <h3 className="font-semibold">
-              Contato
-            </h3>
+          {/* Contato */}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                type="email"
-                placeholder="E-mail"
-                value={form.email}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "email",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
+          <section className="rounded-xl border bg-muted/10 p-5">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Mail size={20} />
+              </div>
 
-              <Input
-                placeholder="Telefone"
-                value={form.telefone}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "telefone",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
+              <div>
+                <h3 className="font-semibold">
+                  Contato
+                </h3>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  E-mail e telefone do
+                  cliente.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor="emailCliente"
+                  className="text-sm font-medium"
+                >
+                  E-mail
+                </label>
+
+                <Input
+                  id="emailCliente"
+                  type="email"
+                  className="h-11"
+                  placeholder="cliente@exemplo.com"
+                  value={form.email}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "email",
+                      event.target.value
+                    )
+                  }
+                  autoComplete="email"
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="telefoneCliente"
+                  className="text-sm font-medium"
+                >
+                  Telefone
+                </label>
+
+                <Input
+                  id="telefoneCliente"
+                  className="h-11"
+                  placeholder="(00) 00000-0000"
+                  inputMode="tel"
+                  value={form.telefone}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "telefone",
+                      formatarTelefone(
+                        event.target.value
+                      )
+                    )
+                  }
+                  autoComplete="tel"
+                  disabled={bloqueado}
+                />
+              </div>
             </div>
           </section>
 
-          <section className="space-y-4">
-            <h3 className="font-semibold">
-              Endereço
-            </h3>
+          {/* Endereço */}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                placeholder="CEP"
-                value={form.cep}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "cep",
-                    event.target.value
-                  )
+          <section className="rounded-xl border bg-muted/10 p-5">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MapPin size={20} />
+              </div>
+
+              <div>
+                <h3 className="font-semibold">
+                  Endereço
+                </h3>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Endereço utilizado nos
+                  documentos fiscais.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-6">
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="cepCliente"
+                  className="text-sm font-medium"
+                >
+                  CEP
+                </label>
+
+                <Input
+                  id="cepCliente"
+                  className="h-11"
+                  placeholder="00000-000"
+                  inputMode="numeric"
+                  value={form.cep}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "cep",
+                      formatarCep(
+                        event.target.value
+                      )
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-4">
+                <label
+                  htmlFor="logradouroCliente"
+                  className="text-sm font-medium"
+                >
+                  Logradouro
+                </label>
+
+                <Input
+                  id="logradouroCliente"
+                  className="h-11"
+                  placeholder="Rua, avenida, rodovia..."
+                  value={
+                    form.logradouro
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "logradouro",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor="numeroCliente"
+                  className="text-sm font-medium"
+                >
+                  Número
+                </label>
+
+                <Input
+                  id="numeroCliente"
+                  className="h-11"
+                  placeholder="Número ou S/N"
+                  value={form.numero}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "numero",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-4">
+                <label
+                  htmlFor="complementoCliente"
+                  className="text-sm font-medium"
+                >
+                  Complemento
+                </label>
+
+                <Input
+                  id="complementoCliente"
+                  className="h-11"
+                  placeholder="Sala, bloco, apartamento..."
+                  value={
+                    form.complemento
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "complemento",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-6">
+                <label
+                  htmlFor="bairroCliente"
+                  className="text-sm font-medium"
+                >
+                  Bairro
+                </label>
+
+                <Input
+                  id="bairroCliente"
+                  className="h-11"
+                  placeholder="Bairro"
+                  value={form.bairro}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "bairro",
+                      event.target.value
+                    )
+                  }
+                  disabled={bloqueado}
+                />
+              </div>
+
+              <CidadeIbgeSearch
+                municipio={
+                  form.municipio
                 }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="Logradouro"
-                value={form.logradouro}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "logradouro",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="Número"
-                value={form.numero}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "numero",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="Complemento"
-                value={form.complemento}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "complemento",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="Bairro"
-                value={form.bairro}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "bairro",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="Município"
-                value={form.municipio}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "municipio",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="Código do Município IBGE"
-                value={
+                uf={form.uf}
+                codigoMunicipio={
                   form.codigoMunicipio
                 }
-                onChange={(event) =>
-                  atualizarCampo(
-                    "codigoMunicipio",
-                    event.target.value
-                  )
+                onChange={
+                  atualizarCidade
                 }
-                disabled={carregando}
-              />
-
-              <Input
-                placeholder="UF"
-                maxLength={2}
-                value={form.uf}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "uf",
-                    event.target.value
-                      .toUpperCase()
-                  )
-                }
-                disabled={carregando}
+                disabled={bloqueado}
               />
             </div>
           </section>
+
+          {/* Mensagens */}
+
+          <div
+            aria-live="polite"
+            className="space-y-3"
+          >
+            {mensagem && (
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+                <BadgeCheck
+                  size={18}
+                  className="mt-0.5 shrink-0"
+                />
+
+                <p>{mensagem}</p>
+              </div>
+            )}
+
+            {erro && (
+              <div
+                role="alert"
+                className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                {erro}
+              </div>
+            )}
+          </div>
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
+              className="h-11"
               onClick={() =>
                 setAberto(false)
               }
-              disabled={carregando}
+              disabled={bloqueado}
             >
               Cancelar
             </Button>
 
             <Button
               type="submit"
-              disabled={carregando}
+              className="h-11 sm:min-w-44"
+              disabled={bloqueado}
             >
-              {carregando
-                ? "Cadastrando..."
-                : "Cadastrar Cliente"}
+              {carregando ? (
+                <>
+                  <LoaderCircle
+                    size={17}
+                    className="animate-spin"
+                  />
+
+                  Cadastrando...
+                </>
+              ) : (
+                <>
+                  <Save size={17} />
+
+                  Cadastrar cliente
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>

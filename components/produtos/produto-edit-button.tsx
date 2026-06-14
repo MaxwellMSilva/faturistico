@@ -7,7 +7,16 @@ import {
 
 import { useRouter } from "next/navigation";
 
-import { Pencil } from "lucide-react";
+import {
+  BadgeDollarSign,
+  FileCheck2,
+  Landmark,
+  LoaderCircle,
+  Package,
+  Pencil,
+  Percent,
+  Save,
+} from "lucide-react";
 
 import { updateProduto } from "@/actions/produtos/update-produto";
 
@@ -93,6 +102,12 @@ type Props = {
   produto: Produto;
 };
 
+function somenteNumeros(
+  valor: string
+) {
+  return valor.replace(/\D/g, "");
+}
+
 function numeroDecimal(
   valor: string
 ) {
@@ -102,12 +117,6 @@ function numeroDecimal(
     return 0;
   }
 
-  /*
-   * Aceita:
-   * 12,50
-   * 12.50
-   * 1.250,50
-   */
   if (texto.includes(",")) {
     return Number(
       texto
@@ -125,7 +134,9 @@ function valorParaCampo(
     | null
     | undefined
 ) {
-  return String(valor ?? 0);
+  return String(
+    valor ?? 0
+  ).replace(".", ",");
 }
 
 export function ProdutoEditButton({
@@ -133,12 +144,6 @@ export function ProdutoEditButton({
   produto,
 }: Props) {
   const router = useRouter();
-
-  const [aberto, setAberto] =
-    useState(false);
-
-  const [carregando, setCarregando] =
-    useState(false);
 
   function criarEstadoInicial() {
     return {
@@ -174,7 +179,7 @@ export function ProdutoEditButton({
       origemMercadoria:
         String(
           produto.origemMercadoria ??
-          0
+            0
         ),
 
       cstIcms:
@@ -186,7 +191,7 @@ export function ProdutoEditButton({
       modalidadeBcIcms:
         String(
           produto.modalidadeBcIcms ??
-          3
+            3
         ),
 
       reducaoBcIcms:
@@ -258,6 +263,17 @@ export function ProdutoEditButton({
       typeof criarEstadoInicial
     >;
 
+  const [aberto, setAberto] =
+    useState(false);
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
+
+  const [erro, setErro] =
+    useState("");
+
   const [form, setForm] =
     useState<FormState>(
       criarEstadoInicial
@@ -273,6 +289,21 @@ export function ProdutoEditButton({
       ...anterior,
       [campo]: valor,
     }));
+
+    if (erro) {
+      setErro("");
+    }
+  }
+
+  function alterarTipo(
+    tipo: TipoProduto
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      tipo,
+    }));
+
+    setErro("");
   }
 
   async function handleSubmit(
@@ -280,10 +311,58 @@ export function ProdutoEditButton({
   ) {
     event.preventDefault();
 
+    setErro("");
+
+    const codigo =
+      form.codigo.trim();
+
+    const descricao =
+      form.descricao.trim();
+
+    const unidade =
+      form.unidade
+        .trim()
+        .toUpperCase();
+
     const valorUnitario =
       numeroDecimal(
         form.valorUnitario
       );
+
+    const ncm =
+      somenteNumeros(form.ncm);
+
+    const cest =
+      somenteNumeros(form.cest);
+
+    const cfop =
+      somenteNumeros(
+        form.cfopPadrao
+      );
+
+    if (!codigo) {
+      setErro(
+        "Informe o código do produto."
+      );
+
+      return;
+    }
+
+    if (!descricao) {
+      setErro(
+        "Informe a descrição do produto."
+      );
+
+      return;
+    }
+
+    if (!unidade) {
+      setErro(
+        "Informe a unidade do produto."
+      );
+
+      return;
+    }
 
     if (
       !Number.isFinite(
@@ -291,8 +370,41 @@ export function ProdutoEditButton({
       ) ||
       valorUnitario < 0
     ) {
-      alert(
+      setErro(
         "Informe um valor unitário válido."
+      );
+
+      return;
+    }
+
+    if (
+      form.tipo === "PRODUTO" &&
+      ncm.length !== 8
+    ) {
+      setErro(
+        "O NCM deve possuir 8 números."
+      );
+
+      return;
+    }
+
+    if (
+      cest &&
+      cest.length !== 7
+    ) {
+      setErro(
+        "O CEST deve possuir 7 números."
+      );
+
+      return;
+    }
+
+    if (
+      cfop &&
+      cfop.length !== 4
+    ) {
+      setErro(
+        "O CFOP deve possuir 4 números."
       );
 
       return;
@@ -308,29 +420,24 @@ export function ProdutoEditButton({
 
           empresaId,
 
-          codigo:
-            form.codigo,
-
-          descricao:
-            form.descricao,
+          codigo,
+          descricao,
 
           tipo:
             form.tipo,
 
-          unidade:
-            form.unidade,
+          unidade,
 
           ean:
-            form.ean,
+            somenteNumeros(
+              form.ean
+            ),
 
-          ncm:
-            form.ncm,
-
-          cest:
-            form.cest,
+          ncm,
+          cest,
 
           cfopPadrao:
-            form.cfopPadrao,
+            cfop,
 
           valorUnitario,
 
@@ -339,13 +446,15 @@ export function ProdutoEditButton({
               form.origemMercadoria
             ),
 
-          // ICMS
-
           cstIcms:
-            form.cstIcms,
+            somenteNumeros(
+              form.cstIcms
+            ),
 
           csosnIcms:
-            form.csosnIcms,
+            somenteNumeros(
+              form.csosnIcms
+            ),
 
           modalidadeBcIcms:
             Number(
@@ -362,48 +471,52 @@ export function ProdutoEditButton({
               form.aliquotaIcms
             ),
 
-          // PIS
-
           cstPis:
-            form.cstPis,
+            somenteNumeros(
+              form.cstPis
+            ),
 
           aliquotaPis:
             numeroDecimal(
               form.aliquotaPis
             ),
 
-          // COFINS
-
           cstCofins:
-            form.cstCofins,
+            somenteNumeros(
+              form.cstCofins
+            ),
 
           aliquotaCofins:
             numeroDecimal(
               form.aliquotaCofins
             ),
 
-          // IPI
-
           cstIpi:
-            form.cstIpi,
+            somenteNumeros(
+              form.cstIpi
+            ),
 
           codigoEnquadramentoIpi:
-            form
-              .codigoEnquadramentoIpi,
+            somenteNumeros(
+              form
+                .codigoEnquadramentoIpi
+            ),
 
           aliquotaIpi:
             numeroDecimal(
               form.aliquotaIpi
             ),
 
-          // IBS e CBS
-
           cstIbsCbs:
-            form.cstIbsCbs,
+            somenteNumeros(
+              form.cstIbsCbs
+            ),
 
           classificacaoTributariaIbsCbs:
-            form
-              .classificacaoTributariaIbsCbs,
+            somenteNumeros(
+              form
+                .classificacaoTributariaIbsCbs
+            ),
 
           aliquotaIbsUf:
             numeroDecimal(
@@ -422,23 +535,24 @@ export function ProdutoEditButton({
         });
 
       if (!resultado.success) {
-        alert(resultado.message);
+        setErro(
+          resultado.message
+        );
 
         return;
       }
-
-      alert(
-        "Produto atualizado com sucesso."
-      );
 
       setAberto(false);
 
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erro ao atualizar produto:",
+        error
+      );
 
-      alert(
-        "Não foi possível atualizar o produto."
+      setErro(
+        "Não foi possível atualizar o produto. Tente novamente."
       );
     } finally {
       setCarregando(false);
@@ -452,12 +566,18 @@ export function ProdutoEditButton({
     <Dialog
       open={aberto}
       onOpenChange={(valor) => {
+        if (carregando) {
+          return;
+        }
+
         setAberto(valor);
 
         if (valor) {
           setForm(
             criarEstadoInicial()
           );
+
+          setErro("");
         }
       }}
     >
@@ -471,88 +591,112 @@ export function ProdutoEditButton({
         }
       >
         <Pencil size={16} />
+
         Editar
       </DialogTrigger>
 
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
-            Editar Produto
+            Editar produto
           </DialogTitle>
 
           <DialogDescription>
-            Atualize os dados comerciais
-            e fiscais do produto.
+            Atualize os dados comerciais e
+            tributários do produto ou serviço.
           </DialogDescription>
         </DialogHeader>
 
         <form
           onSubmit={handleSubmit}
-          className="space-y-8"
+          className="space-y-6"
         >
           {/* Dados básicos */}
 
-          <section className="space-y-4">
-            <h3 className="font-semibold">
-              Dados básicos
-            </h3>
+          <section className="rounded-xl border bg-muted/10 p-5">
+            <CabecalhoSecao
+              icone={Package}
+              titulo="Dados básicos"
+              descricao="Identificação, unidade e valor do cadastro."
+            />
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                placeholder="Código"
+            <div className="grid gap-5 md:grid-cols-2">
+              <CampoTexto
+                id={`codigo-${produto.id}`}
+                label="Código"
+                placeholder="Ex.: PROD001"
                 value={form.codigo}
-                onChange={(event) =>
+                onChange={(valor) =>
                   atualizarCampo(
                     "codigo",
-                    event.target.value
+                    valor
                   )
                 }
                 disabled={carregando}
                 required
               />
 
-              <select
-                value={form.tipo}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "tipo",
-                    event.target
-                      .value as TipoProduto
-                  )
-                }
-                className="h-10 rounded-md border bg-background px-3 text-sm"
-                disabled={carregando}
-              >
-                <option value="PRODUTO">
-                  Produto
-                </option>
+              <div className="space-y-2">
+                <label
+                  htmlFor={`tipo-${produto.id}`}
+                  className="text-sm font-medium"
+                >
+                  Tipo
+                </label>
 
-                <option value="SERVICO">
-                  Serviço
-                </option>
-              </select>
+                <select
+                  id={`tipo-${produto.id}`}
+                  value={form.tipo}
+                  onChange={(event) =>
+                    alterarTipo(
+                      event.target
+                        .value as TipoProduto
+                    )
+                  }
+                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                  disabled={carregando}
+                >
+                  <option value="PRODUTO">
+                    Produto
+                  </option>
 
-              <Input
-                placeholder="Descrição"
-                value={form.descricao}
-                onChange={(event) =>
-                  atualizarCampo(
-                    "descricao",
-                    event.target.value
-                  )
-                }
-                className="md:col-span-2"
-                disabled={carregando}
-                required
-              />
+                  <option value="SERVICO">
+                    Serviço
+                  </option>
+                </select>
+              </div>
 
-              <Input
-                placeholder="Unidade"
+              <div className="md:col-span-2">
+                <CampoTexto
+                  id={`descricao-${produto.id}`}
+                  label="Descrição"
+                  placeholder="Descrição do produto ou serviço"
+                  value={form.descricao}
+                  onChange={(valor) =>
+                    atualizarCampo(
+                      "descricao",
+                      valor
+                    )
+                  }
+                  disabled={carregando}
+                  required
+                />
+              </div>
+
+              <CampoTexto
+                id={`unidade-${produto.id}`}
+                label="Unidade"
+                placeholder="UN"
                 value={form.unidade}
-                onChange={(event) =>
+                onChange={(valor) =>
                   atualizarCampo(
                     "unidade",
-                    event.target.value
+                    valor
+                      .replace(
+                        /[^a-zA-Z0-9]/g,
+                        ""
+                      )
+                      .slice(0, 6)
                       .toUpperCase()
                   )
                 }
@@ -560,354 +704,386 @@ export function ProdutoEditButton({
                 required
               />
 
-              <Input
-                placeholder="Valor unitário"
-                inputMode="decimal"
-                value={
-                  form.valorUnitario
-                }
-                onChange={(event) =>
-                  atualizarCampo(
-                    "valorUnitario",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-                required
-              />
+              <div className="space-y-2">
+                <label
+                  htmlFor={`valor-${produto.id}`}
+                  className="text-sm font-medium"
+                >
+                  Valor unitário
+                </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    R$
+                  </span>
+
+                  <Input
+                    id={`valor-${produto.id}`}
+                    className="h-11 pl-10"
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    value={
+                      form.valorUnitario
+                    }
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "valorUnitario",
+                        event.target.value
+                      )
+                    }
+                    disabled={carregando}
+                    required
+                  />
+                </div>
+              </div>
             </div>
           </section>
 
+          {!produtoFiscal && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+              Os campos fiscais de mercadoria
+              não são exibidos para serviços.
+              O módulo de NFS-e será tratado
+              separadamente.
+            </div>
+          )}
+
           {produtoFiscal && (
             <>
-              {/* Classificação fiscal */}
+              {/* Classificação */}
 
-              <section className="space-y-4">
-                <h3 className="font-semibold">
-                  Classificação fiscal
-                </h3>
+              <section className="rounded-xl border bg-muted/10 p-5">
+                <CabecalhoSecao
+                  icone={FileCheck2}
+                  titulo="Classificação fiscal"
+                  descricao="Códigos fiscais, classificação e origem da mercadoria."
+                />
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    placeholder="EAN / GTIN"
-                    inputMode="numeric"
+                <div className="grid gap-5 md:grid-cols-2">
+                  <CampoNumerico
+                    id={`ean-${produto.id}`}
+                    label="EAN / GTIN"
+                    placeholder="Código de barras"
+                    limite={14}
                     value={form.ean}
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "ean",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="NCM"
-                    inputMode="numeric"
-                    maxLength={8}
+                  <CampoNumerico
+                    id={`ncm-${produto.id}`}
+                    label="NCM"
+                    placeholder="00000000"
+                    limite={8}
                     value={form.ncm}
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "ncm",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 8)
+                        valor
                       )
                     }
                     disabled={carregando}
+                    required
+                    ajuda="Informe os 8 números da classificação fiscal."
                   />
 
-                  <Input
-                    placeholder="CEST"
-                    inputMode="numeric"
-                    maxLength={7}
+                  <CampoNumerico
+                    id={`cest-${produto.id}`}
+                    label="CEST"
+                    placeholder="0000000"
+                    limite={7}
                     value={form.cest}
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "cest",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 7)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="CFOP padrão"
-                    inputMode="numeric"
-                    maxLength={4}
+                  <CampoNumerico
+                    id={`cfop-${produto.id}`}
+                    label="CFOP padrão"
+                    placeholder="5102"
+                    limite={4}
                     value={
                       form.cfopPadrao
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "cfopPadrao",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 4)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <select
-                    value={
-                      form.origemMercadoria
-                    }
-                    onChange={(event) =>
-                      atualizarCampo(
-                        "origemMercadoria",
-                        event.target.value
-                      )
-                    }
-                    className="h-10 rounded-md border bg-background px-3 text-sm md:col-span-2"
-                    disabled={carregando}
-                  >
-                    <option value="0">
-                      0 - Nacional
-                    </option>
+                  <div className="space-y-2 md:col-span-2">
+                    <label
+                      htmlFor={`origem-${produto.id}`}
+                      className="text-sm font-medium"
+                    >
+                      Origem da mercadoria
+                    </label>
 
-                    <option value="1">
-                      1 - Estrangeira, importação direta
-                    </option>
+                    <select
+                      id={`origem-${produto.id}`}
+                      value={
+                        form.origemMercadoria
+                      }
+                      onChange={(event) =>
+                        atualizarCampo(
+                          "origemMercadoria",
+                          event.target.value
+                        )
+                      }
+                      className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                      disabled={carregando}
+                    >
+                      <option value="0">
+                        0 - Nacional
+                      </option>
 
-                    <option value="2">
-                      2 - Estrangeira, adquirida no mercado interno
-                    </option>
+                      <option value="1">
+                        1 - Estrangeira,
+                        importação direta
+                      </option>
 
-                    <option value="3">
-                      3 - Nacional, conteúdo de importação superior a 40%
-                    </option>
+                      <option value="2">
+                        2 - Estrangeira,
+                        adquirida no mercado
+                        interno
+                      </option>
 
-                    <option value="4">
-                      4 - Nacional, processos produtivos básicos
-                    </option>
+                      <option value="3">
+                        3 - Nacional, conteúdo
+                        de importação superior
+                        a 40%
+                      </option>
 
-                    <option value="5">
-                      5 - Nacional, conteúdo de importação até 40%
-                    </option>
+                      <option value="4">
+                        4 - Nacional, processos
+                        produtivos básicos
+                      </option>
 
-                    <option value="6">
-                      6 - Estrangeira, importação direta sem similar nacional
-                    </option>
+                      <option value="5">
+                        5 - Nacional, conteúdo
+                        de importação até 40%
+                      </option>
 
-                    <option value="7">
-                      7 - Estrangeira, mercado interno sem similar nacional
-                    </option>
+                      <option value="6">
+                        6 - Estrangeira,
+                        importação direta sem
+                        similar nacional
+                      </option>
 
-                    <option value="8">
-                      8 - Nacional, conteúdo de importação superior a 70%
-                    </option>
-                  </select>
+                      <option value="7">
+                        7 - Estrangeira,
+                        mercado interno sem
+                        similar nacional
+                      </option>
+
+                      <option value="8">
+                        8 - Nacional, conteúdo
+                        de importação superior
+                        a 70%
+                      </option>
+                    </select>
+                  </div>
                 </div>
               </section>
 
               {/* ICMS */}
 
-              <section className="space-y-4">
-                <h3 className="font-semibold">
-                  ICMS
-                </h3>
+              <section className="rounded-xl border bg-muted/10 p-5">
+                <CabecalhoSecao
+                  icone={Landmark}
+                  titulo="ICMS"
+                  descricao="Use CST para Regime Normal ou CSOSN para Simples Nacional."
+                />
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    placeholder="CST ICMS"
-                    inputMode="numeric"
-                    maxLength={2}
-                    value={
-                      form.cstIcms
-                    }
-                    onChange={(event) =>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <CampoNumerico
+                    id={`cst-icms-${produto.id}`}
+                    label="CST ICMS"
+                    placeholder="00"
+                    limite={2}
+                    value={form.cstIcms}
+                    onChange={(valor) =>
                       atualizarCampo(
                         "cstIcms",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 2)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="CSOSN"
-                    inputMode="numeric"
-                    maxLength={3}
+                  <CampoNumerico
+                    id={`csosn-${produto.id}`}
+                    label="CSOSN"
+                    placeholder="102"
+                    limite={3}
                     value={
                       form.csosnIcms
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "csosnIcms",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 3)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <select
-                    value={
-                      form.modalidadeBcIcms
-                    }
-                    onChange={(event) =>
-                      atualizarCampo(
-                        "modalidadeBcIcms",
-                        event.target.value
-                      )
-                    }
-                    className="h-10 rounded-md border bg-background px-3 text-sm"
-                    disabled={carregando}
-                  >
-                    <option value="0">
-                      0 - Margem Valor Agregado
-                    </option>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor={`modalidade-${produto.id}`}
+                      className="text-sm font-medium"
+                    >
+                      Modalidade da base
+                    </label>
 
-                    <option value="1">
-                      1 - Pauta
-                    </option>
+                    <select
+                      id={`modalidade-${produto.id}`}
+                      value={
+                        form
+                          .modalidadeBcIcms
+                      }
+                      onChange={(event) =>
+                        atualizarCampo(
+                          "modalidadeBcIcms",
+                          event.target.value
+                        )
+                      }
+                      className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                      disabled={carregando}
+                    >
+                      <option value="0">
+                        0 - Margem de valor
+                        agregado
+                      </option>
 
-                    <option value="2">
-                      2 - Preço tabelado
-                    </option>
+                      <option value="1">
+                        1 - Pauta
+                      </option>
 
-                    <option value="3">
-                      3 - Valor da operação
-                    </option>
-                  </select>
+                      <option value="2">
+                        2 - Preço tabelado
+                      </option>
 
-                  <Input
-                    placeholder="Redução da base ICMS (%)"
-                    inputMode="decimal"
+                      <option value="3">
+                        3 - Valor da operação
+                      </option>
+                    </select>
+                  </div>
+
+                  <CampoPercentual
+                    id={`reducao-${produto.id}`}
+                    label="Redução da base"
                     value={
                       form.reducaoBcIcms
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "reducaoBcIcms",
-                        event.target.value
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="Alíquota ICMS (%)"
-                    inputMode="decimal"
-                    value={
-                      form.aliquotaIcms
-                    }
-                    onChange={(event) =>
-                      atualizarCampo(
-                        "aliquotaIcms",
-                        event.target.value
-                      )
-                    }
-                    disabled={carregando}
-                  />
+                  <div className="md:col-span-2">
+                    <CampoPercentual
+                      id={`aliquota-icms-${produto.id}`}
+                      label="Alíquota do ICMS"
+                      value={
+                        form.aliquotaIcms
+                      }
+                      onChange={(valor) =>
+                        atualizarCampo(
+                          "aliquotaIcms",
+                          valor
+                        )
+                      }
+                      disabled={carregando}
+                    />
+                  </div>
                 </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Para Simples Nacional,
-                  preencha o CSOSN. Para
-                  Regime Normal, preencha o
-                  CST ICMS.
-                </p>
               </section>
 
               {/* PIS e COFINS */}
 
-              <section className="space-y-4">
-                <h3 className="font-semibold">
-                  PIS e COFINS
-                </h3>
+              <section className="rounded-xl border bg-muted/10 p-5">
+                <CabecalhoSecao
+                  icone={Percent}
+                  titulo="PIS e COFINS"
+                  descricao="Códigos de situação tributária e respectivas alíquotas."
+                />
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Input
-                    placeholder="CST PIS"
-                    inputMode="numeric"
-                    maxLength={2}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <CampoNumerico
+                    id={`cst-pis-${produto.id}`}
+                    label="CST PIS"
+                    placeholder="07"
+                    limite={2}
                     value={form.cstPis}
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "cstPis",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 2)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="Alíquota PIS (%)"
-                    inputMode="decimal"
+                  <CampoPercentual
+                    id={`aliquota-pis-${produto.id}`}
+                    label="Alíquota do PIS"
                     value={
                       form.aliquotaPis
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "aliquotaPis",
-                        event.target.value
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="CST COFINS"
-                    inputMode="numeric"
-                    maxLength={2}
+                  <CampoNumerico
+                    id={`cst-cofins-${produto.id}`}
+                    label="CST COFINS"
+                    placeholder="07"
+                    limite={2}
                     value={
                       form.cstCofins
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "cstCofins",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 2)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="Alíquota COFINS (%)"
-                    inputMode="decimal"
+                  <CampoPercentual
+                    id={`aliquota-cofins-${produto.id}`}
+                    label="Alíquota da COFINS"
                     value={
                       form.aliquotaCofins
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "aliquotaCofins",
-                        event.target.value
+                        valor
                       )
                     }
                     disabled={carregando}
@@ -917,63 +1093,57 @@ export function ProdutoEditButton({
 
               {/* IPI */}
 
-              <section className="space-y-4">
-                <h3 className="font-semibold">
-                  IPI
-                </h3>
+              <section className="rounded-xl border bg-muted/10 p-5">
+                <CabecalhoSecao
+                  icone={BadgeDollarSign}
+                  titulo="IPI"
+                  descricao="Preencha somente quando houver incidência de IPI."
+                />
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Input
-                    placeholder="CST IPI"
-                    inputMode="numeric"
-                    maxLength={2}
+                <div className="grid gap-5 md:grid-cols-3">
+                  <CampoNumerico
+                    id={`cst-ipi-${produto.id}`}
+                    label="CST IPI"
+                    placeholder="00"
+                    limite={2}
                     value={form.cstIpi}
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "cstIpi",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 2)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="Enquadramento IPI"
-                    inputMode="numeric"
-                    maxLength={3}
+                  <CampoNumerico
+                    id={`enquadramento-${produto.id}`}
+                    label="Enquadramento"
+                    placeholder="999"
+                    limite={3}
                     value={
                       form
                         .codigoEnquadramentoIpi
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "codigoEnquadramentoIpi",
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(0, 3)
+                        valor
                       )
                     }
                     disabled={carregando}
                   />
 
-                  <Input
-                    placeholder="Alíquota IPI (%)"
-                    inputMode="decimal"
+                  <CampoPercentual
+                    id={`aliquota-ipi-${produto.id}`}
+                    label="Alíquota do IPI"
                     value={
                       form.aliquotaIpi
                     }
-                    onChange={(event) =>
+                    onChange={(valor) =>
                       atualizarCampo(
                         "aliquotaIpi",
-                        event.target.value
+                        valor
                       )
                     }
                     disabled={carregando}
@@ -983,42 +1153,56 @@ export function ProdutoEditButton({
 
               {/* IBS e CBS */}
 
-              <ProdutoIbsCbsFields
-                form={{
-                  cstIbsCbs:
-                    form.cstIbsCbs,
+              <section className="rounded-xl border bg-muted/10 p-5">
+                <ProdutoIbsCbsFields
+                  form={{
+                    cstIbsCbs:
+                      form.cstIbsCbs,
 
-                  classificacaoTributariaIbsCbs:
-                    form
-                      .classificacaoTributariaIbsCbs,
+                    classificacaoTributariaIbsCbs:
+                      form
+                        .classificacaoTributariaIbsCbs,
 
-                  aliquotaIbsUf:
-                    form.aliquotaIbsUf,
+                    aliquotaIbsUf:
+                      form.aliquotaIbsUf,
 
-                  aliquotaIbsMun:
-                    form.aliquotaIbsMun,
+                    aliquotaIbsMun:
+                      form
+                        .aliquotaIbsMun,
 
-                  aliquotaCbs:
-                    form.aliquotaCbs,
-                }}
-                atualizarCampo={(
-                  campo,
-                  valor
-                ) =>
-                  atualizarCampo(
+                    aliquotaCbs:
+                      form.aliquotaCbs,
+                  }}
+                  atualizarCampo={(
                     campo,
                     valor
-                  )
-                }
-                disabled={carregando}
-              />
+                  ) =>
+                    atualizarCampo(
+                      campo,
+                      valor
+                    )
+                  }
+                  disabled={carregando}
+                />
+              </section>
             </>
+          )}
+
+          {erro && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              {erro}
+            </div>
           )}
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
+              className="h-11"
               onClick={() =>
                 setAberto(false)
               }
@@ -1029,15 +1213,222 @@ export function ProdutoEditButton({
 
             <Button
               type="submit"
+              className="h-11 sm:min-w-44"
               disabled={carregando}
             >
-              {carregando
-                ? "Salvando..."
-                : "Salvar alterações"}
+              {carregando ? (
+                <>
+                  <LoaderCircle
+                    size={17}
+                    className="animate-spin"
+                  />
+
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save size={17} />
+
+                  Salvar alterações
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type CabecalhoSecaoProps = {
+  icone: typeof Package;
+  titulo: string;
+  descricao: string;
+};
+
+function CabecalhoSecao({
+  icone: Icone,
+  titulo,
+  descricao,
+}: CabecalhoSecaoProps) {
+  return (
+    <div className="mb-5 flex items-start gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <Icone size={20} />
+      </div>
+
+      <div>
+        <h3 className="font-semibold">
+          {titulo}
+        </h3>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          {descricao}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type CampoTextoProps = {
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+
+  onChange: (
+    valor: string
+  ) => void;
+
+  disabled?: boolean;
+  required?: boolean;
+};
+
+function CampoTexto({
+  id,
+  label,
+  placeholder,
+  value,
+  onChange,
+  disabled = false,
+  required = false,
+}: CampoTextoProps) {
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={id}
+        className="text-sm font-medium"
+      >
+        {label}
+      </label>
+
+      <Input
+        id={id}
+        className="h-11"
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) =>
+          onChange(
+            event.target.value
+          )
+        }
+        disabled={disabled}
+        required={required}
+      />
+    </div>
+  );
+}
+
+type CampoNumericoProps = {
+  id: string;
+  label: string;
+  placeholder: string;
+  limite: number;
+  value: string;
+
+  onChange: (
+    valor: string
+  ) => void;
+
+  disabled?: boolean;
+  required?: boolean;
+  ajuda?: string;
+};
+
+function CampoNumerico({
+  id,
+  label,
+  placeholder,
+  limite,
+  value,
+  onChange,
+  disabled = false,
+  required = false,
+  ajuda,
+}: CampoNumericoProps) {
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={id}
+        className="text-sm font-medium"
+      >
+        {label}
+      </label>
+
+      <Input
+        id={id}
+        className="h-11"
+        placeholder={placeholder}
+        inputMode="numeric"
+        maxLength={limite}
+        value={value}
+        onChange={(event) =>
+          onChange(
+            somenteNumeros(
+              event.target.value
+            ).slice(0, limite)
+          )
+        }
+        disabled={disabled}
+        required={required}
+      />
+
+      {ajuda && (
+        <p className="text-xs text-muted-foreground">
+          {ajuda}
+        </p>
+      )}
+    </div>
+  );
+}
+
+type CampoPercentualProps = {
+  id: string;
+  label: string;
+  value: string;
+
+  onChange: (
+    valor: string
+  ) => void;
+
+  disabled?: boolean;
+};
+
+function CampoPercentual({
+  id,
+  label,
+  value,
+  onChange,
+  disabled = false,
+}: CampoPercentualProps) {
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={id}
+        className="text-sm font-medium"
+      >
+        {label}
+      </label>
+
+      <div className="relative">
+        <Input
+          id={id}
+          className="h-11 pr-10"
+          placeholder="0,00"
+          inputMode="decimal"
+          value={value}
+          onChange={(event) =>
+            onChange(
+              event.target.value
+            )
+          }
+          disabled={disabled}
+        />
+
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          %
+        </span>
+      </div>
+    </div>
   );
 }

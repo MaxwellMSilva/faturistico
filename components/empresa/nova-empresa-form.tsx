@@ -1,134 +1,236 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+
+import {
+  type FormEvent,
+  useState,
+} from "react";
+
 import { useRouter } from "next/navigation";
 
-import { useSession } from "next-auth/react";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Building2,
+  LoaderCircle,
+  Mail,
+  MapPin,
+  Save,
+  Search,
+} from "lucide-react";
 
 import { createEmpresa } from "@/actions/empresa/create-empresa";
+
+import { CidadeIbgeSearch } from "@/components/empresa/cidade-ibge-search";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const estadoInicial = {
+  razaoSocial: "",
+  nomeFantasia: "",
+
+  cnpj: "",
+
+  inscricaoEstadual: "",
+  inscricaoMunicipal: "",
+
+  email: "",
+  telefone: "",
+
+  cep: "",
+  logradouro: "",
+  numero: "",
+  complemento: "",
+
+  bairro: "",
+
+  municipio: "",
+  codigoMunicipio: "",
+  uf: "",
+};
+
+type FormEmpresa =
+  typeof estadoInicial;
+
+type CidadeSelecionada = {
+  municipio: string;
+  uf: string;
+  codigoMunicipio: string;
+};
+
+function somenteNumeros(
+  valor: string
+) {
+  return valor.replace(
+    /\D/g,
+    ""
+  );
+}
+
+function formatarCnpj(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      14
+    );
+
+  return numeros
+    .replace(
+      /^(\d{2})(\d)/,
+      "$1.$2"
+    )
+    .replace(
+      /^(\d{2})\.(\d{3})(\d)/,
+      "$1.$2.$3"
+    )
+    .replace(
+      /\.(\d{3})(\d)/,
+      ".$1/$2"
+    )
+    .replace(
+      /(\d{4})(\d)/,
+      "$1-$2"
+    );
+}
+
+function formatarCep(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      8
+    );
+
+  return numeros.replace(
+    /^(\d{5})(\d)/,
+    "$1-$2"
+  );
+}
+
+function formatarTelefone(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      11
+    );
+
+  if (
+    numeros.length <= 10
+  ) {
+    return numeros
+      .replace(
+        /^(\d{2})(\d)/,
+        "($1) $2"
+      )
+      .replace(
+        /(\d{4})(\d)/,
+        "$1-$2"
+      );
+  }
+
+  return numeros
+    .replace(
+      /^(\d{2})(\d)/,
+      "($1) $2"
+    )
+    .replace(
+      /(\d{5})(\d)/,
+      "$1-$2"
+    );
+}
+
 export function NovaEmpresaForm() {
   const router = useRouter();
 
-  const { data: session } =
-    useSession();
+  const [form, setForm] =
+    useState<FormEmpresa>({
+      ...estadoInicial,
+    });
 
-  const [razaoSocial, setRazaoSocial] =
-    useState("");
+  const [
+    buscandoCnpj,
+    setBuscandoCnpj,
+  ] = useState(false);
 
-  const [nomeFantasia, setNomeFantasia] =
-    useState("");
+  const [
+    salvando,
+    setSalvando,
+  ] = useState(false);
 
-  const [cnpj, setCnpj] =
+  const [erro, setErro] =
     useState("");
 
   const [
-    inscricaoEstadual,
-    setInscricaoEstadual,
+    mensagem,
+    setMensagem,
   ] = useState("");
 
-  const [
-    inscricaoMunicipal,
-    setInscricaoMunicipal,
-  ] = useState("");
+  function limparMensagens() {
+    if (erro) {
+      setErro("");
+    }
 
-  const [email, setEmail] =
-    useState("");
+    if (mensagem) {
+      setMensagem("");
+    }
+  }
 
-  const [telefone, setTelefone] =
-    useState("");
+  function atualizarCampo(
+    campo: keyof FormEmpresa,
+    valor: string
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
 
-  const [cep, setCep] =
-    useState("");
+    limparMensagens();
+  }
 
-  const [logradouro,
-    setLogradouro] =
-    useState("");
-
-  const [numero, setNumero] =
-    useState("");
-
-  const [complemento,
-    setComplemento] =
-    useState("");
-
-  const [bairro, setBairro] =
-    useState("");
-
-  const [municipio,
-    setMunicipio] =
-    useState("");
-
-  const [
+  function atualizarCidade({
+    municipio,
+    uf,
     codigoMunicipio,
-    setCodigoMunicipio,
-  ] = useState("");
+  }: CidadeSelecionada) {
+    setForm((anterior) => ({
+      ...anterior,
 
-  const [uf, setUf] =
-    useState("");
+      municipio,
+      uf,
+      codigoMunicipio,
+    }));
 
-  async function handleSubmit() {
-    if (!session?.user?.id) {
-      alert(
-        "Usuário não autenticado."
+    limparMensagens();
+  }
+
+  async function buscarCnpj() {
+    setErro("");
+    setMensagem("");
+
+    const cnpjLimpo =
+      somenteNumeros(
+        form.cnpj
+      );
+
+    if (
+      cnpjLimpo.length !== 14
+    ) {
+      setErro(
+        "Informe um CNPJ válido com 14 números."
       );
 
       return;
     }
 
     try {
-      const resultado =
-        await createEmpresa({
-          razaoSocial,
-          nomeFantasia,
-          cnpj,
-
-          inscricaoEstadual,
-          inscricaoMunicipal,
-
-          email,
-          telefone,
-
-          cep,
-          logradouro,
-          numero,
-          complemento,
-
-          bairro,
-
-          municipio,
-          codigoMunicipio,
-
-          uf,
-        });
-
-      if (!resultado.success) {
-        alert(resultado.message);
-        return;
-      }
-
-      alert(
-        "Empresa cadastrada com sucesso."
-      );
-
-      router.replace("/empresas");
-      router.refresh();
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "Não foi possível cadastrar a empresa."
-      );
-    }
-  }
-
-  async function buscarCnpj() {
-    try {
-      const cnpjLimpo =
-        cnpj.replace(/\D/g, "");
+      setBuscandoCnpj(true);
 
       const response =
         await fetch(
@@ -138,316 +240,892 @@ export function NovaEmpresaForm() {
       const data =
         await response.json();
 
-      console.log(data);
-
       if (!response.ok) {
         throw new Error(
-          data.message ??
-          "Erro ao consultar CNPJ"
+          data?.message ??
+            "CNPJ não encontrado."
         );
       }
 
-      setRazaoSocial(
-        data.razao_social ?? ""
+      setForm(
+        (anterior) => ({
+          ...anterior,
+
+          cnpj:
+            formatarCnpj(
+              data.cnpj ??
+                cnpjLimpo
+            ),
+
+          razaoSocial:
+            data.razao_social ??
+            "",
+
+          nomeFantasia:
+            data.nome_fantasia ??
+            "",
+
+          email:
+            data.email ?? "",
+
+          telefone:
+            formatarTelefone(
+              data.ddd_telefone_1 ??
+                ""
+            ),
+
+          cep:
+            formatarCep(
+              data.cep ?? ""
+            ),
+
+          logradouro:
+            data.logradouro ??
+            "",
+
+          numero:
+            data.numero ?? "",
+
+          complemento:
+            data.complemento ??
+            "",
+
+          bairro:
+            data.bairro ?? "",
+
+          municipio:
+            data.municipio ??
+            "",
+
+          codigoMunicipio:
+            String(
+              data
+                .codigo_municipio_ibge ??
+                ""
+            ),
+
+          uf:
+            String(
+              data.uf ?? ""
+            ).toUpperCase(),
+        })
       );
 
-      setNomeFantasia(
-        data.nome_fantasia ?? ""
+      setMensagem(
+        "Dados da empresa encontrados e preenchidos."
       );
-
-      setCep(
-        data.cep ?? ""
-      );
-
-      setLogradouro(
-        data.logradouro ?? ""
-      );
-
-      setNumero(
-        data.numero ?? ""
-      );
-
-      setComplemento(
-        data.complemento ?? ""
-      );
-
-      setBairro(
-        data.bairro ?? ""
-      );
-
-      setMunicipio(
-        data.municipio ?? ""
-      );
-
-      setCodigoMunicipio(
-        String(
-          data.codigo_municipio_ibge ?? ""
-        )
-      );
-
-      setUf(
-        data.uf ?? ""
-      );
-
-      setTelefone(
-        data.ddd_telefone_1 ?? ""
-      );
-
-      setEmail(
-        data.email ?? ""
-      );
-
-      alert(
-        "Dados encontrados."
-      );
-
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erro ao consultar CNPJ:",
+        error
+      );
 
-      alert(
-        "Erro ao consultar CNPJ."
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível consultar o CNPJ."
+      );
+    } finally {
+      setBuscandoCnpj(
+        false
       );
     }
   }
-  
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    setErro("");
+    setMensagem("");
+
+    const cnpjLimpo =
+      somenteNumeros(
+        form.cnpj
+      );
+
+    const cepLimpo =
+      somenteNumeros(
+        form.cep
+      );
+
+    const codigoMunicipioLimpo =
+      somenteNumeros(
+        form.codigoMunicipio
+      );
+
+    if (
+      !form.razaoSocial.trim()
+    ) {
+      setErro(
+        "Informe a razão social da empresa."
+      );
+
+      return;
+    }
+
+    if (
+      cnpjLimpo.length !== 14
+    ) {
+      setErro(
+        "Informe um CNPJ válido com 14 números."
+      );
+
+      return;
+    }
+
+    if (
+      cepLimpo &&
+      cepLimpo.length !== 8
+    ) {
+      setErro(
+        "Informe um CEP válido com 8 números."
+      );
+
+      return;
+    }
+
+    if (
+      !form.municipio.trim() ||
+      !form.uf.trim() ||
+      codigoMunicipioLimpo
+        .length !== 7
+    ) {
+      setErro(
+        "Pesquise e selecione uma cidade válida na lista do IBGE."
+      );
+
+      return;
+    }
+
+    try {
+      setSalvando(true);
+
+      const resultado =
+        await createEmpresa({
+          razaoSocial:
+            form.razaoSocial
+              .trim(),
+
+          nomeFantasia:
+            form.nomeFantasia
+              .trim(),
+
+          cnpj:
+            cnpjLimpo,
+
+          inscricaoEstadual:
+            form
+              .inscricaoEstadual
+              .trim(),
+
+          inscricaoMunicipal:
+            form
+              .inscricaoMunicipal
+              .trim(),
+
+          email:
+            form.email
+              .trim()
+              .toLowerCase(),
+
+          telefone:
+            somenteNumeros(
+              form.telefone
+            ),
+
+          cep:
+            cepLimpo,
+
+          logradouro:
+            form.logradouro
+              .trim(),
+
+          numero:
+            form.numero.trim(),
+
+          complemento:
+            form.complemento
+              .trim(),
+
+          bairro:
+            form.bairro.trim(),
+
+          municipio:
+            form.municipio
+              .trim(),
+
+          codigoMunicipio:
+            codigoMunicipioLimpo,
+
+          uf:
+            form.uf
+              .trim()
+              .toUpperCase(),
+        });
+
+      if (
+        !resultado.success
+      ) {
+        setErro(
+          resultado.message
+        );
+
+        return;
+      }
+
+      router.replace(
+        "/empresas"
+      );
+
+      router.refresh();
+    } catch (error) {
+      console.error(
+        "Erro ao cadastrar empresa:",
+        error
+      );
+
+      setErro(
+        "Não foi possível cadastrar a empresa. Tente novamente."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const bloqueado =
+    salvando ||
+    buscandoCnpj;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      {/* Cabeçalho */}
 
-      <div className="w-full max-w-5xl rounded-2xl border bg-card p-8 shadow-sm">
+      <div>
+        <Link
+          href="/empresas"
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft
+            size={16}
+          />
 
-        <div className="mb-8 text-center">
+          Voltar para empresas
+        </Link>
 
-          <h1 className="text-3xl font-bold">
-            Cadastro da Empresa
-          </h1>
-
-          <p className="mt-2 text-sm text-muted-foreground">
-            Informe os dados da empresa emissora.
-          </p>
-
-        </div>
-
-        <div className="space-y-8">
-
-          {/* Dados da Empresa */}
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Building2
+              size={24}
+            />
+          </div>
 
           <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Nova empresa
+            </h1>
 
-            <h2 className="mb-4 text-lg font-semibold">
-              Dados da Empresa
-            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Cadastre os dados da
+              empresa que utilizará o
+              sistema para emissão e
+              gestão fiscal.
+            </p>
+          </div>
+        </div>
+      </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+      <form
+        onSubmit={
+          handleSubmit
+        }
+        className="space-y-6"
+      >
+        {/* Identificação */}
 
-              <Input
-                placeholder="Razão Social"
-                value={razaoSocial}
-                onChange={(e) =>
-                  setRazaoSocial(
-                    e.target.value
-                  )
-                }
+        <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Building2
+                size={20}
               />
+            </div>
 
-              <Input
-                placeholder="Nome Fantasia"
-                value={nomeFantasia}
-                onChange={(e) =>
-                  setNomeFantasia(
-                    e.target.value
-                  )
-                }
-              />
+            <div>
+              <h2 className="font-semibold">
+                Identificação da
+                empresa
+              </h2>
 
-              <div className="flex gap-2">
+              <p className="mt-1 text-sm text-muted-foreground">
+                Dados cadastrais e
+                registros fiscais da
+                empresa.
+              </p>
+            </div>
+          </div>
 
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <label
+                htmlFor="cnpj"
+                className="text-sm font-medium"
+              >
+                CNPJ
+              </label>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
-                  placeholder="CNPJ"
-                  value={cnpj}
-                  onChange={(e) =>
-                    setCnpj(e.target.value)
+                  id="cnpj"
+                  name="cnpj"
+                  className="h-11 flex-1"
+                  placeholder="00.000.000/0000-00"
+                  inputMode="numeric"
+                  value={
+                    form.cnpj
                   }
+                  onChange={(
+                    event
+                  ) =>
+                    atualizarCampo(
+                      "cnpj",
+                      formatarCnpj(
+                        event.target
+                          .value
+                      )
+                    )
+                  }
+                  disabled={
+                    bloqueado
+                  }
+                  required
                 />
 
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={buscarCnpj}
+                  className="h-11 sm:min-w-36"
+                  onClick={
+                    buscarCnpj
+                  }
+                  disabled={
+                    bloqueado
+                  }
                 >
-                  Buscar
-                </Button>
+                  {buscandoCnpj ? (
+                    <>
+                      <LoaderCircle
+                        size={17}
+                        className="animate-spin"
+                      />
 
+                      Consultando...
+                    </>
+                  ) : (
+                    <>
+                      <Search
+                        size={17}
+                      />
+
+                      Buscar CNPJ
+                    </>
+                  )}
+                </Button>
               </div>
 
-              <Input
-                placeholder="Inscrição Estadual"
-                value={
-                  inscricaoEstadual
-                }
-                onChange={(e) =>
-                  setInscricaoEstadual(
-                    e.target.value
-                  )
-                }
-              />
-
-              <Input
-                placeholder="Inscrição Municipal"
-                value={
-                  inscricaoMunicipal
-                }
-                onChange={(e) =>
-                  setInscricaoMunicipal(
-                    e.target.value
-                  )
-                }
-              />
-
+              <p className="text-xs text-muted-foreground">
+                A consulta preencherá
+                automaticamente os dados
+                disponíveis.
+              </p>
             </div>
 
-          </div>
-
-          {/* Contato */}
-
-          <div>
-
-            <h2 className="mb-4 text-lg font-semibold">
-              Contato
-            </h2>
-
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label
+                htmlFor="razaoSocial"
+                className="text-sm font-medium"
+              >
+                Razão social
+              </label>
 
               <Input
-                placeholder="E-mail"
-                value={email}
-                onChange={(e) =>
-                  setEmail(
-                    e.target.value
+                id="razaoSocial"
+                className="h-11"
+                placeholder="Razão social da empresa"
+                value={
+                  form.razaoSocial
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "razaoSocial",
+                    event.target
+                      .value
                   )
                 }
-              />
-
-              <Input
-                placeholder="Telefone"
-                value={telefone}
-                onChange={(e) =>
-                  setTelefone(
-                    e.target.value
-                  )
+                disabled={
+                  bloqueado
                 }
+                required
               />
-
             </div>
 
+            <div className="space-y-2">
+              <label
+                htmlFor="nomeFantasia"
+                className="text-sm font-medium"
+              >
+                Nome fantasia
+              </label>
+
+              <Input
+                id="nomeFantasia"
+                className="h-11"
+                placeholder="Nome fantasia"
+                value={
+                  form.nomeFantasia
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "nomeFantasia",
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="inscricaoEstadual"
+                className="text-sm font-medium"
+              >
+                Inscrição estadual
+              </label>
+
+              <Input
+                id="inscricaoEstadual"
+                className="h-11"
+                placeholder="Inscrição estadual"
+                value={
+                  form
+                    .inscricaoEstadual
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "inscricaoEstadual",
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="inscricaoMunicipal"
+                className="text-sm font-medium"
+              >
+                Inscrição municipal
+              </label>
+
+              <Input
+                id="inscricaoMunicipal"
+                className="h-11"
+                placeholder="Inscrição municipal"
+                value={
+                  form
+                    .inscricaoMunicipal
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "inscricaoMunicipal",
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Contato */}
+
+        <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Mail
+                size={20}
+              />
+            </div>
+
+            <div>
+              <h2 className="font-semibold">
+                Contato
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Informações utilizadas
+                para contato com a
+                empresa.
+              </p>
+            </div>
           </div>
 
-          {/* Endereço */}
-
-          <div>
-
-            <h2 className="mb-4 text-lg font-semibold">
-              Endereço
-            </h2>
-
-            <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div className="space-y-2">
+              <label
+                htmlFor="email"
+                className="text-sm font-medium"
+              >
+                E-mail
+              </label>
 
               <Input
-                placeholder="CEP"
-                value={cep}
-                onChange={(e) =>
-                  setCep(
-                    e.target.value
+                id="email"
+                type="email"
+                className="h-11"
+                placeholder="empresa@exemplo.com"
+                value={
+                  form.email
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "email",
+                    event.target
+                      .value
                   )
                 }
-              />
-
-              <Input
-                placeholder="Logradouro"
-                value={logradouro}
-                onChange={(e) =>
-                  setLogradouro(
-                    e.target.value
-                  )
+                autoComplete="email"
+                disabled={
+                  bloqueado
                 }
               />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="telefone"
+                className="text-sm font-medium"
+              >
+                Telefone
+              </label>
 
               <Input
-                placeholder="Número"
-                value={numero}
-                onChange={(e) =>
-                  setNumero(
-                    e.target.value
+                id="telefone"
+                className="h-11"
+                placeholder="(00) 00000-0000"
+                inputMode="tel"
+                value={
+                  form.telefone
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "telefone",
+                    formatarTelefone(
+                      event.target
+                        .value
+                    )
                   )
                 }
-              />
-
-              <Input
-                placeholder="Complemento"
-                value={complemento}
-                onChange={(e) =>
-                  setComplemento(
-                    e.target.value
-                  )
+                autoComplete="tel"
+                disabled={
+                  bloqueado
                 }
               />
+            </div>
+          </div>
+        </section>
+
+        {/* Endereço */}
+
+        <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <MapPin
+                size={20}
+              />
+            </div>
+
+            <div>
+              <h2 className="font-semibold">
+                Endereço
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Endereço fiscal do
+                estabelecimento emissor.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-6">
+            <div className="space-y-2 md:col-span-2">
+              <label
+                htmlFor="cep"
+                className="text-sm font-medium"
+              >
+                CEP
+              </label>
 
               <Input
+                id="cep"
+                className="h-11"
+                placeholder="00000-000"
+                inputMode="numeric"
+                value={
+                  form.cep
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "cep",
+                    formatarCep(
+                      event.target
+                        .value
+                    )
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-4">
+              <label
+                htmlFor="logradouro"
+                className="text-sm font-medium"
+              >
+                Logradouro
+              </label>
+
+              <Input
+                id="logradouro"
+                className="h-11"
+                placeholder="Rua, avenida, rodovia..."
+                value={
+                  form.logradouro
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "logradouro",
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label
+                htmlFor="numero"
+                className="text-sm font-medium"
+              >
+                Número
+              </label>
+
+              <Input
+                id="numero"
+                className="h-11"
+                placeholder="Número ou S/N"
+                value={
+                  form.numero
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "numero",
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-4">
+              <label
+                htmlFor="complemento"
+                className="text-sm font-medium"
+              >
+                Complemento
+              </label>
+
+              <Input
+                id="complemento"
+                className="h-11"
+                placeholder="Sala, bloco, km..."
+                value={
+                  form.complemento
+                }
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "complemento",
+                    event.target
+                      .value
+                  )
+                }
+                disabled={
+                  bloqueado
+                }
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-6">
+              <label
+                htmlFor="bairro"
+                className="text-sm font-medium"
+              >
+                Bairro
+              </label>
+
+              <Input
+                id="bairro"
+                className="h-11"
                 placeholder="Bairro"
-                value={bairro}
-                onChange={(e) =>
-                  setBairro(
-                    e.target.value
-                  )
-                }
-              />
-
-              <Input
-                placeholder="Município"
-                value={municipio}
-                onChange={(e) =>
-                  setMunicipio(
-                    e.target.value
-                  )
-                }
-              />
-
-              <Input
-                placeholder="Código Município IBGE"
                 value={
-                  codigoMunicipio
+                  form.bairro
                 }
-                onChange={(e) =>
-                  setCodigoMunicipio(
-                    e.target.value
+                onChange={(
+                  event
+                ) =>
+                  atualizarCampo(
+                    "bairro",
+                    event.target
+                      .value
                   )
                 }
-              />
-
-              <Input
-                placeholder="UF"
-                value={uf}
-                onChange={(e) =>
-                  setUf(
-                    e.target.value
-                  )
+                disabled={
+                  bloqueado
                 }
               />
-
             </div>
 
+            <CidadeIbgeSearch
+              municipio={
+                form.municipio
+              }
+              uf={
+                form.uf
+              }
+              codigoMunicipio={
+                form
+                  .codigoMunicipio
+              }
+              onChange={
+                atualizarCidade
+              }
+              disabled={
+                bloqueado
+              }
+            />
           </div>
+        </section>
 
-          <Button
-            onClick={handleSubmit}
-            className="h-12 w-full"
-          >
-            Salvar Empresa
-          </Button>
+        {/* Mensagens */}
 
+        <div
+          aria-live="polite"
+          className="space-y-3"
+        >
+          {mensagem && (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+              <BadgeCheck
+                size={18}
+                className="mt-0.5 shrink-0"
+              />
+
+              <p>
+                {mensagem}
+              </p>
+            </div>
+          )}
+
+          {erro && (
+            <div
+              role="alert"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              {erro}
+            </div>
+          )}
         </div>
 
-      </div>
+        {/* Ações */}
 
+        <div className="flex flex-col-reverse gap-3 rounded-2xl border bg-card p-5 shadow-sm sm:flex-row sm:justify-end">
+          <Button
+            nativeButton={false}
+            render={
+              <Link href="/empresas" />
+            }
+            variant="outline"
+            className="h-11 sm:min-w-28"
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            type="submit"
+            className="h-11 sm:min-w-44"
+            disabled={
+              bloqueado
+            }
+          >
+            {salvando ? (
+              <>
+                <LoaderCircle
+                  size={17}
+                  className="animate-spin"
+                />
+
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save
+                  size={17}
+                />
+
+                Salvar empresa
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

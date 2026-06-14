@@ -1,13 +1,30 @@
 "use client";
 
 import { useState } from "react";
+
 import { useRouter } from "next/navigation";
 
-import { Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  LoaderCircle,
+  Trash2,
+} from "lucide-react";
 
 import { deleteCliente } from "@/actions/clientes/delete-cliente";
 
 import { Button } from "@/components/ui/button";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Props = {
   empresaId: string;
@@ -22,17 +39,19 @@ export function ClienteDeleteButton({
 }: Props) {
   const router = useRouter();
 
-  const [carregando, setCarregando] =
+  const [aberto, setAberto] =
     useState(false);
 
-  async function handleDelete() {
-    const confirmado = window.confirm(
-      `Deseja realmente excluir o cliente "${clienteNome}"?`
-    );
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
 
-    if (!confirmado) {
-      return;
-    }
+  const [erro, setErro] =
+    useState("");
+
+  async function handleDelete() {
+    setErro("");
 
     try {
       setCarregando(true);
@@ -44,20 +63,24 @@ export function ClienteDeleteButton({
         });
 
       if (!resultado.success) {
-        alert(resultado.message);
+        setErro(
+          resultado.message
+        );
+
         return;
       }
 
-      alert(
-        "Cliente excluído com sucesso."
-      );
+      setAberto(false);
 
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erro ao excluir cliente:",
+        error
+      );
 
-      alert(
-        "Não foi possível excluir o cliente."
+      setErro(
+        "Não foi possível excluir o cliente. Tente novamente."
       );
     } finally {
       setCarregando(false);
@@ -65,18 +88,112 @@ export function ClienteDeleteButton({
   }
 
   return (
-    <Button
-      type="button"
-      variant="destructive"
-      size="sm"
-      onClick={handleDelete}
-      disabled={carregando}
-    >
-      <Trash2 size={16} />
+    <AlertDialog
+      open={aberto}
+      onOpenChange={(valor) => {
+        if (carregando) {
+          return;
+        }
 
-      {carregando
-        ? "Excluindo..."
-        : "Excluir"}
-    </Button>
+        setAberto(valor);
+
+        if (!valor) {
+          setErro("");
+        }
+      }}
+    >
+      <AlertDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          />
+        }
+      >
+        <Trash2 size={16} />
+
+        Excluir
+      </AlertDialogTrigger>
+
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <AlertTriangle size={23} />
+          </div>
+
+          <AlertDialogTitle>
+            Excluir cliente
+          </AlertDialogTitle>
+
+          <AlertDialogDescription>
+            Você está prestes a excluir o
+            cliente{" "}
+            <strong className="font-semibold text-foreground">
+              {clienteNome}
+            </strong>
+            .
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm">
+          <p className="font-medium text-destructive">
+            Esta ação não poderá ser
+            desfeita.
+          </p>
+
+          <p className="mt-1 text-muted-foreground">
+            O cliente deixará de aparecer
+            nos cadastros e poderá não estar
+            disponível para novas operações.
+          </p>
+        </div>
+
+        {erro && (
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            {erro}
+          </div>
+        )}
+
+        <AlertDialogFooter>
+          <AlertDialogCancel
+            disabled={carregando}
+          >
+            Cancelar
+          </AlertDialogCancel>
+
+          <AlertDialogAction
+            onClick={(event) => {
+              event.preventDefault();
+
+              void handleDelete();
+            }}
+            disabled={carregando}
+            className="bg-destructive text-white hover:bg-destructive/90"
+          >
+            {carregando ? (
+              <>
+                <LoaderCircle
+                  size={16}
+                  className="animate-spin"
+                />
+
+                Excluindo...
+              </>
+            ) : (
+              <>
+                <Trash2 size={16} />
+
+                Confirmar exclusão
+              </>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

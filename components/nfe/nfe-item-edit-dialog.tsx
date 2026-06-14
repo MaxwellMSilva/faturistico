@@ -7,7 +7,14 @@ import {
 
 import { useRouter } from "next/navigation";
 
-import { Pencil } from "lucide-react";
+import {
+  AlertTriangle,
+  Calculator,
+  LoaderCircle,
+  Package,
+  Pencil,
+  Save,
+} from "lucide-react";
 
 import { updateItemNfe } from "@/actions/nfe/update-item-nfe";
 
@@ -47,14 +54,16 @@ type Props = {
 function valorParaCampo(
   valor: number
 ) {
-  return String(valor);
+  return String(valor).replace(
+    ".",
+    ","
+  );
 }
 
 function converterNumero(
   valor: string
 ) {
-  const texto =
-    valor.trim();
+  const texto = valor.trim();
 
   if (!texto) {
     return 0;
@@ -80,7 +89,11 @@ function formatarMoeda(
       style: "currency",
       currency: "BRL",
     }
-  ).format(valor);
+  ).format(
+    Number.isFinite(valor)
+      ? valor
+      : 0
+  );
 }
 
 export function NfeItemEditDialog({
@@ -90,12 +103,6 @@ export function NfeItemEditDialog({
   disabled = false,
 }: Props) {
   const router = useRouter();
-
-  const [aberto, setAberto] =
-    useState(false);
-
-  const [carregando, setCarregando] =
-    useState(false);
 
   function criarEstadoInicial() {
     return {
@@ -116,21 +123,38 @@ export function NfeItemEditDialog({
     };
   }
 
+  type FormItem = ReturnType<
+    typeof criarEstadoInicial
+  >;
+
+  const [aberto, setAberto] =
+    useState(false);
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
+
+  const [erro, setErro] =
+    useState("");
+
   const [form, setForm] =
-    useState(
+    useState<FormItem>(
       criarEstadoInicial
     );
 
   function atualizarCampo(
-    campo: keyof ReturnType<
-      typeof criarEstadoInicial
-    >,
+    campo: keyof FormItem,
     valor: string
   ) {
     setForm((anterior) => ({
       ...anterior,
       [campo]: valor,
     }));
+
+    if (erro) {
+      setErro("");
+    }
   }
 
   const quantidadeNumero =
@@ -148,27 +172,31 @@ export function NfeItemEditDialog({
       form.valorDesconto
     );
 
-  const valorBrutoCalculado =
+  const valoresPrincipaisValidos =
     Number.isFinite(
       quantidadeNumero
     ) &&
     Number.isFinite(
       valorUnitarioNumero
-    )
+    );
+
+  const valorBrutoCalculado =
+    valoresPrincipaisValidos
       ? quantidadeNumero *
         valorUnitarioNumero
+      : 0;
+
+  const descontoValido =
+    Number.isFinite(
+      valorDescontoNumero
+    )
+      ? valorDescontoNumero
       : 0;
 
   const valorTotalCalculado =
     Math.max(
       valorBrutoCalculado -
-        (
-          Number.isFinite(
-            valorDescontoNumero
-          )
-            ? valorDescontoNumero
-            : 0
-        ),
+        descontoValido,
       0
     );
 
@@ -177,14 +205,16 @@ export function NfeItemEditDialog({
   ) {
     event.preventDefault();
 
+    setErro("");
+
     if (
       !Number.isFinite(
         quantidadeNumero
       ) ||
       quantidadeNumero <= 0
     ) {
-      alert(
-        "Informe uma quantidade válida."
+      setErro(
+        "Informe uma quantidade válida e maior que zero."
       );
 
       return;
@@ -196,7 +226,7 @@ export function NfeItemEditDialog({
       ) ||
       valorUnitarioNumero < 0
     ) {
-      alert(
+      setErro(
         "Informe um valor unitário válido."
       );
 
@@ -209,7 +239,7 @@ export function NfeItemEditDialog({
       ) ||
       valorDescontoNumero < 0
     ) {
-      alert(
+      setErro(
         "Informe um desconto válido."
       );
 
@@ -220,7 +250,7 @@ export function NfeItemEditDialog({
       valorDescontoNumero >
       valorBrutoCalculado
     ) {
-      alert(
+      setErro(
         "O desconto não pode ser maior que o valor bruto do item."
       );
 
@@ -235,8 +265,7 @@ export function NfeItemEditDialog({
           empresaId,
           notaFiscalId,
 
-          itemId:
-            item.id,
+          itemId: item.id,
 
           quantidade:
             quantidadeNumero,
@@ -249,16 +278,12 @@ export function NfeItemEditDialog({
         });
 
       if (!resultado.success) {
-        alert(
+        setErro(
           resultado.message
         );
 
         return;
       }
-
-      alert(
-        "Item atualizado com sucesso."
-      );
 
       setAberto(false);
 
@@ -269,44 +294,58 @@ export function NfeItemEditDialog({
         error
       );
 
-      alert(
-        "Não foi possível atualizar o item."
+      setErro(
+        "Não foi possível atualizar o item. Tente novamente."
       );
     } finally {
       setCarregando(false);
     }
   }
 
+  const identificador =
+    item.id.replace(
+      /[^a-zA-Z0-9_-]/g,
+      ""
+    );
+
   return (
     <Dialog
       open={aberto}
       onOpenChange={(valor) => {
+        if (carregando) {
+          return;
+        }
+
         setAberto(valor);
 
         if (valor) {
           setForm(
             criarEstadoInicial()
           );
+
+          setErro("");
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={
-            disabled ||
-            carregando
-          }
-        >
-          <Pencil size={16} />
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={
+              disabled ||
+              carregando
+            }
+          />
+        }
+      >
+        <Pencil size={16} />
 
-          Editar
-        </Button>
+        Editar
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             Editar item
@@ -314,7 +353,9 @@ export function NfeItemEditDialog({
 
           <DialogDescription>
             Atualize a quantidade, o valor
-            unitário ou o desconto do item.
+            unitário ou o desconto. Os
+            tributos serão recalculados
+            automaticamente.
           </DialogDescription>
         </DialogHeader>
 
@@ -322,137 +363,187 @@ export function NfeItemEditDialog({
           onSubmit={handleSubmit}
           className="space-y-6"
         >
-          <div className="rounded-xl border bg-muted/20 p-4">
-            <p className="text-xs text-muted-foreground">
-              Produto
-            </p>
+          {/* Produto */}
 
-            <p className="font-medium">
-              {item.codigoProduto} —{" "}
-              {item.descricao}
-            </p>
+          <section className="rounded-xl border bg-muted/10 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Package size={20} />
+              </div>
 
-            <p className="mt-1 text-xs text-muted-foreground">
-              Unidade: {item.unidade}
-            </p>
-          </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  Produto
+                </p>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Quantidade
-              </label>
+                <p className="mt-1 font-medium">
+                  {item.codigoProduto} —{" "}
+                  {item.descricao}
+                </p>
 
-              <Input
-                inputMode="decimal"
-                value={
-                  form.quantidade
-                }
-                onChange={(event) =>
-                  atualizarCampo(
-                    "quantidade",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-                required
-              />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Unidade comercial:{" "}
+                  {item.unidade}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Campos */}
+
+          <section className="rounded-xl border bg-muted/10 p-4 sm:p-5">
+            <div className="mb-5">
+              <h3 className="font-semibold">
+                Valores do item
+              </h3>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Informe os valores comerciais
+                utilizados no recálculo do
+                item.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Valor unitário
-              </label>
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <label
+                  htmlFor={`quantidade-${identificador}`}
+                  className="text-sm font-medium"
+                >
+                  Quantidade
+                </label>
 
-              <Input
-                inputMode="decimal"
+                <Input
+                  id={`quantidade-${identificador}`}
+                  className="h-11"
+                  placeholder="1"
+                  inputMode="decimal"
+                  value={
+                    form.quantidade
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "quantidade",
+                      event.target.value
+                    )
+                  }
+                  disabled={carregando}
+                  required
+                />
+
+                <p className="text-xs text-muted-foreground">
+                  Unidade: {item.unidade}
+                </p>
+              </div>
+
+              <CampoMoeda
+                id={`valor-unitario-${identificador}`}
+                label="Valor unitário"
                 value={
                   form.valorUnitario
                 }
-                onChange={(event) =>
+                onChange={(valor) =>
                   atualizarCampo(
                     "valorUnitario",
-                    event.target.value
+                    valor
                   )
                 }
                 disabled={carregando}
                 required
               />
+
+              <div className="md:col-span-2">
+                <CampoMoeda
+                  id={`desconto-${identificador}`}
+                  label="Desconto do item"
+                  value={
+                    form.valorDesconto
+                  }
+                  onChange={(valor) =>
+                    atualizarCampo(
+                      "valorDesconto",
+                      valor
+                    )
+                  }
+                  disabled={carregando}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Cálculo */}
+
+          <section className="rounded-xl border bg-muted/10 p-4 sm:p-5">
+            <div className="mb-4 flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Calculator size={18} />
+              </div>
+
+              <div>
+                <h3 className="font-semibold">
+                  Cálculo estimado
+                </h3>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Prévia comercial antes do
+                  recálculo tributário.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">
-                Desconto do item
-              </label>
-
-              <Input
-                inputMode="decimal"
-                value={
-                  form.valorDesconto
-                }
-                onChange={(event) =>
-                  atualizarCampo(
-                    "valorDesconto",
-                    event.target.value
-                  )
-                }
-                disabled={carregando}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Valor bruto
-              </p>
-
-              <p className="font-medium">
-                {formatarMoeda(
+            <div className="grid gap-4 sm:grid-cols-3">
+              <ResumoValor
+                titulo="Valor bruto"
+                valor={formatarMoeda(
                   valorBrutoCalculado
                 )}
-              </p>
-            </div>
+              />
 
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Desconto
-              </p>
-
-              <p className="font-medium">
-                {formatarMoeda(
-                  Number.isFinite(
-                    valorDescontoNumero
-                  )
-                    ? valorDescontoNumero
-                    : 0
+              <ResumoValor
+                titulo="Desconto"
+                valor={formatarMoeda(
+                  descontoValido
                 )}
-              </p>
-            </div>
+              />
 
-            <div>
-              <p className="text-xs text-muted-foreground">
-                Total estimado
-              </p>
-
-              <p className="font-semibold">
-                {formatarMoeda(
+              <ResumoValor
+                titulo="Total estimado"
+                valor={formatarMoeda(
                   valorTotalCalculado
                 )}
-              </p>
+                destaque
+              />
             </div>
+          </section>
+
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-5 text-muted-foreground">
+            Ao salvar, o sistema recalculará
+            ICMS, PIS, COFINS, IPI, IBS, CBS
+            e os totais gerais da NF-e
+            conforme os dados fiscais do
+            produto.
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Os tributos e os totais da NF-e
-            serão recalculados automaticamente
-            ao salvar.
-          </p>
+          {erro && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              <AlertTriangle
+                size={18}
+                className="mt-0.5 shrink-0"
+              />
+
+              <p>{erro}</p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
+              className="h-11"
               onClick={() =>
                 setAberto(false)
               }
@@ -463,15 +554,114 @@ export function NfeItemEditDialog({
 
             <Button
               type="submit"
+              className="h-11 sm:min-w-44"
               disabled={carregando}
             >
-              {carregando
-                ? "Salvando..."
-                : "Salvar alterações"}
+              {carregando ? (
+                <>
+                  <LoaderCircle
+                    size={17}
+                    className="animate-spin"
+                  />
+
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save size={17} />
+
+                  Salvar alterações
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type CampoMoedaProps = {
+  id: string;
+  label: string;
+  value: string;
+
+  onChange: (
+    valor: string
+  ) => void;
+
+  disabled?: boolean;
+  required?: boolean;
+};
+
+function CampoMoeda({
+  id,
+  label,
+  value,
+  onChange,
+  disabled = false,
+  required = false,
+}: CampoMoedaProps) {
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={id}
+        className="text-sm font-medium"
+      >
+        {label}
+      </label>
+
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          R$
+        </span>
+
+        <Input
+          id={id}
+          className="h-11 pl-10"
+          placeholder="0,00"
+          inputMode="decimal"
+          value={value}
+          onChange={(event) =>
+            onChange(
+              event.target.value
+            )
+          }
+          disabled={disabled}
+          required={required}
+        />
+      </div>
+    </div>
+  );
+}
+
+type ResumoValorProps = {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+};
+
+function ResumoValor({
+  titulo,
+  valor,
+  destaque = false,
+}: ResumoValorProps) {
+  return (
+    <div className="rounded-lg border bg-background p-3">
+      <p className="text-xs text-muted-foreground">
+        {titulo}
+      </p>
+
+      <p
+        className={[
+          "mt-1",
+          destaque
+            ? "font-bold text-primary"
+            : "font-medium",
+        ].join(" ")}
+      >
+        {valor}
+      </p>
+    </div>
   );
 }

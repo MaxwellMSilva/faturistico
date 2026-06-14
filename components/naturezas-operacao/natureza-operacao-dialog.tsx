@@ -1,15 +1,19 @@
 "use client";
 
 import {
-  FormEvent,
+  type FormEvent,
   useState,
 } from "react";
 
 import { useRouter } from "next/navigation";
 
 import {
+  ClipboardList,
+  LoaderCircle,
   Pencil,
   Plus,
+  Save,
+  Settings2,
 } from "lucide-react";
 
 import { createNaturezaOperacao } from "@/actions/naturezas-operacao/create-natureza-operacao";
@@ -50,7 +54,6 @@ type Natureza = {
 
 type Props = {
   empresaId: string;
-
   natureza?: Natureza;
 };
 
@@ -69,7 +72,7 @@ const finalidades = [
   },
   {
     value: "DEVOLUCAO",
-    label: "Devolução",
+    label: "NF-e de devolução",
   },
 ] satisfies Array<{
   value: FinalidadeNfe;
@@ -84,12 +87,6 @@ export function NaturezaOperacaoDialog({
 
   const editando =
     Boolean(natureza);
-
-  const [aberto, setAberto] =
-    useState(false);
-
-  const [carregando, setCarregando] =
-    useState(false);
 
   function criarEstadoInicial() {
     return {
@@ -116,28 +113,70 @@ export function NaturezaOperacaoDialog({
     };
   }
 
+  type FormNatureza =
+    ReturnType<
+      typeof criarEstadoInicial
+    >;
+
+  const [aberto, setAberto] =
+    useState(false);
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
+
+  const [erro, setErro] =
+    useState("");
+
   const [form, setForm] =
-    useState(criarEstadoInicial);
+    useState<FormNatureza>(
+      criarEstadoInicial
+    );
+
+  function atualizarCampo<
+    Campo extends keyof FormNatureza,
+  >(
+    campo: Campo,
+    valor: FormNatureza[Campo]
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
+
+    if (erro) {
+      setErro("");
+    }
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    if (!form.descricao.trim()) {
-      alert(
-        "Informe a descrição."
+    setErro("");
+
+    const descricao =
+      form.descricao.trim();
+
+    const cfop =
+      form.cfop.replace(
+        /\D/g,
+        ""
+      );
+
+    if (!descricao) {
+      setErro(
+        "Informe a descrição da natureza de operação."
       );
 
       return;
     }
 
-    if (
-      form.cfop.replace(/\D/g, "")
-        .length !== 4
-    ) {
-      alert(
-        "Informe um CFOP com 4 números."
+    if (cfop.length !== 4) {
+      setErro(
+        "Informe um CFOP válido com 4 números."
       );
 
       return;
@@ -146,40 +185,54 @@ export function NaturezaOperacaoDialog({
     try {
       setCarregando(true);
 
+      const dados = {
+        empresaId,
+
+        descricao,
+        cfop,
+
+        finalidadeNfe:
+          form.finalidadeNfe,
+
+        consumidorFinal:
+          form.consumidorFinal,
+
+        contribuinteIcms:
+          form.contribuinteIcms,
+
+        ativo:
+          form.ativo,
+      };
+
       const resultado =
         natureza
           ? await updateNaturezaOperacao({
               id: natureza.id,
-              empresaId,
-
-              ...form,
+              ...dados,
             })
-          : await createNaturezaOperacao({
-              empresaId,
-
-              ...form,
-            });
+          : await createNaturezaOperacao(
+              dados
+            );
 
       if (!resultado.success) {
-        alert(resultado.message);
+        setErro(
+          resultado.message
+        );
 
         return;
       }
-
-      alert(
-        editando
-          ? "Natureza atualizada com sucesso."
-          : "Natureza cadastrada com sucesso."
-      );
 
       setAberto(false);
 
       router.refresh();
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Erro ao salvar natureza de operação:",
+        error
+      );
 
-      alert(
-        "Não foi possível salvar a natureza de operação."
+      setErro(
+        "Não foi possível salvar a natureza de operação. Tente novamente."
       );
     } finally {
       setCarregando(false);
@@ -190,52 +243,67 @@ export function NaturezaOperacaoDialog({
     <Dialog
       open={aberto}
       onOpenChange={(valor) => {
+        if (carregando) {
+          return;
+        }
+
         setAberto(valor);
 
         if (valor) {
           setForm(
             criarEstadoInicial()
           );
+
+          setErro("");
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant={
-            editando
-              ? "outline"
-              : "default"
-          }
-          size={
-            editando
-              ? "sm"
-              : "default"
-          }
-        >
-          {editando ? (
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant={
+              editando
+                ? "outline"
+                : "default"
+            }
+            size={
+              editando
+                ? "sm"
+                : "default"
+            }
+            className={
+              editando
+                ? undefined
+                : "h-11"
+            }
+          />
+        }
+      >
+        {editando ? (
+          <>
             <Pencil size={16} />
-          ) : (
+            Editar
+          </>
+        ) : (
+          <>
             <Plus size={17} />
-          )}
-
-          {editando
-            ? "Editar"
-            : "Nova Natureza"}
-        </Button>
+            Nova natureza
+          </>
+        )}
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {editando
-              ? "Editar Natureza de Operação"
-              : "Nova Natureza de Operação"}
+              ? "Editar natureza de operação"
+              : "Nova natureza de operação"}
           </DialogTitle>
 
           <DialogDescription>
-            Configure o CFOP e a finalidade
-            fiscal desta operação.
+            Configure o CFOP, a finalidade
+            e as regras fiscais da operação.
           </DialogDescription>
         </DialogHeader>
 
@@ -243,181 +311,237 @@ export function NaturezaOperacaoDialog({
           onSubmit={handleSubmit}
           className="space-y-6"
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              placeholder="Descrição"
-              value={form.descricao}
-              onChange={(event) =>
-                setForm(
-                  (anterior) => ({
-                    ...anterior,
+          {/* Identificação */}
 
-                    descricao:
-                      event.target.value,
-                  })
-                )
-              }
-              className="md:col-span-2"
-              disabled={carregando}
-              required
-            />
+          <section className="rounded-xl border bg-muted/10 p-5">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <ClipboardList
+                  size={20}
+                />
+              </div>
 
-            <Input
-              placeholder="CFOP"
-              inputMode="numeric"
-              maxLength={4}
-              value={form.cfop}
-              onChange={(event) =>
-                setForm(
-                  (anterior) => ({
-                    ...anterior,
+              <div>
+                <h3 className="font-semibold">
+                  Identificação
+                </h3>
 
-                    cfop:
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Informe a descrição,
+                  o CFOP e a finalidade
+                  desta operação.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2 md:col-span-2">
+                <label
+                  htmlFor={`descricao-natureza-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  className="text-sm font-medium"
+                >
+                  Descrição
+                </label>
+
+                <Input
+                  id={`descricao-natureza-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  className="h-11"
+                  placeholder="Ex.: Venda de mercadoria"
+                  value={
+                    form.descricao
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "descricao",
+                      event.target.value
+                    )
+                  }
+                  disabled={carregando}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor={`cfop-natureza-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  className="text-sm font-medium"
+                >
+                  CFOP
+                </label>
+
+                <Input
+                  id={`cfop-natureza-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  className="h-11"
+                  placeholder="5102"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={form.cfop}
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "cfop",
                       event.target.value
                         .replace(
                           /\D/g,
                           ""
                         )
-                        .slice(0, 4),
-                  })
-                )
-              }
-              disabled={carregando}
-              required
-            />
+                        .slice(0, 4)
+                    )
+                  }
+                  disabled={carregando}
+                  required
+                />
 
-            <select
-              value={
-                form.finalidadeNfe
-              }
-              onChange={(event) =>
-                setForm(
-                  (anterior) => ({
-                    ...anterior,
+                <p className="text-xs text-muted-foreground">
+                  Informe os quatro números
+                  do código fiscal.
+                </p>
+              </div>
 
-                    finalidadeNfe:
+              <div className="space-y-2">
+                <label
+                  htmlFor={`finalidade-natureza-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  className="text-sm font-medium"
+                >
+                  Finalidade da NF-e
+                </label>
+
+                <select
+                  id={`finalidade-natureza-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  value={
+                    form.finalidadeNfe
+                  }
+                  onChange={(event) =>
+                    atualizarCampo(
+                      "finalidadeNfe",
                       event.target
-                        .value as FinalidadeNfe,
-                  })
-                )
-              }
-              className="h-10 rounded-md border bg-background px-3 text-sm"
-              disabled={carregando}
-            >
-              {finalidades.map(
-                (finalidade) => (
-                  <option
-                    key={
-                      finalidade.value
-                    }
-                    value={
-                      finalidade.value
-                    }
-                  >
-                    {finalidade.label}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
+                        .value as FinalidadeNfe
+                    )
+                  }
+                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                  disabled={carregando}
+                >
+                  {finalidades.map(
+                    (finalidade) => (
+                      <option
+                        key={
+                          finalidade.value
+                        }
+                        value={
+                          finalidade.value
+                        }
+                      >
+                        {
+                          finalidade.label
+                        }
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+            </div>
+          </section>
 
-          <div className="space-y-3 rounded-xl border p-4">
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
+          {/* Regras */}
+
+          <section className="rounded-xl border bg-muted/10 p-5">
+            <div className="mb-5 flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Settings2 size={20} />
+              </div>
+
+              <div>
+                <h3 className="font-semibold">
+                  Regras da operação
+                </h3>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Defina as condições
+                  aplicadas por padrão.
+                </p>
+              </div>
+            </div>
+
+            <div className="divide-y rounded-xl border bg-background">
+              <OpcaoCheckbox
+                titulo="Consumidor final"
+                descricao="Indica que a operação é destinada a consumidor final."
                 checked={
                   form.consumidorFinal
                 }
-                onChange={(event) =>
-                  setForm(
-                    (anterior) => ({
-                      ...anterior,
-
-                      consumidorFinal:
-                        event.target
-                          .checked,
-                    })
+                onChange={(valor) =>
+                  atualizarCampo(
+                    "consumidorFinal",
+                    valor
                   )
                 }
                 disabled={carregando}
               />
 
-              <div>
-                <p className="text-sm font-medium">
-                  Consumidor final
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Indica operação destinada ao consumidor final.
-                </p>
-              </div>
-            </label>
-
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
+              <OpcaoCheckbox
+                titulo="Destinatário contribuinte de ICMS"
+                descricao="Exige inscrição estadual para o destinatário da operação."
                 checked={
                   form.contribuinteIcms
                 }
-                onChange={(event) =>
-                  setForm(
-                    (anterior) => ({
-                      ...anterior,
-
-                      contribuinteIcms:
-                        event.target
-                          .checked,
-                    })
+                onChange={(valor) =>
+                  atualizarCampo(
+                    "contribuinteIcms",
+                    valor
                   )
                 }
                 disabled={carregando}
               />
 
-              <div>
-                <p className="text-sm font-medium">
-                  Contribuinte de ICMS
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Indica operação para destinatário contribuinte.
-                </p>
-              </div>
-            </label>
-
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
+              <OpcaoCheckbox
+                titulo="Natureza ativa"
+                descricao="Permite utilizar esta natureza em novas notas fiscais."
                 checked={form.ativo}
-                onChange={(event) =>
-                  setForm(
-                    (anterior) => ({
-                      ...anterior,
-
-                      ativo:
-                        event.target
-                          .checked,
-                    })
+                onChange={(valor) =>
+                  atualizarCampo(
+                    "ativo",
+                    valor
                   )
                 }
                 disabled={carregando}
               />
+            </div>
+          </section>
 
-              <div>
-                <p className="text-sm font-medium">
-                  Natureza ativa
-                </p>
+          {/* Erro */}
 
-                <p className="text-xs text-muted-foreground">
-                  Permite utilizar esta natureza em novas notas.
-                </p>
-              </div>
-            </label>
-          </div>
+          {erro && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            >
+              {erro}
+            </div>
+          )}
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
+              className="h-11"
               onClick={() =>
                 setAberto(false)
               }
@@ -428,17 +552,77 @@ export function NaturezaOperacaoDialog({
 
             <Button
               type="submit"
+              className="h-11 sm:min-w-44"
               disabled={carregando}
             >
-              {carregando
-                ? "Salvando..."
-                : editando
-                  ? "Salvar alterações"
-                  : "Cadastrar natureza"}
+              {carregando ? (
+                <>
+                  <LoaderCircle
+                    size={17}
+                    className="animate-spin"
+                  />
+
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save size={17} />
+
+                  {editando
+                    ? "Salvar alterações"
+                    : "Cadastrar natureza"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+type OpcaoCheckboxProps = {
+  titulo: string;
+  descricao: string;
+  checked: boolean;
+
+  onChange: (
+    valor: boolean
+  ) => void;
+
+  disabled?: boolean;
+};
+
+function OpcaoCheckbox({
+  titulo,
+  descricao,
+  checked,
+  onChange,
+  disabled = false,
+}: OpcaoCheckboxProps) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 p-4 transition-colors hover:bg-muted/30">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) =>
+          onChange(
+            event.target.checked
+          )
+        }
+        disabled={disabled}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+      />
+
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">
+          {titulo}
+        </span>
+
+        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+          {descricao}
+        </span>
+      </span>
+    </label>
   );
 }
