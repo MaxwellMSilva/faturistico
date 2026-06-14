@@ -1,14 +1,21 @@
-model Empresa {
+model Transportador {
   id String @id @default(cuid())
 
-  razaoSocial String
+  empresaId String
 
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  tipoPessoa TipoPessoa
+
+  nome         String
   nomeFantasia String?
 
-  cnpj String @unique
+  cpfCnpj String
 
   inscricaoEstadual  String?
   inscricaoMunicipal String?
+
+  rntrc String?
 
   email    String?
   telefone String?
@@ -34,20 +41,12 @@ model Empresa {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  usuarios UsuarioEmpresa[]
+  veiculos   Veiculo[]
+  motoristas Motorista[]
 
-  clientes          Cliente[]
-  produtos          Produto[]
-  notasFiscais      NotaFiscal[]
-  certificados      CertificadoDigital[]
-  naturezasOperacao NaturezaOperacao[]
-
-  sequenciasFiscais  SequenciaFiscal[]
-  configuracaoFiscal ConfiguracaoFiscal?
-
-  // Transportes
-
-  transportadores Transportador[]
-  veiculos        Veiculo[]
-  motoristas      Motorista[]
+  @@unique([empresaId, cpfCnpj])
+  @@unique([empresaId, rntrc])
+  @@index([empresaId])
+  @@index([empresaId, nome])
+  @@index([empresaId, ativo])
 }

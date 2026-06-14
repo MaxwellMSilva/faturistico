@@ -1,0 +1,33 @@
+model Motorista {
+  id String @id @default(cuid())
+
+  empresaId String
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  transportadorId String?
+
+  transportador Transportador? @relation(fields: [transportadorId], references: [id], onDelete: SetNull)
+
+  nome String
+
+  cpf String
+
+  numeroCnh    String?
+  categoriaCnh String?
+  validadeCnh  DateTime?
+
+  telefone String?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, cpf])
+  @@unique([empresaId, numeroCnh])
+  @@index([empresaId])
+  @@index([empresaId, nome])
+  @@index([empresaId, ativo])
+  @@index([transportadorId])
+}

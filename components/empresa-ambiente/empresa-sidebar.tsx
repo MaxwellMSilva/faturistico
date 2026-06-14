@@ -5,12 +5,14 @@ import Link from "next/link";
 import {
   ArrowLeftRight,
   Building2,
+  CarFront,
   ClipboardList,
   FileText,
   LayoutDashboard,
   Package,
   Settings,
   Truck,
+  UserRound,
   Users,
 } from "lucide-react";
 
@@ -95,6 +97,31 @@ export function EmpresaSidebar({
           nome: "MDF-e",
           href: `${baseUrl}/mdfe`,
           icon: Truck,
+          ativo: false,
+        },
+      ],
+    },
+
+    {
+      titulo: "Transportes",
+
+      itens: [
+        {
+          nome: "Transportadores",
+          href: `${baseUrl}/transportadores`,
+          icon: Building2,
+          ativo: true,
+        },
+        {
+          nome: "Veículos",
+          href: `${baseUrl}/veiculos`,
+          icon: CarFront,
+          ativo: false,
+        },
+        {
+          nome: "Motoristas",
+          href: `${baseUrl}/motoristas`,
+          icon: UserRound,
           ativo: false,
         },
       ],

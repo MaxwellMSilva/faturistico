@@ -1,0 +1,40 @@
+model Veiculo {
+  id String @id @default(cuid())
+
+  empresaId String
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  transportadorId String?
+
+  transportador Transportador? @relation(fields: [transportadorId], references: [id], onDelete: SetNull)
+
+  placa String
+
+  renavam String?
+
+  ufLicenciamento String?
+
+  tipo TipoVeiculo @default(OUTRO)
+
+  marcaModelo String?
+
+  anoFabricacao Int?
+  anoModelo     Int?
+
+  taraKg       Decimal?
+  capacidadeKg Decimal?
+  capacidadeM3 Decimal?
+
+  ativo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, placa])
+  @@unique([empresaId, renavam])
+  @@index([empresaId])
+  @@index([empresaId, ativo])
+  @@index([transportadorId])
+  @@index([empresaId, tipo])
+}
