@@ -18,12 +18,13 @@ import {
 import { addItemNfe } from "@/actions/nfe/add-item-nfe";
 import { deleteItemNfe } from "@/actions/nfe/delete-item-nfe";
 
-import { NfeDadosAdicionaisForm } from "@/components/nfe/nfe-dados-adicionais-form";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { NfeDadosAdicionaisForm } from "@/components/nfe/nfe-dados-adicionais-form";
 import { NfeResumoTributos } from "./nfe-resumo-tributos";
 import { ValidarNfeButton } from "./validar-nfe-button";
+import { NfeItemEditDialog } from "@/components/nfe/nfe-item-edit-dialog";
 
 type Produto = {
   id: string;
@@ -101,6 +102,14 @@ type Nota = {
     cpfCnpj: string;
   };
 
+  valorBaseIbsCbs: number;
+
+  valorIbsUf: number;
+  valorIbsMun: number;
+  valorIbs: number;
+
+  valorCbs: number;
+
   naturezaOperacao: {
     id: string;
     descricao: string;
@@ -146,11 +155,21 @@ function formatarMoeda(
 function converterNumero(
   valor: string
 ) {
-  return Number(
-    valor
-      .replace(/\./g, "")
-      .replace(",", ".")
-  );
+  const texto = valor.trim();
+
+  if (!texto) {
+    return 0;
+  }
+
+  if (texto.includes(",")) {
+    return Number(
+      texto
+        .replace(/\./g, "")
+        .replace(",", ".")
+    );
+  }
+
+  return Number(texto);
 }
 
 export function NfeRascunhoForm({
@@ -652,30 +671,64 @@ export function NfeRascunhoForm({
 
                     <td className="p-4 text-right">
                       {podeEditar && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() =>
-                            handleExcluir(
-                              item.id,
-                              item.descricao
-                            )
-                          }
-                          disabled={
-                            itemExcluindo ===
-                            item.id
-                          }
-                        >
-                          <Trash2
-                            size={16}
+                        <div className="flex justify-end gap-2">
+                          <NfeItemEditDialog
+                            empresaId={empresaId}
+                            notaFiscalId={nota.id}
+                            item={{
+                              id:
+                                item.id,
+
+                              codigoProduto:
+                                item.codigoProduto,
+
+                              descricao:
+                                item.descricao,
+
+                              unidade:
+                                item.unidade,
+
+                              quantidade:
+                                item.quantidade,
+
+                              valorUnitario:
+                                item.valorUnitario,
+
+                              valorDesconto:
+                                item.valorDesconto,
+
+                              valorTotal:
+                                item.valorTotal,
+                            }}
+                            disabled={
+                              itemExcluindo ===
+                              item.id
+                            }
                           />
 
-                          {itemExcluindo ===
-                          item.id
-                            ? "Removendo..."
-                            : "Remover"}
-                        </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() =>
+                              handleExcluir(
+                                item.id,
+                                item.descricao
+                              )
+                            }
+                            disabled={
+                              itemExcluindo ===
+                              item.id
+                            }
+                          >
+                            <Trash2 size={16} />
+
+                            {itemExcluindo ===
+                            item.id
+                              ? "Removendo..."
+                              : "Remover"}
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -716,6 +769,21 @@ export function NfeRascunhoForm({
         }
         valorIpi={
           nota.valorIpi
+        }
+        valorBaseIbsCbs={
+          nota.valorBaseIbsCbs
+        }
+        valorIbsUf={
+          nota.valorIbsUf
+        }
+        valorIbsMun={
+          nota.valorIbsMun
+        }
+        valorIbs={
+          nota.valorIbs
+        }
+        valorCbs={
+          nota.valorCbs
         }
       />
 

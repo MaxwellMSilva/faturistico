@@ -461,16 +461,17 @@ export function ProdutoEditButton({
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-        >
-          <Pencil size={16} />
-
-          Editar
-        </Button>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+          />
+        }
+      >
+        <Pencil size={16} />
+        Editar
       </DialogTrigger>
 
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">

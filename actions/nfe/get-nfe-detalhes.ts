@@ -90,40 +90,114 @@ export async function getNfeDetalhes(
       informacoesComplementares:
         nota.informacoesComplementares,
 
-      cliente: nota.cliente,
+      cliente:
+        nota.cliente,
 
       naturezaOperacao:
         nota.naturezaOperacao,
 
+      /*
+       * Totais comerciais
+       */
+
       valorProdutos:
-        Number(nota.valorProdutos),
+        Number(
+          nota.valorProdutos
+        ),
 
       valorFrete:
-        Number(nota.valorFrete),
+        Number(
+          nota.valorFrete
+        ),
 
       valorDesconto:
-        Number(nota.valorDesconto),
+        Number(
+          nota.valorDesconto
+        ),
 
       valorOutros:
-        Number(nota.valorOutros),
+        Number(
+          nota.valorOutros
+        ),
+
+      /*
+       * ICMS
+       */
 
       valorBaseIcms:
-        Number(nota.valorBaseIcms),
+        Number(
+          nota.valorBaseIcms
+        ),
 
       valorIcms:
-        Number(nota.valorIcms),
+        Number(
+          nota.valorIcms
+        ),
+
+      /*
+       * PIS e COFINS
+       */
 
       valorPis:
-        Number(nota.valorPis),
+        Number(
+          nota.valorPis
+        ),
 
       valorCofins:
-        Number(nota.valorCofins),
+        Number(
+          nota.valorCofins
+        ),
+
+      /*
+       * IPI
+       */
 
       valorIpi:
-        Number(nota.valorIpi),
+        Number(
+          nota.valorIpi
+        ),
+
+      /*
+       * IBS e CBS
+       */
+
+      valorBaseIbsCbs:
+        Number(
+          nota.valorBaseIbsCbs
+        ),
+
+      valorIbsUf:
+        Number(
+          nota.valorIbsUf
+        ),
+
+      valorIbsMun:
+        Number(
+          nota.valorIbsMun
+        ),
+
+      valorIbs:
+        Number(
+          nota.valorIbs
+        ),
+
+      valorCbs:
+        Number(
+          nota.valorCbs
+        ),
+
+      /*
+       * Total da nota
+       */
 
       valorTotal:
-        Number(nota.valorTotal),
+        Number(
+          nota.valorTotal
+        ),
+
+      /*
+       * Itens
+       */
 
       itens: nota.itens.map(
         (item) => ({
@@ -131,6 +205,10 @@ export async function getNfeDetalhes(
 
           produtoId:
             item.produtoId,
+
+          /*
+           * Dados comerciais
+           */
 
           codigoProduto:
             item.codigoProduto,
@@ -178,6 +256,10 @@ export async function getNfeDetalhes(
               item.valorTotal
             ),
 
+          /*
+           * ICMS
+           */
+
           origemMercadoria:
             item.origemMercadoria,
 
@@ -186,6 +268,14 @@ export async function getNfeDetalhes(
 
           csosnIcms:
             item.csosnIcms,
+
+          modalidadeBcIcms:
+            item.modalidadeBcIcms,
+
+          reducaoBcIcms:
+            Number(
+              item.reducaoBcIcms
+            ),
 
           baseCalculoIcms:
             Number(
@@ -201,6 +291,10 @@ export async function getNfeDetalhes(
             Number(
               item.valorIcms
             ),
+
+          /*
+           * PIS
+           */
 
           cstPis:
             item.cstPis,
@@ -220,6 +314,10 @@ export async function getNfeDetalhes(
               item.valorPis
             ),
 
+          /*
+           * COFINS
+           */
+
           cstCofins:
             item.cstCofins,
 
@@ -237,6 +335,10 @@ export async function getNfeDetalhes(
             Number(
               item.valorCofins
             ),
+
+          /*
+           * IPI
+           */
 
           cstIpi:
             item.cstIpi,
@@ -258,6 +360,57 @@ export async function getNfeDetalhes(
           valorIpi:
             Number(
               item.valorIpi
+            ),
+
+          /*
+           * IBS e CBS
+           */
+
+          cstIbsCbs:
+            item.cstIbsCbs,
+
+          classificacaoTributariaIbsCbs:
+            item
+              .classificacaoTributariaIbsCbs,
+
+          baseCalculoIbsCbs:
+            Number(
+              item.baseCalculoIbsCbs
+            ),
+
+          aliquotaIbsUf:
+            Number(
+              item.aliquotaIbsUf
+            ),
+
+          valorIbsUf:
+            Number(
+              item.valorIbsUf
+            ),
+
+          aliquotaIbsMun:
+            Number(
+              item.aliquotaIbsMun
+            ),
+
+          valorIbsMun:
+            Number(
+              item.valorIbsMun
+            ),
+
+          valorIbs:
+            Number(
+              item.valorIbs
+            ),
+
+          aliquotaCbs:
+            Number(
+              item.aliquotaCbs
+            ),
+
+          valorCbs:
+            Number(
+              item.valorCbs
             ),
         })
       ),

@@ -127,9 +127,20 @@ export function NovaNfeDialog({
     }
   }
 
-  const podeCriar =
-    clientes.length > 0 &&
+  const temClientes =
+    clientes.length > 0;
+
+  const temNaturezas =
     naturezas.length > 0;
+
+  const serieValida =
+    Number.isInteger(serieNfe) &&
+    serieNfe > 0;
+
+  const podeCriar =
+    temClientes &&
+    temNaturezas &&
+    serieValida;
 
   return (
     <Dialog
@@ -142,14 +153,16 @@ export function NovaNfeDialog({
         }
       }}
     >
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          disabled={!podeCriar}
-        >
-          <Plus size={17} />
-          Nova NF-e
-        </Button>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            disabled={!podeCriar}
+          />
+        }
+      >
+        <Plus size={17} />
+        Nova NF-e
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-2xl">

@@ -259,15 +259,16 @@ export default async function NfePage({
 
                   <td className="p-4 text-right">
                     <Button
-                      asChild
                       variant="outline"
                       size="sm"
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                        />
+                      }
                     >
-                      <Link
-                        href={`/empresa/${empresaId}/nfe/${nota.id}`}
-                      >
-                        Abrir
-                      </Link>
+                      Abrir
                     </Button>
                   </td>
                 </tr>

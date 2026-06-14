@@ -1,10 +1,14 @@
 "use server";
 
+import {
+  Prisma,
+} from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
 import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
 
-type ValidarNfeResult = {
+export type ValidarNfeResult = {
   success: boolean;
   erros: string[];
   avisos: string[];
@@ -13,13 +17,78 @@ type ValidarNfeResult = {
 function somenteNumeros(
   valor?: string | null
 ) {
-  return valor?.replace(/\D/g, "") ?? "";
+  return (
+    valor?.replace(/\D/g, "") ??
+    ""
+  );
 }
 
 function possuiTexto(
   valor?: string | null
 ) {
-  return Boolean(valor?.trim());
+  return Boolean(
+    valor?.trim()
+  );
+}
+
+function valoresDivergentes(
+  valorAtual: Prisma.Decimal,
+  valorEsperado: Prisma.Decimal
+) {
+  return valorAtual
+    .minus(valorEsperado)
+    .abs()
+    .greaterThan(
+      new Prisma.Decimal("0.01")
+    );
+}
+
+function validarIgualdade({
+  nome,
+  valorAtual,
+  valorEsperado,
+  erros,
+}: {
+  nome: string;
+  valorAtual: Prisma.Decimal;
+  valorEsperado: Prisma.Decimal;
+  erros: string[];
+}) {
+  if (
+    valoresDivergentes(
+      valorAtual,
+      valorEsperado
+    )
+  ) {
+    erros.push(
+      `${nome} divergente. ` +
+        `Calculado: R$ ${valorEsperado.toFixed(
+          2
+        )}; ` +
+        `salvo: R$ ${valorAtual.toFixed(
+          2
+        )}.`
+    );
+  }
+}
+
+function validarPercentual({
+  nome,
+  valor,
+  erros,
+}: {
+  nome: string;
+  valor: Prisma.Decimal;
+  erros: string[];
+}) {
+  if (
+    valor.lessThan(0) ||
+    valor.greaterThan(100)
+  ) {
+    erros.push(
+      `${nome} deve estar entre 0 e 100.`
+    );
+  }
 }
 
 export async function validarNfe(
@@ -44,9 +113,7 @@ export async function validarNfe(
 
       include: {
         empresa: true,
-
         cliente: true,
-
         naturezaOperacao: true,
 
         itens: {
@@ -85,18 +152,30 @@ export async function validarNfe(
   if (!nota) {
     return {
       success: false,
+
       erros: [
         "NF-e não encontrada nesta empresa.",
       ],
+
       avisos: [],
     };
   }
 
-  if (nota.status !== "RASCUNHO") {
+  /*
+   * Situação da NF-e
+   */
+
+  if (
+    nota.status !== "RASCUNHO"
+  ) {
     erros.push(
       "Somente NF-e em rascunho pode ser validada."
     );
   }
+
+  /*
+   * Configuração fiscal
+   */
 
   if (!configuracao) {
     erros.push(
@@ -104,9 +183,14 @@ export async function validarNfe(
     );
   }
 
+  /*
+   * Certificado
+   */
+
   if (!certificado) {
     avisos.push(
-      "Nenhum certificado digital A1 válido está cadastrado. Será possível validar o rascunho, mas não transmitir a NF-e."
+      "Nenhum certificado digital A1 válido está cadastrado. " +
+        "O rascunho poderá ser validado, mas não poderá ser assinado ou transmitido."
     );
   }
 
@@ -114,7 +198,8 @@ export async function validarNfe(
    * Emitente
    */
 
-  const empresa = nota.empresa;
+  const empresa =
+    nota.empresa;
 
   if (
     !possuiTexto(
@@ -132,7 +217,7 @@ export async function validarNfe(
     ).length !== 14
   ) {
     erros.push(
-      "O CNPJ da empresa emitente é inválido."
+      "O CNPJ da empresa emitente deve possuir 14 números."
     );
   }
 
@@ -207,10 +292,13 @@ export async function validarNfe(
   }
 
   if (
-    empresa.uf?.trim().length !== 2
+    empresa.uf
+      ?.trim()
+      .toUpperCase()
+      .length !== 2
   ) {
     erros.push(
-      "Informe a UF da empresa emitente."
+      "Informe uma UF válida para a empresa emitente."
     );
   }
 
@@ -218,11 +306,16 @@ export async function validarNfe(
    * Destinatário
    */
 
-  const cliente = nota.cliente;
+  const cliente =
+    nota.cliente;
 
-  if (!possuiTexto(cliente.nome)) {
+  if (
+    !possuiTexto(
+      cliente.nome
+    )
+  ) {
     erros.push(
-      "Informe o nome ou razão social do cliente."
+      "Informe o nome ou a razão social do cliente."
     );
   }
 
@@ -236,7 +329,7 @@ export async function validarNfe(
     documentoCliente.length !== 14
   ) {
     erros.push(
-      "O CPF ou CNPJ do cliente é inválido."
+      "O CPF ou CNPJ do cliente deve possuir 11 ou 14 números."
     );
   }
 
@@ -301,10 +394,13 @@ export async function validarNfe(
   }
 
   if (
-    cliente.uf?.trim().length !== 2
+    cliente.uf
+      ?.trim()
+      .toUpperCase()
+      .length !== 2
   ) {
     erros.push(
-      "Informe a UF do cliente."
+      "Informe uma UF válida para o cliente."
     );
   }
 
@@ -321,12 +417,22 @@ export async function validarNfe(
     );
   } else {
     if (
+      !possuiTexto(
+        natureza.descricao
+      )
+    ) {
+      erros.push(
+        "Informe a descrição da natureza de operação."
+      );
+    }
+
+    if (
       somenteNumeros(
         natureza.cfop
       ).length !== 4
     ) {
       erros.push(
-        "O CFOP da natureza de operação é inválido."
+        "O CFOP da natureza de operação deve possuir 4 números."
       );
     }
 
@@ -337,7 +443,8 @@ export async function validarNfe(
       )
     ) {
       erros.push(
-        "A natureza indica destinatário contribuinte de ICMS, mas o cliente não possui inscrição estadual."
+        "A natureza de operação indica destinatário contribuinte de ICMS, " +
+          "mas o cliente não possui inscrição estadual."
       );
     }
   }
@@ -346,7 +453,9 @@ export async function validarNfe(
    * Itens
    */
 
-  if (nota.itens.length === 0) {
+  if (
+    nota.itens.length === 0
+  ) {
     erros.push(
       "Adicione pelo menos um item à NF-e."
     );
@@ -364,7 +473,42 @@ export async function validarNfe(
         indice + 1;
 
       const prefixo =
-        `Item ${numeroItem} — ${item.descricao}:`;
+        `Item ${numeroItem} — ` +
+        `${item.descricao}:`;
+
+      /*
+       * Dados comerciais
+       */
+
+      if (
+        !possuiTexto(
+          item.codigoProduto
+        )
+      ) {
+        erros.push(
+          `${prefixo} código do produto não informado.`
+        );
+      }
+
+      if (
+        !possuiTexto(
+          item.descricao
+        )
+      ) {
+        erros.push(
+          `${prefixo} descrição não informada.`
+        );
+      }
+
+      if (
+        !possuiTexto(
+          item.unidade
+        )
+      ) {
+        erros.push(
+          `${prefixo} unidade não informada.`
+        );
+      }
 
       if (
         somenteNumeros(
@@ -372,7 +516,7 @@ export async function validarNfe(
         ).length !== 8
       ) {
         erros.push(
-          `${prefixo} NCM inválido.`
+          `${prefixo} NCM deve possuir 8 números.`
         );
       }
 
@@ -382,7 +526,7 @@ export async function validarNfe(
         ).length !== 4
       ) {
         erros.push(
-          `${prefixo} CFOP inválido.`
+          `${prefixo} CFOP deve possuir 4 números.`
         );
       }
 
@@ -402,11 +546,78 @@ export async function validarNfe(
         )
       ) {
         erros.push(
-          `${prefixo} valor unitário inválido.`
+          `${prefixo} valor unitário não pode ser negativo.`
         );
       }
 
       if (
+        item.valorDesconto.lessThan(
+          0
+        )
+      ) {
+        erros.push(
+          `${prefixo} desconto não pode ser negativo.`
+        );
+      }
+
+      const valorBrutoEsperado =
+        item.quantidade
+          .times(
+            item.valorUnitario
+          )
+          .toDecimalPlaces(2);
+
+      validarIgualdade({
+        nome:
+          `${prefixo} valor bruto`,
+
+        valorAtual:
+          item.valorBruto,
+
+        valorEsperado:
+          valorBrutoEsperado,
+
+        erros,
+      });
+
+      if (
+        item.valorDesconto.greaterThan(
+          item.valorBruto
+        )
+      ) {
+        erros.push(
+          `${prefixo} desconto não pode ser maior que o valor bruto.`
+        );
+      }
+
+      const valorLiquidoEsperado =
+        item.valorBruto
+          .minus(
+            item.valorDesconto
+          )
+          .toDecimalPlaces(2);
+
+      validarIgualdade({
+        nome:
+          `${prefixo} valor total`,
+
+        valorAtual:
+          item.valorTotal,
+
+        valorEsperado:
+          valorLiquidoEsperado,
+
+        erros,
+      });
+
+      /*
+       * ICMS
+       */
+
+      if (
+        !Number.isInteger(
+          item.origemMercadoria
+        ) ||
         item.origemMercadoria < 0 ||
         item.origemMercadoria > 8
       ) {
@@ -418,24 +629,50 @@ export async function validarNfe(
       if (usaCsosn) {
         if (
           !/^\d{3}$/.test(
-            item.csosnIcms ?? ""
+            item.csosnIcms ??
+              ""
           )
         ) {
           erros.push(
-            `${prefixo} informe um CSOSN válido.`
+            `${prefixo} informe um CSOSN válido com 3 números.`
           );
         }
       } else {
         if (
           !/^\d{2}$/.test(
-            item.cstIcms ?? ""
+            item.cstIcms ??
+              ""
           )
         ) {
           erros.push(
-            `${prefixo} informe um CST de ICMS válido.`
+            `${prefixo} informe um CST de ICMS válido com 2 números.`
           );
         }
       }
+
+      validarPercentual({
+        nome:
+          `${prefixo} redução da base do ICMS`,
+
+        valor:
+          item.reducaoBcIcms,
+
+        erros,
+      });
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota do ICMS`,
+
+        valor:
+          item.aliquotaIcms,
+
+        erros,
+      });
+
+      /*
+       * PIS
+       */
 
       if (
         !/^\d{2}$/.test(
@@ -443,9 +680,23 @@ export async function validarNfe(
         )
       ) {
         erros.push(
-          `${prefixo} informe um CST de PIS válido.`
+          `${prefixo} informe um CST de PIS válido com 2 números.`
         );
       }
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota do PIS`,
+
+        valor:
+          item.aliquotaPis,
+
+        erros,
+      });
+
+      /*
+       * COFINS
+       */
 
       if (
         !/^\d{2}$/.test(
@@ -453,24 +704,420 @@ export async function validarNfe(
         )
       ) {
         erros.push(
-          `${prefixo} informe um CST de COFINS válido.`
+          `${prefixo} informe um CST de COFINS válido com 2 números.`
         );
       }
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota da COFINS`,
+
+        valor:
+          item.aliquotaCofins,
+
+        erros,
+      });
+
+      /*
+       * IPI
+       */
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota do IPI`,
+
+        valor:
+          item.aliquotaIpi,
+
+        erros,
+      });
 
       if (
         item.aliquotaIpi.greaterThan(
           0
-        ) &&
-        !/^\d{2}$/.test(
-          item.cstIpi ?? ""
+        )
+      ) {
+        if (
+          !/^\d{2}$/.test(
+            item.cstIpi ?? ""
+          )
+        ) {
+          erros.push(
+            `${prefixo} informe um CST de IPI válido com 2 números.`
+          );
+        }
+
+        if (
+          !/^\d{3}$/.test(
+            item
+              .codigoEnquadramentoIpi ??
+              ""
+          )
+        ) {
+          erros.push(
+            `${prefixo} informe um código de enquadramento do IPI com 3 números.`
+          );
+        }
+      }
+
+      /*
+       * IBS e CBS
+       */
+
+      if (
+        !/^\d{3}$/.test(
+          item.cstIbsCbs ??
+            ""
         )
       ) {
         erros.push(
-          `${prefixo} informe um CST de IPI válido.`
+          `${prefixo} informe um CST IBS/CBS válido com 3 números.`
         );
       }
+
+      if (
+        !/^\d{6}$/.test(
+          item
+            .classificacaoTributariaIbsCbs ??
+            ""
+        )
+      ) {
+        erros.push(
+          `${prefixo} informe um cClassTrib válido com 6 números.`
+        );
+      }
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota do IBS estadual`,
+
+        valor:
+          item.aliquotaIbsUf,
+
+        erros,
+      });
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota do IBS municipal`,
+
+        valor:
+          item.aliquotaIbsMun,
+
+        erros,
+      });
+
+      validarPercentual({
+        nome:
+          `${prefixo} alíquota da CBS`,
+
+        valor:
+          item.aliquotaCbs,
+
+        erros,
+      });
+
+      const valorIbsEsperado =
+        item.valorIbsUf
+          .plus(
+            item.valorIbsMun
+          )
+          .toDecimalPlaces(2);
+
+      validarIgualdade({
+        nome:
+          `${prefixo} total do IBS`,
+
+        valorAtual:
+          item.valorIbs,
+
+        valorEsperado:
+          valorIbsEsperado,
+
+        erros,
+      });
     }
   );
+
+  /*
+   * Totais da NF-e
+   */
+
+  const zero =
+    new Prisma.Decimal(0);
+
+  const totaisItens =
+    nota.itens.reduce(
+      (total, item) => ({
+        valorProdutos:
+          total.valorProdutos.plus(
+            item.valorBruto
+          ),
+
+        valorDesconto:
+          total.valorDesconto.plus(
+            item.valorDesconto
+          ),
+
+        valorLiquido:
+          total.valorLiquido.plus(
+            item.valorTotal
+          ),
+
+        valorBaseIcms:
+          total.valorBaseIcms.plus(
+            item.baseCalculoIcms
+          ),
+
+        valorIcms:
+          total.valorIcms.plus(
+            item.valorIcms
+          ),
+
+        valorPis:
+          total.valorPis.plus(
+            item.valorPis
+          ),
+
+        valorCofins:
+          total.valorCofins.plus(
+            item.valorCofins
+          ),
+
+        valorIpi:
+          total.valorIpi.plus(
+            item.valorIpi
+          ),
+
+        valorBaseIbsCbs:
+          total.valorBaseIbsCbs.plus(
+            item.baseCalculoIbsCbs
+          ),
+
+        valorIbsUf:
+          total.valorIbsUf.plus(
+            item.valorIbsUf
+          ),
+
+        valorIbsMun:
+          total.valorIbsMun.plus(
+            item.valorIbsMun
+          ),
+
+        valorIbs:
+          total.valorIbs.plus(
+            item.valorIbs
+          ),
+
+        valorCbs:
+          total.valorCbs.plus(
+            item.valorCbs
+          ),
+      }),
+
+      {
+        valorProdutos: zero,
+        valorDesconto: zero,
+        valorLiquido: zero,
+
+        valorBaseIcms: zero,
+        valorIcms: zero,
+
+        valorPis: zero,
+        valorCofins: zero,
+        valorIpi: zero,
+
+        valorBaseIbsCbs: zero,
+
+        valorIbsUf: zero,
+        valorIbsMun: zero,
+        valorIbs: zero,
+
+        valorCbs: zero,
+      }
+    );
+
+  validarIgualdade({
+    nome:
+      "Total dos produtos",
+
+    valorAtual:
+      nota.valorProdutos,
+
+    valorEsperado:
+      totaisItens.valorProdutos,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total dos descontos",
+
+    valorAtual:
+      nota.valorDesconto,
+
+    valorEsperado:
+      totaisItens.valorDesconto,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Base total do ICMS",
+
+    valorAtual:
+      nota.valorBaseIcms,
+
+    valorEsperado:
+      totaisItens.valorBaseIcms,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total do ICMS",
+
+    valorAtual:
+      nota.valorIcms,
+
+    valorEsperado:
+      totaisItens.valorIcms,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total do PIS",
+
+    valorAtual:
+      nota.valorPis,
+
+    valorEsperado:
+      totaisItens.valorPis,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total da COFINS",
+
+    valorAtual:
+      nota.valorCofins,
+
+    valorEsperado:
+      totaisItens.valorCofins,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total do IPI",
+
+    valorAtual:
+      nota.valorIpi,
+
+    valorEsperado:
+      totaisItens.valorIpi,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Base total do IBS/CBS",
+
+    valorAtual:
+      nota.valorBaseIbsCbs,
+
+    valorEsperado:
+      totaisItens.valorBaseIbsCbs,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total do IBS estadual",
+
+    valorAtual:
+      nota.valorIbsUf,
+
+    valorEsperado:
+      totaisItens.valorIbsUf,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total do IBS municipal",
+
+    valorAtual:
+      nota.valorIbsMun,
+
+    valorEsperado:
+      totaisItens.valorIbsMun,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total do IBS",
+
+    valorAtual:
+      nota.valorIbs,
+
+    valorEsperado:
+      totaisItens.valorIbs,
+
+    erros,
+  });
+
+  validarIgualdade({
+    nome:
+      "Total da CBS",
+
+    valorAtual:
+      nota.valorCbs,
+
+    valorEsperado:
+      totaisItens.valorCbs,
+
+    erros,
+  });
+
+  const valorTotalEsperado =
+    totaisItens.valorLiquido
+      .plus(
+        nota.valorFrete
+      )
+      .plus(
+        nota.valorOutros
+      )
+      .plus(
+        totaisItens.valorIpi
+      )
+      .toDecimalPlaces(2);
+
+  validarIgualdade({
+    nome:
+      "Valor total da NF-e",
+
+    valorAtual:
+      nota.valorTotal,
+
+    valorEsperado:
+      valorTotalEsperado,
+
+    erros,
+  });
 
   if (
     nota.valorTotal.lessThanOrEqualTo(
@@ -482,8 +1129,23 @@ export async function validarNfe(
     );
   }
 
+  /*
+   * Aviso sobre tabela IBS/CBS
+   */
+
+  if (
+    nota.itens.length > 0
+  ) {
+    avisos.push(
+      "O formato dos campos CST IBS/CBS e cClassTrib foi validado. " +
+        "A compatibilidade do par ainda será conferida pela tabela oficial."
+    );
+  }
+
   return {
-    success: erros.length === 0,
+    success:
+      erros.length === 0,
+
     erros,
     avisos,
   };
