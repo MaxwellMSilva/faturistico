@@ -122,7 +122,7 @@ export function EmpresaSidebar({
           nome: "Motoristas",
           href: `${baseUrl}/motoristas`,
           icon: UserRound,
-          ativo: false,
+          ativo: true,
         },
       ],
     },
