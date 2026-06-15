@@ -6,13 +6,55 @@ import { prisma } from "@/lib/prisma";
 export async function validarAcessoEmpresa(
   empresaId: string
 ) {
-  const session = await getServerSession(
-    authOptions
-  );
+  const session =
+    await getServerSession(
+      authOptions
+    );
 
   if (!session?.user?.id) {
     throw new Error(
-      "Usuário não autenticado."
+      "USUARIO_NAO_AUTENTICADO"
+    );
+  }
+
+  const usuario =
+    await prisma.usuario.findUnique({
+      where: {
+        id: session.user.id,
+      },
+
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        role: true,
+        ativo: true,
+      },
+    });
+
+  if (!usuario || !usuario.ativo) {
+    throw new Error(
+      "USUARIO_INVALIDO_OU_INATIVO"
+    );
+  }
+
+  const empresa =
+    await prisma.empresa.findUnique({
+      where: {
+        id: empresaId,
+      },
+
+      select: {
+        id: true,
+        razaoSocial: true,
+        nomeFantasia: true,
+        ativo: true,
+      },
+    });
+
+  if (!empresa) {
+    throw new Error(
+      "EMPRESA_NAO_ENCONTRADA"
     );
   }
 
@@ -20,31 +62,56 @@ export async function validarAcessoEmpresa(
     await prisma.usuarioEmpresa.findUnique({
       where: {
         usuarioId_empresaId: {
-          usuarioId: session.user.id,
+          usuarioId: usuario.id,
           empresaId,
         },
       },
 
-      include: {
-        empresa: true,
+      select: {
+        id: true,
+        permissao: true,
+        ativo: true,
       },
     });
 
-  if (!acesso || !acesso.ativo) {
+  /*
+   * O OWNER global pode visualizar
+   * inclusive empresas inativas.
+   */
+
+  if (usuario.role === "OWNER") {
+    return {
+      usuario,
+      empresa,
+      acesso,
+
+      somenteLeitura:
+        !empresa.ativo,
+    };
+  }
+
+  /*
+   * Outros usuários não entram em
+   * empresas inativas.
+   */
+
+  if (!empresa.ativo) {
     throw new Error(
-      "Você não possui acesso a esta empresa."
+      "EMPRESA_INATIVA"
     );
   }
 
-  if (!acesso.empresa.ativo) {
+  if (!acesso || !acesso.ativo) {
     throw new Error(
-      "Esta empresa está inativa."
+      "ACESSO_EMPRESA_NAO_AUTORIZADO"
     );
   }
 
   return {
-    usuarioId: session.user.id,
+    usuario,
+    empresa,
     acesso,
-    empresa: acesso.empresa,
+
+    somenteLeitura: false,
   };
 }

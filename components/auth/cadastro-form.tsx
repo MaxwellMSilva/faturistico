@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
+  AlertTriangle,
   Eye,
   EyeOff,
   FileText,
@@ -21,6 +22,14 @@ import { register } from "@/actions/auth/register";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+function emailValido(
+  email: string
+) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    email
+  );
+}
 
 export function CadastroForm() {
   const router = useRouter();
@@ -49,8 +58,10 @@ export function CadastroForm() {
     setMostrarConfirmacao,
   ] = useState(false);
 
-  const [carregando, setCarregando] =
-    useState(false);
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
 
   const [erro, setErro] =
     useState("");
@@ -87,6 +98,18 @@ export function CadastroForm() {
     if (!emailNormalizado) {
       setErro(
         "Informe seu e-mail."
+      );
+
+      return;
+    }
+
+    if (
+      !emailValido(
+        emailNormalizado
+      )
+    ) {
+      setErro(
+        "Informe um e-mail válido."
       );
 
       return;
@@ -149,7 +172,7 @@ export function CadastroForm() {
       }
 
       router.replace(
-        "/entrar"
+        "/entrar?cadastro=sucesso"
       );
 
       router.refresh();
@@ -184,8 +207,8 @@ export function CadastroForm() {
               </h1>
 
               <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                Crie sua conta para começar
-                a gerenciar suas empresas.
+                Crie a conta inicial do
+                proprietário da plataforma.
               </p>
             </div>
 
@@ -194,6 +217,7 @@ export function CadastroForm() {
             <form
               onSubmit={handleSubmit}
               className="space-y-5"
+              noValidate
             >
               <div className="space-y-2">
                 <label
@@ -294,11 +318,14 @@ export function CadastroForm() {
                           !valorAtual
                       )
                     }
-                    className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={
                       mostrarSenha
                         ? "Ocultar senha"
                         : "Mostrar senha"
+                    }
+                    aria-pressed={
+                      mostrarSenha
                     }
                     disabled={carregando}
                   >
@@ -357,11 +384,14 @@ export function CadastroForm() {
                           !valorAtual
                       )
                     }
-                    className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={
                       mostrarConfirmacao
                         ? "Ocultar confirmação da senha"
                         : "Mostrar confirmação da senha"
+                    }
+                    aria-pressed={
+                      mostrarConfirmacao
                     }
                     disabled={carregando}
                   >
@@ -377,9 +407,15 @@ export function CadastroForm() {
               {erro && (
                 <div
                   role="alert"
-                  className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                  aria-live="polite"
+                  className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
                 >
-                  {erro}
+                  <AlertTriangle
+                    size={18}
+                    className="mt-0.5 shrink-0"
+                  />
+
+                  <p>{erro}</p>
                 </div>
               )}
 
@@ -425,9 +461,9 @@ export function CadastroForm() {
         </div>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          Ao criar sua conta, você poderá
-          cadastrar e gerenciar suas
-          empresas.
+          Após a criação do proprietário,
+          os demais usuários deverão ser
+          cadastrados pelo painel.
         </p>
       </div>
     </main>

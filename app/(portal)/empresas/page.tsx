@@ -5,6 +5,7 @@ import {
   Building2,
   CircleCheck,
   CircleX,
+  Eye,
   LogIn,
   Pencil,
   Plus,
@@ -18,6 +19,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { EmpresaStatusButton } from "@/components/empresa/empresa-status-button";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -28,6 +31,22 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
   }>;
+};
+
+type EmpresaLista = {
+  id: string;
+
+  razaoSocial: string;
+  nomeFantasia: string | null;
+
+  cnpj: string;
+
+  municipio: string | null;
+  uf: string | null;
+
+  ativo: boolean;
+
+  permissao: string;
 };
 
 const permissoes: Record<
@@ -72,38 +91,132 @@ export default async function EmpresasPage({
     redirect("/entrar");
   }
 
-  const acessosRaw =
-    await prisma.usuarioEmpresa.findMany({
+  const usuarioAtual =
+    await prisma.usuario.findUnique({
       where: {
-        usuarioId:
-          session.user.id,
+        id: session.user.id,
+      },
 
+      select: {
+        id: true,
+        role: true,
         ativo: true,
       },
+    });
 
-      include: {
-        empresa: true,
-      },
+  if (
+    !usuarioAtual ||
+    !usuarioAtual.ativo
+  ) {
+    redirect("/entrar");
+  }
 
-      orderBy: {
-        empresa: {
+  const owner =
+    usuarioAtual.role === "OWNER";
+
+  let empresasRaw: EmpresaLista[];
+
+  /*
+   * O OWNER global visualiza todas as
+   * empresas, inclusive as inativas.
+   */
+
+  if (owner) {
+    const empresas =
+      await prisma.empresa.findMany({
+        select: {
+          id: true,
+
+          razaoSocial: true,
+          nomeFantasia: true,
+
+          cnpj: true,
+
+          municipio: true,
+          uf: true,
+
+          ativo: true,
+        },
+
+        orderBy: {
           razaoSocial: "asc",
         },
-      },
-    });
+      });
+
+    empresasRaw =
+      empresas.map(
+        (empresa) => ({
+          ...empresa,
+          permissao: "OWNER",
+        })
+      );
+  } else {
+    /*
+     * ADMIN e usuários comuns visualizam
+     * somente empresas ativas com vínculo
+     * também ativo.
+     */
+
+    const acessos =
+      await prisma.usuarioEmpresa.findMany({
+        where: {
+          usuarioId:
+            usuarioAtual.id,
+
+          ativo: true,
+
+          empresa: {
+            ativo: true,
+          },
+        },
+
+        select: {
+          permissao: true,
+
+          empresa: {
+            select: {
+              id: true,
+
+              razaoSocial: true,
+              nomeFantasia: true,
+
+              cnpj: true,
+
+              municipio: true,
+              uf: true,
+
+              ativo: true,
+            },
+          },
+        },
+
+        orderBy: {
+          empresa: {
+            razaoSocial: "asc",
+          },
+        },
+      });
+
+    empresasRaw =
+      acessos.map(
+        (acesso) => ({
+          ...acesso.empresa,
+
+          permissao:
+            acesso.permissao,
+        })
+      );
+  }
 
   const termo =
     busca
       .trim()
       .toLowerCase();
 
-  const acessos = termo
-    ? acessosRaw.filter(
-        (acesso) => {
-          const empresa =
-            acesso.empresa;
-
-          return [
+  const empresas = termo
+    ? empresasRaw.filter(
+        (empresa) =>
+          [
             empresa.razaoSocial,
             empresa.nomeFantasia,
             empresa.cnpj,
@@ -113,20 +226,47 @@ export default async function EmpresasPage({
             valor
               ?.toLowerCase()
               .includes(termo)
-          );
-        }
+          )
       )
-    : acessosRaw;
+    : empresasRaw;
 
   const totalAtivas =
-    acessosRaw.filter(
-      (acesso) =>
-        acesso.empresa.ativo
+    empresasRaw.filter(
+      (empresa) =>
+        empresa.ativo
     ).length;
 
   const totalInativas =
-    acessosRaw.length -
+    empresasRaw.length -
     totalAtivas;
+
+  function podeEditarEmpresa(
+    empresa: EmpresaLista
+  ) {
+    if (!empresa.ativo) {
+      return false;
+    }
+
+    if (owner) {
+      return true;
+    }
+
+    return (
+      usuarioAtual.role ===
+        "ADMIN" &&
+      empresa.permissao ===
+        "ADMIN"
+    );
+  }
+
+  function podeEntrarEmpresa(
+    empresa: EmpresaLista
+  ) {
+    return (
+      empresa.ativo ||
+      owner
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8">
@@ -154,83 +294,51 @@ export default async function EmpresasPage({
               </h1>
 
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Cadastre empresas e escolha
-                o ambiente em que deseja
-                trabalhar.
+                {owner
+                  ? "Cadastre, ative, inative e acesse as empresas da plataforma."
+                  : "Escolha uma empresa ativa vinculada à sua conta."}
               </p>
             </div>
           </div>
         </div>
 
-        <Button
-          nativeButton={false}
-          render={
-            <Link href="/empresas/nova" />
-          }
-          className="h-11"
-        >
-          <Plus size={17} />
+        {owner && (
+          <Button
+            nativeButton={false}
+            render={
+              <Link href="/empresas/nova" />
+            }
+            className="h-11"
+          >
+            <Plus size={17} />
 
-          Nova empresa
-        </Button>
+            Nova empresa
+          </Button>
+        )}
       </div>
 
       {/* Indicadores */}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Empresas disponíveis
-              </p>
+        <Indicador
+          titulo="Empresas disponíveis"
+          valor={empresasRaw.length}
+          icon={Building2}
+        />
 
-              <p className="mt-1 text-3xl font-bold">
-                {acessosRaw.length}
-              </p>
-            </div>
+        <Indicador
+          titulo="Empresas ativas"
+          valor={totalAtivas}
+          icon={CircleCheck}
+          variante="sucesso"
+        />
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Building2 size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Empresas ativas
-              </p>
-
-              <p className="mt-1 text-3xl font-bold">
-                {totalAtivas}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-              <CircleCheck size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm sm:col-span-2 lg:col-span-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Empresas inativas
-              </p>
-
-              <p className="mt-1 text-3xl font-bold">
-                {totalInativas}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
-              <CircleX size={21} />
-            </div>
-          </div>
-        </div>
+        <Indicador
+          titulo="Empresas inativas"
+          valor={totalInativas}
+          icon={CircleX}
+          variante="erro"
+        />
       </div>
 
       {/* Busca */}
@@ -277,30 +385,42 @@ export default async function EmpresasPage({
             </Button>
           )}
         </form>
+
+        {busca && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {empresas.length === 1
+              ? "1 empresa encontrada."
+              : `${empresas.length} empresas encontradas.`}
+          </p>
+        )}
       </section>
 
       {/* Estado vazio */}
 
-      {acessos.length === 0 ? (
+      {empresas.length === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Building2 size={30} />
             </div>
 
-            <h2 className="mt-5 text-xl font-semibold tracking-tight">
+            <h2 className="mt-5 text-xl font-semibold">
               {busca
                 ? "Nenhuma empresa encontrada"
-                : "Nenhuma empresa cadastrada"}
+                : owner
+                  ? "Nenhuma empresa cadastrada"
+                  : "Nenhuma empresa disponível"}
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
               {busca
                 ? "Não encontramos empresas correspondentes aos termos informados."
-                : "Cadastre sua primeira empresa para começar a utilizar o sistema."}
+                : owner
+                  ? "Cadastre sua primeira empresa para começar a utilizar o sistema."
+                  : "Sua conta não possui acesso a nenhuma empresa ativa."}
             </p>
 
-            {busca ? (
+            {busca && (
               <Button
                 nativeButton={false}
                 render={
@@ -311,7 +431,9 @@ export default async function EmpresasPage({
               >
                 Limpar busca
               </Button>
-            ) : (
+            )}
+
+            {!busca && owner && (
               <Button
                 nativeButton={false}
                 render={
@@ -328,27 +450,24 @@ export default async function EmpresasPage({
         </section>
       ) : (
         <>
-          {/* Cards para celular */}
+          {/* Cards mobile */}
 
           <div className="grid gap-4 md:hidden">
-            {acessos.map(
-              (acesso) => {
-                const empresa =
-                  acesso.empresa;
-
-                const permissao =
-                  permissoes[
-                    acesso.permissao
-                  ] ??
-                  acesso.permissao;
-
+            {empresas.map(
+              (empresa) => {
                 const podeEditar =
-                  acesso.permissao ===
-                  "OWNER";
+                  podeEditarEmpresa(
+                    empresa
+                  );
+
+                const podeEntrar =
+                  podeEntrarEmpresa(
+                    empresa
+                  );
 
                 return (
                   <article
-                    key={acesso.id}
+                    key={empresa.id}
                     className="rounded-2xl border bg-card p-5 shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-4">
@@ -373,63 +492,44 @@ export default async function EmpresasPage({
                         </div>
                       </div>
 
-                      <span
-                        className={[
-                          "inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+                      <StatusEmpresa
+                        ativo={
                           empresa.ativo
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                            : "bg-destructive/10 text-destructive",
-                        ].join(" ")}
-                      >
-                        {empresa.ativo
-                          ? "Ativa"
-                          : "Inativa"}
-                      </span>
+                        }
+                      />
                     </div>
 
                     <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          CNPJ
-                        </dt>
+                      <LinhaInformacao
+                        titulo="CNPJ"
+                        valor={formatarCnpj(
+                          empresa.cnpj
+                        )}
+                      />
 
-                        <dd className="text-right font-medium">
-                          {formatarCnpj(
-                            empresa.cnpj
-                          )}
-                        </dd>
-                      </div>
-
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          Município
-                        </dt>
-
-                        <dd className="text-right font-medium">
-                          {empresa.municipio
+                      <LinhaInformacao
+                        titulo="Município"
+                        valor={
+                          empresa.municipio
                             ? `${empresa.municipio}${
                                 empresa.uf
                                   ? ` - ${empresa.uf}`
                                   : ""
                               }`
-                            : "Não informado"}
-                        </dd>
-                      </div>
+                            : "Não informado"
+                        }
+                      />
 
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          Permissão
-                        </dt>
-
-                        <dd className="inline-flex items-center gap-1.5 text-right font-medium">
-                          <ShieldCheck
-                            size={15}
-                            className="text-primary"
-                          />
-
-                          {permissao}
-                        </dd>
-                      </div>
+                      <LinhaInformacao
+                        titulo="Permissão"
+                        valor={
+                          permissoes[
+                            empresa
+                              .permissao
+                          ] ??
+                          empresa.permissao
+                        }
+                      />
                     </dl>
 
                     <div className="mt-5 grid gap-2">
@@ -450,7 +550,22 @@ export default async function EmpresasPage({
                         </Button>
                       )}
 
-                      {empresa.ativo ? (
+                      {owner && (
+                        <EmpresaStatusButton
+                          empresaId={
+                            empresa.id
+                          }
+                          empresaNome={
+                            empresa.nomeFantasia ??
+                            empresa.razaoSocial
+                          }
+                          ativo={
+                            empresa.ativo
+                          }
+                        />
+                      )}
+
+                      {podeEntrar ? (
                         <Button
                           nativeButton={false}
                           render={
@@ -460,9 +575,19 @@ export default async function EmpresasPage({
                           }
                           className="h-11 w-full"
                         >
-                          <LogIn size={17} />
+                          {empresa.ativo ? (
+                            <LogIn
+                              size={17}
+                            />
+                          ) : (
+                            <Eye
+                              size={17}
+                            />
+                          )}
 
-                          Entrar na empresa
+                          {empresa.ativo
+                            ? "Entrar na empresa"
+                            : "Visualizar empresa"}
                         </Button>
                       ) : (
                         <Button
@@ -480,11 +605,11 @@ export default async function EmpresasPage({
             )}
           </div>
 
-          {/* Tabela para computador */}
+          {/* Tabela desktop */}
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px]">
+              <table className="w-full min-w-[1150px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -514,26 +639,21 @@ export default async function EmpresasPage({
                 </thead>
 
                 <tbody>
-                  {acessos.map(
-                    (acesso) => {
-                      const empresa =
-                        acesso.empresa;
-
-                      const permissao =
-                        permissoes[
-                          acesso.permissao
-                        ] ??
-                        acesso.permissao;
-
+                  {empresas.map(
+                    (empresa) => {
                       const podeEditar =
-                        acesso.permissao ===
-                        "OWNER";
+                        podeEditarEmpresa(
+                          empresa
+                        );
+
+                      const podeEntrar =
+                        podeEntrarEmpresa(
+                          empresa
+                        );
 
                       return (
                         <tr
-                          key={
-                            acesso.id
-                          }
+                          key={empresa.id}
                           className="border-t transition-colors hover:bg-muted/20"
                         >
                           <td className="px-5 py-4">
@@ -582,25 +702,20 @@ export default async function EmpresasPage({
                                 className="text-primary"
                               />
 
-                              {permissao}
+                              {permissoes[
+                                empresa
+                                  .permissao
+                              ] ??
+                                empresa.permissao}
                             </span>
                           </td>
 
                           <td className="px-5 py-4">
-                            <span
-                              className={[
-                                "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+                            <StatusEmpresa
+                              ativo={
                                 empresa.ativo
-                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                                  : "bg-destructive/10 text-destructive",
-                              ].join(
-                                " "
-                              )}
-                            >
-                              {empresa.ativo
-                                ? "Ativa"
-                                : "Inativa"}
-                            </span>
+                              }
+                            />
                           </td>
 
                           <td className="px-5 py-4">
@@ -626,7 +741,22 @@ export default async function EmpresasPage({
                                 </Button>
                               )}
 
-                              {empresa.ativo ? (
+                              {owner && (
+                                <EmpresaStatusButton
+                                  empresaId={
+                                    empresa.id
+                                  }
+                                  empresaNome={
+                                    empresa.nomeFantasia ??
+                                    empresa.razaoSocial
+                                  }
+                                  ativo={
+                                    empresa.ativo
+                                  }
+                                />
+                              )}
+
+                              {podeEntrar ? (
                                 <Button
                                   nativeButton={
                                     false
@@ -638,11 +768,19 @@ export default async function EmpresasPage({
                                   }
                                   size="sm"
                                 >
-                                  <LogIn
-                                    size={16}
-                                  />
+                                  {empresa.ativo ? (
+                                    <LogIn
+                                      size={16}
+                                    />
+                                  ) : (
+                                    <Eye
+                                      size={16}
+                                    />
+                                  )}
 
-                                  Entrar
+                                  {empresa.ativo
+                                    ? "Entrar"
+                                    : "Visualizar"}
                                 </Button>
                               ) : (
                                 <Button
@@ -665,6 +803,95 @@ export default async function EmpresasPage({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+type IndicadorProps = {
+  titulo: string;
+  valor: number;
+
+  icon: typeof Building2;
+
+  variante?:
+    | "padrao"
+    | "sucesso"
+    | "erro";
+};
+
+function Indicador({
+  titulo,
+  valor,
+  icon: Icone,
+  variante = "padrao",
+}: IndicadorProps) {
+  const classeIcone =
+    variante === "sucesso"
+      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : variante === "erro"
+        ? "bg-destructive/10 text-destructive"
+        : "bg-primary/10 text-primary";
+
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {titulo}
+          </p>
+
+          <p className="mt-1 text-3xl font-bold">
+            {valor}
+          </p>
+        </div>
+
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-xl ${classeIcone}`}
+        >
+          <Icone size={21} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusEmpresa({
+  ativo,
+}: {
+  ativo: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+        ativo
+          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "bg-destructive/10 text-destructive",
+      ].join(" ")}
+    >
+      {ativo
+        ? "Ativa"
+        : "Inativa"}
+    </span>
+  );
+}
+
+function LinhaInformacao({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">
+        {titulo}
+      </dt>
+
+      <dd className="text-right font-medium">
+        {valor}
+      </dd>
     </div>
   );
 }

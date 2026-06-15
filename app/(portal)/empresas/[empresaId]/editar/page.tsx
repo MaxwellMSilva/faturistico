@@ -3,10 +3,9 @@ import {
   redirect,
 } from "next/navigation";
 
-import { getServerSession } from "next-auth";
-
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+import { validarEdicaoEmpresa } from "@/lib/empresa/validar-edicao-empresa";
 
 import { EditarEmpresaForm } from "@/components/empresa/editar-empresa-form";
 
@@ -25,76 +24,68 @@ export default async function EditarEmpresaPage({
   const { empresaId } =
     await params;
 
-  const session =
-    await getServerSession(
-      authOptions
+  try {
+    await validarEdicaoEmpresa(
+      empresaId
     );
+  } catch (error) {
+    const mensagem =
+      error instanceof Error
+        ? error.message
+        : "";
 
-  if (!session?.user?.id) {
-    redirect("/entrar");
-  }
+    if (
+      mensagem ===
+      "Usuário não autenticado."
+    ) {
+      redirect("/entrar");
+    }
 
-  const acesso =
-    await prisma.usuarioEmpresa.findFirst({
-      where: {
-        usuarioId:
-          session.user.id,
-
-        empresaId,
-
-        ativo: true,
-
-        permissao: {
-          in: [
-            "OWNER",
-            "ADMIN",
-          ],
-        },
-      },
-
-      select: {
-        empresa: {
-          select: {
-            id: true,
-
-            razaoSocial: true,
-            nomeFantasia: true,
-
-            cnpj: true,
-
-            inscricaoEstadual:
-              true,
-
-            inscricaoMunicipal:
-              true,
-
-            email: true,
-            telefone: true,
-
-            cep: true,
-            logradouro: true,
-            numero: true,
-            complemento: true,
-
-            bairro: true,
-
-            municipio: true,
-
-            codigoMunicipio:
-              true,
-
-            uf: true,
-          },
-        },
-      },
-    });
-
-  if (!acesso) {
     notFound();
   }
 
   const empresa =
-    acesso.empresa;
+    await prisma.empresa.findUnique({
+      where: {
+        id: empresaId,
+      },
+
+      select: {
+        id: true,
+
+        razaoSocial: true,
+        nomeFantasia: true,
+
+        cnpj: true,
+
+        inscricaoEstadual:
+          true,
+
+        inscricaoMunicipal:
+          true,
+
+        email: true,
+        telefone: true,
+
+        cep: true,
+        logradouro: true,
+        numero: true,
+        complemento: true,
+
+        bairro: true,
+
+        municipio: true,
+
+        codigoMunicipio:
+          true,
+
+        uf: true,
+      },
+    });
+
+  if (!empresa) {
+    notFound();
+  }
 
   return (
     <EditarEmpresaForm
@@ -121,32 +112,27 @@ export default async function EditarEmpresaPage({
           "",
 
         email:
-          empresa.email ??
-          "",
+          empresa.email ?? "",
 
         telefone:
-          empresa.telefone ??
-          "",
+          empresa.telefone ?? "",
 
         cep:
-          empresa.cep ??
-          "",
+          empresa.cep ?? "",
 
         logradouro:
           empresa.logradouro ??
           "",
 
         numero:
-          empresa.numero ??
-          "",
+          empresa.numero ?? "",
 
         complemento:
           empresa.complemento ??
           "",
 
         bairro:
-          empresa.bairro ??
-          "",
+          empresa.bairro ?? "",
 
         municipio:
           empresa.municipio ??
@@ -157,8 +143,7 @@ export default async function EditarEmpresaPage({
           "",
 
         uf:
-          empresa.uf ??
-          "",
+          empresa.uf ?? "",
       }}
     />
   );

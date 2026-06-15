@@ -10,17 +10,32 @@ import {
   Building2,
   FileText,
   LoaderCircle,
+  LockKeyhole,
   LogOut,
   Users,
 } from "lucide-react";
 
 import { signOut } from "next-auth/react";
 
+type RoleUsuario =
+  | "OWNER"
+  | "ADMIN"
+  | "USUARIO";
+
 type Props = {
   nome: string;
+  role: RoleUsuario;
 };
 
-const links = [
+type LinkPortal = {
+  href: string;
+  titulo: string;
+  icone: typeof Building2;
+
+  restritoUsuarios?: boolean;
+};
+
+const links: LinkPortal[] = [
   {
     href: "/empresas",
     titulo: "Empresas",
@@ -30,13 +45,17 @@ const links = [
     href: "/usuarios",
     titulo: "Usuários",
     icone: Users,
+
+    restritoUsuarios: true,
   },
 ];
 
 export function PortalHeader({
   nome,
+  role,
 }: Props) {
-  const pathname = usePathname();
+  const pathname =
+    usePathname();
 
   const [saindo, setSaindo] =
     useState(false);
@@ -49,6 +68,10 @@ export function PortalHeader({
       .charAt(0)
       .toUpperCase();
 
+  const podeGerenciarUsuarios =
+    role === "OWNER" ||
+    role === "ADMIN";
+
   function rotaAtiva(
     href: string
   ) {
@@ -57,6 +80,15 @@ export function PortalHeader({
       pathname.startsWith(
         `${href}/`
       )
+    );
+  }
+
+  function linkBloqueado(
+    link: LinkPortal
+  ) {
+    return (
+      link.restritoUsuarios &&
+      !podeGerenciarUsuarios
     );
   }
 
@@ -102,6 +134,8 @@ export function PortalHeader({
             </div>
           </Link>
 
+          {/* Navegação desktop */}
+
           <nav
             aria-label="Navegação principal"
             className="hidden items-center gap-1 md:flex"
@@ -110,10 +144,37 @@ export function PortalHeader({
               const Icone =
                 link.icone;
 
+              const bloqueado =
+                linkBloqueado(
+                  link
+                );
+
               const ativa =
+                !bloqueado &&
                 rotaAtiva(
                   link.href
                 );
+
+              if (bloqueado) {
+                return (
+                  <button
+                    key={link.href}
+                    type="button"
+                    disabled
+                    title="Você não possui permissão para gerenciar usuários"
+                    className="relative flex h-10 cursor-not-allowed items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground opacity-45"
+                  >
+                    <Icone size={17} />
+
+                    {link.titulo}
+
+                    <LockKeyhole
+                      size={13}
+                      className="ml-0.5"
+                    />
+                  </button>
+                );
+              }
 
               return (
                 <Link
@@ -154,7 +215,11 @@ export function PortalHeader({
             </p>
 
             <p className="text-xs text-muted-foreground">
-              Conta da plataforma
+              {role === "OWNER"
+                ? "Proprietário"
+                : role === "ADMIN"
+                  ? "Administrador"
+                  : "Usuário"}
             </p>
           </div>
 
@@ -189,7 +254,7 @@ export function PortalHeader({
         </div>
       </div>
 
-      {/* Navegação para celular */}
+      {/* Navegação móvel */}
 
       <nav
         aria-label="Navegação móvel"
@@ -200,10 +265,36 @@ export function PortalHeader({
             const Icone =
               link.icone;
 
+            const bloqueado =
+              linkBloqueado(
+                link
+              );
+
             const ativa =
+              !bloqueado &&
               rotaAtiva(
                 link.href
               );
+
+            if (bloqueado) {
+              return (
+                <button
+                  key={link.href}
+                  type="button"
+                  disabled
+                  title="Você não possui permissão para gerenciar usuários"
+                  className="flex h-10 cursor-not-allowed items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground opacity-45"
+                >
+                  <Icone size={17} />
+
+                  {link.titulo}
+
+                  <LockKeyhole
+                    size={13}
+                  />
+                </button>
+              );
+            }
 
             return (
               <Link

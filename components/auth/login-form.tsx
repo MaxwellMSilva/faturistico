@@ -7,7 +7,10 @@ import {
   useState,
 } from "react";
 
+import { useRouter } from "next/navigation";
+
 import {
+  AlertTriangle,
   Eye,
   EyeOff,
   FileText,
@@ -20,7 +23,48 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+function obterMensagemErroLogin(
+  erro: string
+) {
+  let erroNormalizado = erro;
+
+  try {
+    erroNormalizado =
+      decodeURIComponent(erro);
+  } catch {
+    erroNormalizado = erro;
+  }
+
+  if (
+    erroNormalizado.includes(
+      "USUARIO_INATIVO"
+    )
+  ) {
+    return "Sua conta está inativa. Entre em contato com o proprietário ou administrador da plataforma.";
+  }
+
+  if (
+    erroNormalizado.includes(
+      "CREDENCIAIS_INVALIDAS"
+    )
+  ) {
+    return "E-mail ou senha inválidos.";
+  }
+
+  if (
+    erroNormalizado.includes(
+      "CredentialsSignin"
+    )
+  ) {
+    return "E-mail ou senha inválidos.";
+  }
+
+  return "Não foi possível realizar o login.";
+}
+
 export function LoginForm() {
+  const router = useRouter();
+
   const [email, setEmail] =
     useState("");
 
@@ -32,8 +76,10 @@ export function LoginForm() {
     setMostrarSenha,
   ] = useState(false);
 
-  const [carregando, setCarregando] =
-    useState(false);
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
 
   const [erro, setErro] =
     useState("");
@@ -46,7 +92,9 @@ export function LoginForm() {
     setErro("");
 
     const emailNormalizado =
-      email.trim().toLowerCase();
+      email
+        .trim()
+        .toLowerCase();
 
     if (!emailNormalizado) {
       setErro(
@@ -80,20 +128,32 @@ export function LoginForm() {
           }
         );
 
-      if (
-        !resultado ||
-        resultado.error
-      ) {
+      if (!resultado) {
         setErro(
-          "E-mail ou senha inválidos."
+          "Não foi possível realizar o login."
         );
 
         return;
       }
 
-      window.location.assign(
+      if (
+        resultado.error ||
+        !resultado.ok
+      ) {
+        setErro(
+          obterMensagemErroLogin(
+            resultado.error ?? ""
+          )
+        );
+
+        return;
+      }
+
+      router.replace(
         "/painel"
       );
+
+      router.refresh();
     } catch (error) {
       console.error(
         "Erro ao realizar login:",
@@ -105,6 +165,12 @@ export function LoginForm() {
       );
     } finally {
       setCarregando(false);
+    }
+  }
+
+  function limparErro() {
+    if (erro) {
+      setErro("");
     }
   }
 
@@ -135,6 +201,7 @@ export function LoginForm() {
             <form
               onSubmit={handleLogin}
               className="space-y-5"
+              noValidate
             >
               <div className="space-y-2">
                 <label
@@ -156,9 +223,7 @@ export function LoginForm() {
                       event.target.value
                     );
 
-                    if (erro) {
-                      setErro("");
-                    }
+                    limparErro();
                   }}
                   autoComplete="email"
                   autoCapitalize="none"
@@ -193,9 +258,7 @@ export function LoginForm() {
                         event.target.value
                       );
 
-                      if (erro) {
-                        setErro("");
-                      }
+                      limparErro();
                     }}
                     autoComplete="current-password"
                     disabled={carregando}
@@ -210,11 +273,14 @@ export function LoginForm() {
                           !valorAtual
                       )
                     }
-                    className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={
                       mostrarSenha
                         ? "Ocultar senha"
                         : "Mostrar senha"
+                    }
+                    aria-pressed={
+                      mostrarSenha
                     }
                     disabled={carregando}
                   >
@@ -230,9 +296,15 @@ export function LoginForm() {
               {erro && (
                 <div
                   role="alert"
-                  className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                  aria-live="polite"
+                  className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
                 >
-                  {erro}
+                  <AlertTriangle
+                    size={18}
+                    className="mt-0.5 shrink-0"
+                  />
+
+                  <p>{erro}</p>
                 </div>
               )}
 

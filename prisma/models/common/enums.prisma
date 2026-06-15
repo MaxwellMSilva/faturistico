@@ -23,8 +23,7 @@ enum TipoItem {
 enum RoleUsuario {
   OWNER
   ADMIN
-  FATURISTA
-  VISUALIZADOR
+  USUARIO
 }
 
 enum FinalidadeNfe {

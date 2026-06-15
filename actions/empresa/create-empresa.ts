@@ -1,10 +1,12 @@
 "use server";
 
-import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 
-import { authOptions } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
+
+import { validarCadastroEmpresa } from "@/lib/empresa/validar-cadastro-empresa";
 
 type CreateEmpresaData = {
   razaoSocial: string;
@@ -42,57 +44,129 @@ type CreateEmpresaResult =
 function somenteNumeros(
   valor?: string
 ) {
-  return valor?.replace(/\D/g, "") ?? "";
+  return (
+    valor?.replace(/\D/g, "") ??
+    ""
+  );
 }
 
 function textoOpcional(
   valor?: string
 ) {
-  const texto = valor?.trim();
+  const texto =
+    valor?.trim();
 
-  return texto ? texto : null;
+  return texto || null;
+}
+
+function emailValido(
+  email: string
+) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    email
+  );
 }
 
 export async function createEmpresa(
   data: CreateEmpresaData
 ): Promise<CreateEmpresaResult> {
-  const session =
-    await getServerSession(
-      authOptions
-    );
+  let usuario: Awaited<
+    ReturnType<
+      typeof validarCadastroEmpresa
+    >
+  >;
 
-  if (!session?.user?.id) {
+  try {
+    usuario =
+      await validarCadastroEmpresa();
+  } catch {
     return {
       success: false,
       message:
-        "Usuário não autenticado.",
+        "Somente o proprietário pode cadastrar empresas.",
     };
   }
 
-  const usuario =
-    await prisma.usuario.findUnique({
-      where: {
-        id: session.user.id,
-      },
-      select: {
-        id: true,
-        ativo: true,
-      },
-    });
-
-  if (!usuario || !usuario.ativo) {
-    return {
-      success: false,
-      message:
-        "Usuário não encontrado ou inativo.",
-    };
-  }
+  /*
+   * Normalização dos dados.
+   */
 
   const razaoSocial =
     data.razaoSocial.trim();
 
+  const nomeFantasia =
+    textoOpcional(
+      data.nomeFantasia
+    );
+
   const cnpj =
-    somenteNumeros(data.cnpj);
+    somenteNumeros(
+      data.cnpj
+    );
+
+  const inscricaoEstadual =
+    textoOpcional(
+      data.inscricaoEstadual
+    );
+
+  const inscricaoMunicipal =
+    textoOpcional(
+      data.inscricaoMunicipal
+    );
+
+  const email =
+    data.email
+      ?.trim()
+      .toLowerCase() ?? "";
+
+  const telefone =
+    somenteNumeros(
+      data.telefone
+    );
+
+  const cep =
+    somenteNumeros(
+      data.cep
+    );
+
+  const logradouro =
+    textoOpcional(
+      data.logradouro
+    );
+
+  const numero =
+    textoOpcional(
+      data.numero
+    );
+
+  const complemento =
+    textoOpcional(
+      data.complemento
+    );
+
+  const bairro =
+    textoOpcional(
+      data.bairro
+    );
+
+  const municipio =
+    textoOpcional(
+      data.municipio
+    );
+
+  const codigoMunicipio =
+    somenteNumeros(
+      data.codigoMunicipio
+    );
+
+  const uf =
+    data.uf
+      ?.trim()
+      .toUpperCase() ?? "";
+
+  /*
+   * Validações.
+   */
 
   if (!razaoSocial) {
     return {
@@ -106,106 +180,116 @@ export async function createEmpresa(
     return {
       success: false,
       message:
-        "Informe um CNPJ válido.",
+        "Informe um CNPJ válido com 14 números.",
     };
   }
 
-  const empresaExistente =
-    await prisma.empresa.findUnique({
-      where: {
-        cnpj,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-  if (empresaExistente) {
+  if (
+    email &&
+    !emailValido(email)
+  ) {
     return {
       success: false,
       message:
-        "Já existe uma empresa cadastrada com este CNPJ.",
+        "Informe um e-mail válido.",
     };
   }
+
+  if (
+    telefone &&
+    telefone.length !== 10 &&
+    telefone.length !== 11
+  ) {
+    return {
+      success: false,
+      message:
+        "Informe um telefone válido com DDD.",
+    };
+  }
+
+  if (
+    cep &&
+    cep.length !== 8
+  ) {
+    return {
+      success: false,
+      message:
+        "Informe um CEP válido com 8 números.",
+    };
+  }
+
+  if (
+    codigoMunicipio &&
+    codigoMunicipio.length !== 7
+  ) {
+    return {
+      success: false,
+      message:
+        "Informe um código IBGE válido com 7 números.",
+    };
+  }
+
+  if (
+    uf &&
+    uf.length !== 2
+  ) {
+    return {
+      success: false,
+      message:
+        "Informe uma UF válida.",
+    };
+  }
+
+  /*
+   * Permissão do vínculo com a empresa:
+   *
+   * OWNER global recebe OWNER.
+   * ADMIN global recebe ADMIN.
+   */
 
   try {
     const empresa =
       await prisma.empresa.create({
         data: {
           razaoSocial,
-
-          nomeFantasia:
-            textoOpcional(
-              data.nomeFantasia
-            ),
-
+          nomeFantasia,
           cnpj,
 
-          inscricaoEstadual:
-            textoOpcional(
-              data.inscricaoEstadual
-            ),
-
-          inscricaoMunicipal:
-            textoOpcional(
-              data.inscricaoMunicipal
-            ),
+          inscricaoEstadual,
+          inscricaoMunicipal,
 
           email:
-            textoOpcional(data.email),
+            email || null,
 
           telefone:
-            textoOpcional(
-              somenteNumeros(
-                data.telefone
-              )
-            ),
+            telefone || null,
 
           cep:
-            textoOpcional(
-              somenteNumeros(data.cep)
-            ),
+            cep || null,
 
-          logradouro:
-            textoOpcional(
-              data.logradouro
-            ),
+          logradouro,
+          numero,
+          complemento,
+          bairro,
 
-          numero:
-            textoOpcional(data.numero),
-
-          complemento:
-            textoOpcional(
-              data.complemento
-            ),
-
-          bairro:
-            textoOpcional(data.bairro),
-
-          municipio:
-            textoOpcional(
-              data.municipio
-            ),
+          municipio,
 
           codigoMunicipio:
-            textoOpcional(
-              somenteNumeros(
-                data.codigoMunicipio
-              )
-            ),
+            codigoMunicipio ||
+            null,
 
           uf:
-            textoOpcional(
-              data.uf?.toUpperCase()
-            ),
+            uf || null,
+
+          /*
+           * Cria o vínculo de acesso
+           * dentro da mesma operação.
+           */
 
           usuarios: {
             create: {
-              usuarioId:
-                session.user.id,
-
+              usuarioId: usuario.id,
               permissao: "OWNER",
-
               ativo: true,
             },
           },
@@ -216,13 +300,32 @@ export async function createEmpresa(
         },
       });
 
-    revalidatePath("/empresas");
+    revalidatePath(
+      "/empresas"
+    );
+
+    revalidatePath(
+      "/painel"
+    );
 
     return {
       success: true,
-      empresaId: empresa.id,
+      empresaId:
+        empresa.id,
     };
   } catch (error) {
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return {
+        success: false,
+        message:
+          "Já existe uma empresa cadastrada com este CNPJ.",
+      };
+    }
+
     console.error(
       "Erro ao criar empresa:",
       error

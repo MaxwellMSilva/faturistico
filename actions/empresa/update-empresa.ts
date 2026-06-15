@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarEdicaoEmpresa } from "@/lib/empresa/validar-edicao-empresa";
 
 type UpdateEmpresaData = {
   id: string;
@@ -45,7 +47,8 @@ type UpdateEmpresaResult =
 function textoOpcional(
   valor?: string
 ) {
-  const texto = valor?.trim();
+  const texto =
+    valor?.trim();
 
   return texto || null;
 }
@@ -53,54 +56,114 @@ function textoOpcional(
 function somenteNumeros(
   valor?: string
 ) {
-  return valor?.replace(/\D/g, "") ?? "";
+  return (
+    valor?.replace(/\D/g, "") ??
+    ""
+  );
 }
 
-function obterCodigoErro(
-  error: unknown
+function emailValido(
+  valor: string
 ) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error
-  ) {
-    return String(
-      (error as {
-        code?: unknown;
-      }).code
-    );
-  }
-
-  return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    valor
+  );
 }
 
 export async function updateEmpresa(
   data: UpdateEmpresaData
 ): Promise<UpdateEmpresaResult> {
-  const { acesso } =
-    await validarAcessoEmpresa(
+  /*
+   * OWNER pode editar qualquer empresa.
+   *
+   * ADMIN pode editar somente empresas
+   * em que possui vínculo ativo com
+   * permissão ADMIN.
+   */
+
+  try {
+    await validarEdicaoEmpresa(
       data.id
     );
+  } catch (error) {
+    console.error(
+      "Erro de autorização ao editar empresa:",
+      error
+    );
 
-  if (
-    acesso.permissao !== "OWNER" &&
-    acesso.permissao !== "ADMIN"
-  ) {
     return {
       success: false,
       message:
-        "Você não possui permissão para alterar os dados da empresa.",
+        "Você não possui permissão para editar esta empresa.",
     };
   }
+
+  /*
+   * Normalização.
+   */
 
   const razaoSocial =
     data.razaoSocial.trim();
 
+  const nomeFantasia =
+    textoOpcional(
+      data.nomeFantasia
+    );
+
   const cnpj =
-    somenteNumeros(data.cnpj);
+    somenteNumeros(
+      data.cnpj
+    );
+
+  const inscricaoEstadual =
+    textoOpcional(
+      data.inscricaoEstadual
+    );
+
+  const inscricaoMunicipal =
+    textoOpcional(
+      data.inscricaoMunicipal
+    );
+
+  const email =
+    data.email
+      .trim()
+      .toLowerCase();
+
+  const telefone =
+    somenteNumeros(
+      data.telefone
+    );
 
   const cep =
-    somenteNumeros(data.cep);
+    somenteNumeros(
+      data.cep
+    );
+
+  const logradouro =
+    textoOpcional(
+      data.logradouro
+    );
+
+  const numero =
+    textoOpcional(
+      data.numero
+    );
+
+  const complemento =
+    textoOpcional(
+      data.complemento
+    );
+
+  const bairro =
+    textoOpcional(
+      data.bairro
+    );
+
+  const municipio =
+    textoOpcional(
+      data.municipio
+    );
 
   const codigoMunicipio =
     somenteNumeros(
@@ -111,6 +174,18 @@ export async function updateEmpresa(
     data.uf
       .trim()
       .toUpperCase();
+
+  /*
+   * Validações.
+   */
+
+  if (!data.id) {
+    return {
+      success: false,
+      message:
+        "Empresa não informada.",
+    };
+  }
 
   if (!razaoSocial) {
     return {
@@ -125,6 +200,29 @@ export async function updateEmpresa(
       success: false,
       message:
         "O CNPJ deve possuir 14 números.",
+    };
+  }
+
+  if (
+    email &&
+    !emailValido(email)
+  ) {
+    return {
+      success: false,
+      message:
+        "Informe um e-mail válido.",
+    };
+  }
+
+  if (
+    telefone &&
+    telefone.length !== 10 &&
+    telefone.length !== 11
+  ) {
+    return {
+      success: false,
+      message:
+        "O telefone deve possuir 10 ou 11 números, incluindo o DDD.",
     };
   }
 
@@ -161,13 +259,17 @@ export async function updateEmpresa(
     };
   }
 
+  /*
+   * Verifica duplicidade do CNPJ.
+   */
+
   const empresaComMesmoCnpj =
     await prisma.empresa.findFirst({
       where: {
         cnpj,
 
-        NOT: {
-          id: data.id,
+        id: {
+          not: data.id,
         },
       },
 
@@ -192,82 +294,54 @@ export async function updateEmpresa(
 
       data: {
         razaoSocial,
-
-        nomeFantasia:
-          textoOpcional(
-            data.nomeFantasia
-          ),
-
+        nomeFantasia,
         cnpj,
 
-        inscricaoEstadual:
-          textoOpcional(
-            data.inscricaoEstadual
-          ),
-
-        inscricaoMunicipal:
-          textoOpcional(
-            data.inscricaoMunicipal
-          ),
+        inscricaoEstadual,
+        inscricaoMunicipal,
 
         email:
-          textoOpcional(
-            data.email
-          ),
+          email || null,
 
         telefone:
-          textoOpcional(
-            data.telefone
-          ),
+          telefone || null,
 
         cep:
-          textoOpcional(cep),
+          cep || null,
 
-        logradouro:
-          textoOpcional(
-            data.logradouro
-          ),
-
-        numero:
-          textoOpcional(
-            data.numero
-          ),
-
-        complemento:
-          textoOpcional(
-            data.complemento
-          ),
-
-        bairro:
-          textoOpcional(
-            data.bairro
-          ),
-
-        municipio:
-          textoOpcional(
-            data.municipio
-          ),
+        logradouro,
+        numero,
+        complemento,
+        bairro,
+        municipio,
 
         codigoMunicipio:
-          textoOpcional(
-            codigoMunicipio
-          ),
+          codigoMunicipio ||
+          null,
 
         uf:
-          textoOpcional(uf),
+          uf || null,
       },
     });
+
+    revalidatePath(
+      "/empresas"
+    );
+
+    revalidatePath(
+      `/empresas/${data.id}/editar`
+    );
 
     revalidatePath(
       `/empresa/${data.id}`
     );
 
     revalidatePath(
-      `/empresa/${data.id}/configuracoes`
+      `/empresa/${data.id}/dashboard`
     );
 
     revalidatePath(
-      "/empresas"
+      `/empresa/${data.id}/configuracoes`
     );
 
     return {
@@ -280,25 +354,24 @@ export async function updateEmpresa(
     );
 
     if (
-      obterCodigoErro(error) ===
-      "P2002"
+      error instanceof
+        Prisma.PrismaClientKnownRequestError
     ) {
-      return {
-        success: false,
-        message:
-          "Já existe uma empresa cadastrada com este CNPJ.",
-      };
-    }
+      if (error.code === "P2002") {
+        return {
+          success: false,
+          message:
+            "Já existe uma empresa cadastrada com este CNPJ.",
+        };
+      }
 
-    if (
-      obterCodigoErro(error) ===
-      "P2025"
-    ) {
-      return {
-        success: false,
-        message:
-          "Empresa não encontrada.",
-      };
+      if (error.code === "P2025") {
+        return {
+          success: false,
+          message:
+            "Empresa não encontrada.",
+        };
+      }
     }
 
     return {
