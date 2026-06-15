@@ -24,6 +24,7 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { arvorePrivilegiosEmpresa } from "@/lib/usuarios/privilegios-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -49,8 +50,7 @@ const nomesPermissoes: Record<
 > = {
   OWNER: "Proprietário",
   ADMIN: "Administrador",
-  FATURAMENTO: "Faturamento",
-  OPERADOR: "Operador",
+  PERSONALIZADO: "Personalizado",
   VISUALIZADOR: "Visualizador",
 };
 
@@ -210,6 +210,9 @@ export default async function UsuariosPage({
           gestorRole={
             dadosFormulario.gestor
               .role
+          }
+          arvorePrivilegios={
+            arvorePrivilegiosEmpresa
           }
         />
       </div>
@@ -482,9 +485,7 @@ export default async function UsuariosPage({
 
                               empresas:
                                 usuario.empresas.map(
-                                  (
-                                    acesso
-                                  ) => ({
+                                  (acesso) => ({
                                     id:
                                       acesso.id,
 
@@ -496,6 +497,9 @@ export default async function UsuariosPage({
 
                                     ativo:
                                       acesso.ativo,
+
+                                    privilegios:
+                                      acesso.privilegios,
                                   })
                                 ),
                             }}
@@ -503,14 +507,15 @@ export default async function UsuariosPage({
                               dadosFormulario.empresas
                             }
                             gestorRole={
-                              dadosFormulario
-                                .gestor
-                                .role
+                              dadosFormulario.gestor.role
                             }
                             rolesPermitidos={[
                               ...dadosFormulario
                                 .rolesPermitidos,
                             ]}
+                            arvorePrivilegios={
+                              arvorePrivilegiosEmpresa
+                            }
                           />
                         )}
 

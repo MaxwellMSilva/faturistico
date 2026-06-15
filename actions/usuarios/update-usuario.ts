@@ -4,26 +4,37 @@ import { revalidatePath } from "next/cache";
 
 import { hash } from "bcryptjs";
 
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  RoleUsuario,
+  type PrivilegioEmpresa,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
 import { validarGestaoUsuarios } from "@/lib/usuarios/validar-gestao-usuarios";
 
-type RoleUsuario =
-  | "OWNER"
+import {
+  privilegioEmpresaValido,
+  resolverPrivilegiosEmpresa,
+} from "@/lib/usuarios/privilegios-empresa";
+
+type RoleEditavel =
   | "ADMIN"
   | "USUARIO";
 
-type PermissaoEmpresa =
+type PermissaoEditavel =
   | "ADMIN"
-  | "FATURAMENTO"
-  | "OPERADOR"
+  | "PERSONALIZADO"
   | "VISUALIZADOR";
 
 type AcessoEmpresa = {
   empresaId: string;
-  permissao: PermissaoEmpresa;
+
+  permissao:
+    PermissaoEditavel;
+
+  privilegios?: string[];
 };
 
 type UpdateUsuarioData = {
@@ -32,7 +43,9 @@ type UpdateUsuarioData = {
   nome: string;
   email: string;
 
-  role: RoleUsuario;
+  role:
+    | "OWNER"
+    | RoleEditavel;
 
   novaSenha?: string;
 
@@ -76,6 +89,14 @@ export async function updateUsuario(
     };
   }
 
+  if (!data.usuarioId) {
+    return {
+      success: false,
+      message:
+        "Usuário não informado.",
+    };
+  }
+
   const usuario =
     await prisma.usuario.findUnique({
       where: {
@@ -85,9 +106,18 @@ export async function updateUsuario(
       include: {
         empresas: {
           select: {
+            id: true,
             empresaId: true,
             permissao: true,
             ativo: true,
+
+            empresa: {
+              select: {
+                ativo: true,
+                razaoSocial: true,
+                nomeFantasia: true,
+              },
+            },
           },
         },
       },
@@ -106,7 +136,10 @@ export async function updateUsuario(
    * pelo próprio OWNER.
    */
 
-  if (usuario.role === "OWNER") {
+  if (
+    usuario.role ===
+    RoleUsuario.OWNER
+  ) {
     if (
       gestor.role !== "OWNER" ||
       gestor.id !== usuario.id
@@ -118,7 +151,9 @@ export async function updateUsuario(
       };
     }
 
-    if (data.role !== "OWNER") {
+    if (
+      data.role !== "OWNER"
+    ) {
       return {
         success: false,
         message:
@@ -128,44 +163,44 @@ export async function updateUsuario(
   }
 
   /*
-   * ADMIN não pode editar OWNER
-   * nem outro ADMIN.
+   * ADMIN pode editar somente usuários
+   * comuns vinculados às empresas que
+   * ele administra.
    */
 
   if (
-    gestor.role === "ADMIN" &&
-    usuario.role !== "USUARIO"
+    gestor.role === "ADMIN"
   ) {
-    return {
-      success: false,
-      message:
-        "Administradores podem editar apenas usuários comuns.",
-    };
+    if (
+      usuario.role !==
+      RoleUsuario.USUARIO
+    ) {
+      return {
+        success: false,
+        message:
+          "Administradores podem editar apenas usuários comuns.",
+      };
+    }
+
+    if (
+      data.role !== "USUARIO"
+    ) {
+      return {
+        success: false,
+        message:
+          "Administradores não podem promover usuários.",
+      };
+    }
   }
 
   /*
-   * ADMIN não pode promover usuário
-   * para ADMIN ou OWNER.
+   * Impede criação de outro OWNER por
+   * meio da edição.
    */
 
   if (
-    gestor.role === "ADMIN" &&
-    data.role !== "USUARIO"
-  ) {
-    return {
-      success: false,
-      message:
-        "Administradores não podem promover usuários.",
-    };
-  }
-
-  /*
-   * Ninguém pode criar outro OWNER
-   * por meio da edição.
-   */
-
-  if (
-    usuario.role !== "OWNER" &&
+    usuario.role !==
+      RoleUsuario.OWNER &&
     data.role === "OWNER"
   ) {
     return {
@@ -184,7 +219,8 @@ export async function updateUsuario(
       .toLowerCase();
 
   const novaSenha =
-    data.novaSenha?.trim() ?? "";
+    data.novaSenha?.trim() ??
+    "";
 
   if (!nome) {
     return {
@@ -237,11 +273,14 @@ export async function updateUsuario(
   }
 
   /*
-   * Para o OWNER, esta action altera
-   * somente os dados pessoais e senha.
+   * Para o OWNER, altera somente
+   * dados pessoais e senha.
    */
 
-  if (usuario.role === "OWNER") {
+  if (
+    usuario.role ===
+    RoleUsuario.OWNER
+  ) {
     try {
       const senhaHash =
         novaSenha
@@ -276,6 +315,18 @@ export async function updateUsuario(
         success: true,
       };
     } catch (error) {
+      if (
+        error instanceof
+          Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return {
+          success: false,
+          message:
+            "Já existe outro usuário cadastrado com este e-mail.",
+        };
+      }
+
       console.error(
         "Erro ao atualizar proprietário:",
         error
@@ -300,6 +351,23 @@ export async function updateUsuario(
     };
   }
 
+  if (
+    !Array.isArray(
+      data.acessos
+    ) ||
+    data.acessos.length === 0
+  ) {
+    return {
+      success: false,
+      message:
+        "Selecione pelo menos uma empresa para o usuário.",
+    };
+  }
+
+  /*
+   * Remove empresas repetidas.
+   */
+
   const acessosUnicos =
     Array.from(
       new Map(
@@ -313,24 +381,33 @@ export async function updateUsuario(
     );
 
   if (
-    acessosUnicos.length === 0
+    acessosUnicos.some(
+      (acesso) =>
+        !acesso.empresaId
+    )
   ) {
     return {
       success: false,
       message:
-        "Selecione pelo menos uma empresa para o usuário.",
+        "Existe uma empresa inválida na seleção.",
     };
   }
 
-  if (data.role === "ADMIN") {
-    const permissaoInvalida =
+  /*
+   * Validação da permissão empresarial.
+   */
+
+  if (
+    data.role === "ADMIN"
+  ) {
+    const acessoInvalido =
       acessosUnicos.some(
         (acesso) =>
           acesso.permissao !==
           "ADMIN"
       );
 
-    if (permissaoInvalida) {
+    if (acessoInvalido) {
       return {
         success: false,
         message:
@@ -339,15 +416,16 @@ export async function updateUsuario(
     }
   }
 
-  if (data.role === "USUARIO") {
+  if (
+    data.role === "USUARIO"
+  ) {
     const permissoesPermitidas =
       new Set([
-        "FATURAMENTO",
-        "OPERADOR",
+        "PERSONALIZADO",
         "VISUALIZADOR",
       ]);
 
-    const permissaoInvalida =
+    const acessoInvalido =
       acessosUnicos.some(
         (acesso) =>
           !permissoesPermitidas.has(
@@ -355,25 +433,179 @@ export async function updateUsuario(
           )
       );
 
-    if (permissaoInvalida) {
+    if (acessoInvalido) {
       return {
         success: false,
         message:
-          "Usuários comuns não podem receber permissão administrativa.",
+          "Usuários comuns devem utilizar acesso personalizado ou visualizador.",
       };
     }
   }
 
+  /*
+   * Não altera vínculos pertencentes a
+   * empresas inativas.
+   *
+   * Também impede alterar o papel global
+   * se isso deixar um vínculo inativo com
+   * permissão incompatível.
+   */
+
+  if (
+    data.role !== usuario.role
+  ) {
+    const acessoInativoIncompativel =
+      usuario.empresas.find(
+        (acesso) => {
+          if (
+            acesso.empresa.ativo
+          ) {
+            return false;
+          }
+
+          if (
+            data.role === "ADMIN"
+          ) {
+            return (
+              acesso.permissao !==
+              "ADMIN"
+            );
+          }
+
+          return (
+            acesso.permissao !==
+              "PERSONALIZADO" &&
+            acesso.permissao !==
+              "VISUALIZADOR"
+          );
+        }
+      );
+
+    if (
+      acessoInativoIncompativel
+    ) {
+      const empresaNome =
+        acessoInativoIncompativel
+          .empresa
+          .nomeFantasia ??
+        acessoInativoIncompativel
+          .empresa
+          .razaoSocial;
+
+      return {
+        success: false,
+        message:
+          `Não é possível alterar a função enquanto o usuário possuir vínculo incompatível com a empresa inativa "${empresaNome}". Reative a empresa primeiro.`,
+      };
+    }
+  }
+
+  /*
+   * Prepara e valida os privilégios.
+   */
+
+  const acessosPreparados:
+    Array<{
+      empresaId: string;
+
+      permissao:
+        PermissaoEditavel;
+
+      privilegios:
+        PrivilegioEmpresa[];
+    }> = [];
+
+  for (
+    const acesso of
+    acessosUnicos
+  ) {
+    if (
+      acesso.permissao !==
+      "PERSONALIZADO"
+    ) {
+      acessosPreparados.push({
+        empresaId:
+          acesso.empresaId,
+
+        permissao:
+          acesso.permissao,
+
+        privilegios: [],
+      });
+
+      continue;
+    }
+
+    const privilegiosRecebidos =
+      Array.from(
+        new Set(
+          acesso.privilegios ??
+            []
+        )
+      );
+
+    const privilegioInvalido =
+      privilegiosRecebidos.find(
+        (privilegio) =>
+          !privilegioEmpresaValido(
+            privilegio
+          )
+      );
+
+    if (privilegioInvalido) {
+      return {
+        success: false,
+        message:
+          "Existe um privilégio inválido na seleção.",
+      };
+    }
+
+    const privilegiosResolvidos =
+      resolverPrivilegiosEmpresa(
+        privilegiosRecebidos as
+          PrivilegioEmpresa[]
+      );
+
+    if (
+      privilegiosResolvidos.length ===
+      0
+    ) {
+      return {
+        success: false,
+        message:
+          "Selecione pelo menos um privilégio para cada acesso personalizado.",
+      };
+    }
+
+    acessosPreparados.push({
+      empresaId:
+        acesso.empresaId,
+
+      permissao:
+        "PERSONALIZADO",
+
+      privilegios:
+        privilegiosResolvidos,
+    });
+  }
+
   const empresasSelecionadas =
-    acessosUnicos.map(
+    acessosPreparados.map(
       (acesso) =>
         acesso.empresaId
     );
 
+  /*
+   * Determina as empresas ativas que
+   * o gestor pode administrar.
+   */
+
   let empresasGerenciadas:
     string[];
 
-  if (gestor.role === "OWNER") {
+  if (
+    gestor.role === "OWNER"
+  ) {
     const empresas =
       await prisma.empresa.findMany({
         where: {
@@ -433,7 +665,7 @@ export async function updateUsuario(
       empresasGerenciadas
     );
 
-  const empresaSemPermissao =
+  const empresaNaoPermitida =
     empresasSelecionadas.some(
       (empresaId) =>
         !empresasGerenciadasSet.has(
@@ -441,12 +673,49 @@ export async function updateUsuario(
         )
     );
 
-  if (empresaSemPermissao) {
+  if (empresaNaoPermitida) {
     return {
       success: false,
       message:
         "Você não possui permissão para gerenciar uma das empresas selecionadas.",
     };
+  }
+
+  /*
+   * Impede um ADMIN de editar por ID
+   * um usuário que não esteja atualmente
+   * ligado a uma empresa administrada.
+   */
+
+  if (
+    gestor.role === "ADMIN"
+  ) {
+    const usuarioGerenciavel =
+      await prisma.usuarioEmpresa.findFirst({
+        where: {
+          usuarioId:
+            usuario.id,
+
+          empresaId: {
+            in:
+              empresasGerenciadas,
+          },
+
+          ativo: true,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    if (!usuarioGerenciavel) {
+      return {
+        success: false,
+        message:
+          "Você não possui permissão para editar este usuário.",
+      };
+    }
   }
 
   try {
@@ -468,7 +737,9 @@ export async function updateUsuario(
           data: {
             nome,
             email,
-            role: data.role,
+
+            role:
+              data.role,
 
             ...(senhaHash
               ? {
@@ -479,31 +750,34 @@ export async function updateUsuario(
         });
 
         /*
-         * OWNER pode gerenciar todos
-         * os vínculos do usuário.
+         * Empresas ativas que podem ter
+         * os vínculos alterados.
          */
+
+        let idsEmpresasAlteraveis:
+          string[];
 
         if (
           gestor.role === "OWNER"
         ) {
-          await tx.usuarioEmpresa.deleteMany({
-            where: {
-              usuarioId:
-                usuario.id,
-
-              empresaId: {
-                notIn:
-                  empresasSelecionadas,
+          const empresasAtivas =
+            await tx.empresa.findMany({
+              where: {
+                ativo: true,
               },
-            },
-          });
-        } else {
-          /*
-           * ADMIN remove somente vínculos
-           * das empresas que administra.
-           */
 
-          const empresasDoAdmin =
+              select: {
+                id: true,
+              },
+            });
+
+          idsEmpresasAlteraveis =
+            empresasAtivas.map(
+              (empresa) =>
+                empresa.id
+            );
+        } else {
+          const acessosDoAdmin =
             await tx.usuarioEmpresa.findMany({
               where: {
                 usuarioId:
@@ -511,7 +785,12 @@ export async function updateUsuario(
 
                 ativo: true,
 
-                permissao: "ADMIN",
+                permissao:
+                  "ADMIN",
+
+                empresa: {
+                  ativo: true,
+                },
               },
 
               select: {
@@ -519,63 +798,111 @@ export async function updateUsuario(
               },
             });
 
-          const idsEmpresasDoAdmin =
-            empresasDoAdmin.map(
+          idsEmpresasAlteraveis =
+            acessosDoAdmin.map(
               (acesso) =>
                 acesso.empresaId
             );
-
-          await tx.usuarioEmpresa.deleteMany({
-            where: {
-              usuarioId:
-                usuario.id,
-
-              empresaId: {
-                in:
-                  idsEmpresasDoAdmin,
-
-                notIn:
-                  empresasSelecionadas,
-              },
-            },
-          });
         }
+
+        /*
+         * Remove apenas vínculos de
+         * empresas ativas e gerenciáveis
+         * que foram desmarcadas.
+         *
+         * Vínculos de empresas inativas
+         * permanecem intocados.
+         */
+
+        await tx.usuarioEmpresa.deleteMany({
+          where: {
+            usuarioId:
+              usuario.id,
+
+            empresaId: {
+              in:
+                idsEmpresasAlteraveis,
+
+              notIn:
+                empresasSelecionadas,
+            },
+          },
+        });
 
         for (
           const acesso of
-          acessosUnicos
+          acessosPreparados
         ) {
-          await tx.usuarioEmpresa.upsert({
-            where: {
-              usuarioId_empresaId: {
+          const vinculo =
+            await tx.usuarioEmpresa.upsert({
+              where: {
+                usuarioId_empresaId: {
+                  usuarioId:
+                    usuario.id,
+
+                  empresaId:
+                    acesso.empresaId,
+                },
+              },
+
+              create: {
                 usuarioId:
                   usuario.id,
 
                 empresaId:
                   acesso.empresaId,
+
+                permissao:
+                  acesso.permissao,
+
+                ativo: true,
               },
-            },
 
-            create: {
-              usuarioId:
-                usuario.id,
+              update: {
+                permissao:
+                  acesso.permissao,
 
-              empresaId:
-                acesso.empresaId,
+                ativo: true,
+              },
 
-              permissao:
-                acesso.permissao,
+              select: {
+                id: true,
+              },
+            });
 
-              ativo: true,
-            },
+          /*
+           * Sempre limpa os privilégios
+           * anteriores.
+           *
+           * ADMIN e VISUALIZADOR não
+           * utilizam registros manuais.
+           */
 
-            update: {
-              permissao:
-                acesso.permissao,
-
-              ativo: true,
+          await tx.usuarioEmpresaPrivilegio.deleteMany({
+            where: {
+              usuarioEmpresaId:
+                vinculo.id,
             },
           });
+
+          if (
+            acesso.permissao ===
+              "PERSONALIZADO" &&
+            acesso.privilegios.length >
+              0
+          ) {
+            await tx.usuarioEmpresaPrivilegio.createMany({
+              data:
+                acesso.privilegios.map(
+                  (privilegio) => ({
+                    usuarioEmpresaId:
+                      vinculo.id,
+
+                    privilegio,
+                  })
+                ),
+            });
+          }
         }
       }
     );
@@ -590,14 +917,27 @@ export async function updateUsuario(
   } catch (error) {
     if (
       error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
+        Prisma.PrismaClientKnownRequestError
     ) {
-      return {
-        success: false,
-        message:
-          "Já existe outro usuário cadastrado com este e-mail.",
-      };
+      if (
+        error.code === "P2002"
+      ) {
+        return {
+          success: false,
+          message:
+            "Já existe outro usuário cadastrado com este e-mail.",
+        };
+      }
+
+      if (
+        error.code === "P2025"
+      ) {
+        return {
+          success: false,
+          message:
+            "Usuário ou vínculo não encontrado.",
+        };
+      }
     }
 
     console.error(

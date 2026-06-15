@@ -26,8 +26,6 @@ const nomesPermissoes: Record<
 > = {
   OWNER: "Proprietário",
   ADMIN: "Administrador",
-  FATURAMENTO: "Faturamento",
-  OPERADOR: "Operador",
   VISUALIZADOR: "Visualizador",
 };
 

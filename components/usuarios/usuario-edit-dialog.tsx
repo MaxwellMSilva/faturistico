@@ -1,5 +1,9 @@
 "use client";
 
+import type {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import {
   type FormEvent,
   useState,
@@ -10,15 +14,22 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Building2,
+  Eye,
   KeyRound,
   LoaderCircle,
   Pencil,
   Save,
   ShieldCheck,
+  SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 
 import { updateUsuario } from "@/actions/usuarios/update-usuario";
+
+import {
+  PrivilegiosEmpresaTree,
+  type GrupoPrivilegioProp,
+} from "@/components/usuarios/privilegios-empresa-tree";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,31 +51,49 @@ type RoleUsuario =
 
 type PermissaoEmpresa =
   | "ADMIN"
-  | "FATURAMENTO"
-  | "OPERADOR"
+  | "PERSONALIZADO"
   | "VISUALIZADOR";
 
 type Empresa = {
   id: string;
+
   razaoSocial: string;
   nomeFantasia: string | null;
+
   cnpj: string;
 };
 
 type AcessoUsuario = {
   id: string;
   empresaId: string;
-  permissao: string;
+
+  permissao:
+    PermissaoEmpresa;
+
   ativo: boolean;
+
+  privilegios:
+    PrivilegioEmpresa[];
 };
 
 type Usuario = {
   id: string;
+
   nome: string;
   email: string;
+
   role: RoleUsuario;
 
-  empresas: AcessoUsuario[];
+  empresas:
+    AcessoUsuario[];
+};
+
+type AcessoFormulario = {
+  permissao:
+    PermissaoEmpresa;
+
+  privilegios:
+    PrivilegioEmpresa[];
 };
 
 type Props = {
@@ -79,12 +108,18 @@ type Props = {
   rolesPermitidos: Array<
     "ADMIN" | "USUARIO"
   >;
+
+  arvorePrivilegios:
+    GrupoPrivilegioProp[];
 };
 
 function somenteNumeros(
   valor: string
 ) {
-  return valor.replace(/\D/g, "");
+  return valor.replace(
+    /\D/g,
+    ""
+  );
 }
 
 function formatarCnpj(
@@ -93,7 +128,9 @@ function formatarCnpj(
   const numeros =
     somenteNumeros(valor);
 
-  if (numeros.length !== 14) {
+  if (
+    numeros.length !== 14
+  ) {
     return valor;
   }
 
@@ -103,22 +140,12 @@ function formatarCnpj(
   );
 }
 
-function permissaoValida(
-  permissao: string
-): permissao is PermissaoEmpresa {
-  return [
-    "ADMIN",
-    "FATURAMENTO",
-    "OPERADOR",
-    "VISUALIZADOR",
-  ].includes(permissao);
-}
-
 export function UsuarioEditDialog({
   usuario,
   empresas,
   gestorRole,
   rolesPermitidos,
+  arvorePrivilegios,
 }: Props) {
   const router = useRouter();
 
@@ -128,12 +155,34 @@ export function UsuarioEditDialog({
   function criarEstadoInicial() {
     const acessos: Record<
       string,
-      PermissaoEmpresa
+      AcessoFormulario
     > = {};
+
+    /*
+     * Somente empresas ativas recebidas
+     * pelo formulário podem ser editadas.
+     *
+     * Vínculos de empresas inativas não
+     * são enviados e serão preservados
+     * pelo backend.
+     */
+
+    const empresasDisponiveis =
+      new Set(
+        empresas.map(
+          (empresa) =>
+            empresa.id
+        )
+      );
 
     usuario.empresas.forEach(
       (acesso) => {
-        if (!acesso.ativo) {
+        if (
+          !acesso.ativo ||
+          !empresasDisponiveis.has(
+            acesso.empresaId
+          )
+        ) {
           return;
         }
 
@@ -142,27 +191,41 @@ export function UsuarioEditDialog({
         ) {
           acessos[
             acesso.empresaId
-          ] = "ADMIN";
+          ] = {
+            permissao: "ADMIN",
+            privilegios: [],
+          };
 
           return;
         }
 
-        acessos[acesso.empresaId] =
-          permissaoValida(
-            acesso.permissao
-          ) &&
-          acesso.permissao !==
-            "ADMIN"
-            ? acesso.permissao
-            : "OPERADOR";
+        acessos[
+          acesso.empresaId
+        ] = {
+          permissao:
+            acesso.permissao ===
+            "PERSONALIZADO"
+              ? "PERSONALIZADO"
+              : "VISUALIZADOR",
+
+          privilegios:
+            acesso.permissao ===
+            "PERSONALIZADO"
+              ? acesso.privilegios
+              : [],
+        };
       }
     );
 
     return {
-      nome: usuario.nome,
-      email: usuario.email,
+      nome:
+        usuario.nome,
 
-      role: usuario.role,
+      email:
+        usuario.email,
+
+      role:
+        usuario.role,
 
       novaSenha: "",
       confirmarSenha: "",
@@ -214,22 +277,30 @@ export function UsuarioEditDialog({
     setForm((anterior) => {
       const novosAcessos: Record<
         string,
-        PermissaoEmpresa
+        AcessoFormulario
       > = {};
 
       Object.keys(
         anterior.acessos
       ).forEach((empresaId) => {
-        novosAcessos[empresaId] =
-          novaRole === "ADMIN"
-            ? "ADMIN"
-            : "OPERADOR";
+        novosAcessos[empresaId] = {
+          permissao:
+            novaRole === "ADMIN"
+              ? "ADMIN"
+              : "VISUALIZADOR",
+
+          privilegios: [],
+        };
       });
 
       return {
         ...anterior,
-        role: novaRole,
-        acessos: novosAcessos,
+
+        role:
+          novaRole,
+
+        acessos:
+          novosAcessos,
       };
     });
 
@@ -251,16 +322,22 @@ export function UsuarioEditDialog({
           empresaId
         ];
       } else {
-        novosAcessos[empresaId] =
-          anterior.role ===
-          "ADMIN"
-            ? "ADMIN"
-            : "OPERADOR";
+        novosAcessos[empresaId] = {
+          permissao:
+            anterior.role ===
+            "ADMIN"
+              ? "ADMIN"
+              : "VISUALIZADOR",
+
+          privilegios: [],
+        };
       }
 
       return {
         ...anterior,
-        acessos: novosAcessos,
+
+        acessos:
+          novosAcessos,
       };
     });
 
@@ -269,18 +346,71 @@ export function UsuarioEditDialog({
 
   function alterarPermissao(
     empresaId: string,
-    permissao: PermissaoEmpresa
+    permissao:
+      PermissaoEmpresa
   ) {
-    setForm((anterior) => ({
-      ...anterior,
+    setForm((anterior) => {
+      const acessoAnterior =
+        anterior.acessos[
+          empresaId
+        ];
 
-      acessos: {
-        ...anterior.acessos,
+      if (!acessoAnterior) {
+        return anterior;
+      }
 
-        [empresaId]:
-          permissao,
-      },
-    }));
+      return {
+        ...anterior,
+
+        acessos: {
+          ...anterior.acessos,
+
+          [empresaId]: {
+            permissao,
+
+            privilegios:
+              permissao ===
+              "PERSONALIZADO"
+                ? acessoAnterior
+                    .privilegios
+                : [],
+          },
+        },
+      };
+    });
+
+    setErro("");
+  }
+
+  function alterarPrivilegios(
+    empresaId: string,
+    privilegios:
+      PrivilegioEmpresa[]
+  ) {
+    setForm((anterior) => {
+      const acesso =
+        anterior.acessos[
+          empresaId
+        ];
+
+      if (!acesso) {
+        return anterior;
+      }
+
+      return {
+        ...anterior,
+
+        acessos: {
+          ...anterior.acessos,
+
+          [empresaId]: {
+            ...acesso,
+
+            privilegios,
+          },
+        },
+      };
+    });
 
     setErro("");
   }
@@ -348,10 +478,15 @@ export function UsuarioEditDialog({
       ).map(
         ([
           empresaId,
-          permissao,
+          acesso,
         ]) => ({
           empresaId,
-          permissao,
+
+          permissao:
+            acesso.permissao,
+
+          privilegios:
+            acesso.privilegios,
         })
       );
 
@@ -361,6 +496,37 @@ export function UsuarioEditDialog({
     ) {
       setErro(
         "Selecione pelo menos uma empresa para o usuário."
+      );
+
+      return;
+    }
+
+    const acessoPersonalizadoSemPrivilegios =
+      acessos.find(
+        (acesso) =>
+          acesso.permissao ===
+            "PERSONALIZADO" &&
+          acesso.privilegios.length ===
+            0
+      );
+
+    if (
+      acessoPersonalizadoSemPrivilegios
+    ) {
+      const empresa =
+        empresas.find(
+          (item) =>
+            item.id ===
+            acessoPersonalizadoSemPrivilegios
+              .empresaId
+        );
+
+      setErro(
+        `Selecione pelo menos um privilégio para a empresa "${
+          empresa?.nomeFantasia ??
+          empresa?.razaoSocial ??
+          "selecionada"
+        }".`
       );
 
       return;
@@ -377,7 +543,8 @@ export function UsuarioEditDialog({
           nome,
           email,
 
-          role: form.role,
+          role:
+            form.role,
 
           novaSenha:
             form.novaSenha ||
@@ -447,15 +614,15 @@ export function UsuarioEditDialog({
         Editar
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>
             Editar usuário
           </DialogTitle>
 
           <DialogDescription>
-            Atualize os dados, a senha
-            e os acessos do usuário.
+            Atualize os dados, a senha e
+            os acessos do usuário.
           </DialogDescription>
         </DialogHeader>
 
@@ -463,6 +630,8 @@ export function UsuarioEditDialog({
           onSubmit={handleSubmit}
           className="space-y-6"
         >
+          {/* Dados pessoais */}
+
           <section className="rounded-xl border bg-muted/10 p-5">
             <div className="mb-5 flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -476,7 +645,7 @@ export function UsuarioEditDialog({
 
                 <p className="mt-1 text-sm text-muted-foreground">
                   Nome, e-mail e função
-                  do usuário.
+                  global do usuário.
                 </p>
               </div>
             </div>
@@ -582,6 +751,8 @@ export function UsuarioEditDialog({
             </div>
           </section>
 
+          {/* Senha */}
+
           <section className="rounded-xl border bg-muted/10 p-5">
             <div className="mb-5 flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -594,8 +765,8 @@ export function UsuarioEditDialog({
                 </h3>
 
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Deixe vazio para manter
-                  a senha atual.
+                  Deixe os campos vazios
+                  para manter a senha atual.
                 </p>
               </div>
             </div>
@@ -657,6 +828,8 @@ export function UsuarioEditDialog({
             </div>
           </section>
 
+          {/* Empresas */}
+
           {!editandoOwner && (
             <section className="rounded-xl border bg-muted/10 p-5">
               <div className="mb-5 flex items-start gap-3">
@@ -671,120 +844,196 @@ export function UsuarioEditDialog({
 
                   <p className="mt-1 text-sm text-muted-foreground">
                     Selecione as empresas
-                    e permissões do usuário.
+                    e configure os privilégios.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {empresas.map(
-                  (empresa) => {
-                    const permissao =
-                      form.acessos[
-                        empresa.id
-                      ];
+              {empresas.length === 0 ? (
+                <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Nenhuma empresa ativa
+                  disponível para alteração.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {empresas.map(
+                    (empresa) => {
+                      const acesso =
+                        form.acessos[
+                          empresa.id
+                        ];
 
-                    const selecionada =
-                      Boolean(
-                        permissao
-                      );
+                      const selecionada =
+                        Boolean(acesso);
 
-                    return (
-                      <div
-                        key={empresa.id}
-                        className={[
-                          "rounded-xl border p-4",
-                          selecionada
-                            ? "border-primary/40 bg-primary/5"
-                            : "bg-background",
-                        ].join(" ")}
-                      >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <label className="flex cursor-pointer items-start gap-3">
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-4 w-4 accent-primary"
-                              checked={
-                                selecionada
-                              }
-                              onChange={() =>
-                                alternarEmpresa(
-                                  empresa.id
-                                )
-                              }
-                              disabled={
-                                carregando
-                              }
-                            />
-
-                            <span>
-                              <span className="block font-medium">
-                                {empresa.nomeFantasia ??
-                                  empresa.razaoSocial}
-                              </span>
-
-                              <span className="mt-1 block text-xs text-muted-foreground">
-                                {
-                                  empresa.razaoSocial
+                      return (
+                        <article
+                          key={empresa.id}
+                          className={[
+                            "rounded-xl border transition-colors",
+                            selecionada
+                              ? "border-primary/40 bg-primary/5"
+                              : "bg-background",
+                          ].join(" ")}
+                        >
+                          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <label className="flex cursor-pointer items-start gap-3">
+                              <input
+                                type="checkbox"
+                                className="mt-1 h-4 w-4 accent-primary"
+                                checked={
+                                  selecionada
                                 }
-                                {" · "}
-                                {formatarCnpj(
-                                  empresa.cnpj
-                                )}
+                                onChange={() =>
+                                  alternarEmpresa(
+                                    empresa.id
+                                  )
+                                }
+                                disabled={
+                                  carregando
+                                }
+                              />
+
+                              <span>
+                                <span className="block font-medium">
+                                  {empresa.nomeFantasia ??
+                                    empresa.razaoSocial}
+                                </span>
+
+                                <span className="mt-1 block text-xs text-muted-foreground">
+                                  {
+                                    empresa.razaoSocial
+                                  }
+                                  {" · "}
+                                  {formatarCnpj(
+                                    empresa.cnpj
+                                  )}
+                                </span>
                               </span>
-                            </span>
-                          </label>
+                            </label>
 
-                          {selecionada && (
-                            <select
-                              value={
-                                permissao
-                              }
-                              onChange={(
-                                event
-                              ) =>
-                                alterarPermissao(
-                                  empresa.id,
-                                  event
-                                    .target
-                                    .value as PermissaoEmpresa
-                                )
-                              }
-                              className="h-10 w-full rounded-md border bg-background px-3 text-sm sm:w-56"
-                              disabled={
-                                carregando ||
-                                form.role ===
-                                  "ADMIN"
-                              }
-                            >
-                              {form.role ===
-                              "ADMIN" ? (
-                                <option value="ADMIN">
-                                  Administrador
-                                </option>
-                              ) : (
-                                <>
-                                  <option value="FATURAMENTO">
-                                    Faturamento
-                                  </option>
+                            {selecionada && (
+                              <div className="w-full sm:w-64">
+                                {form.role ===
+                                "ADMIN" ? (
+                                  <div className="flex h-10 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
+                                    <ShieldCheck
+                                      size={16}
+                                      className="text-primary"
+                                    />
 
-                                  <option value="OPERADOR">
-                                    Operador
-                                  </option>
+                                    Administrador
+                                  </div>
+                                ) : (
+                                  <select
+                                    value={
+                                      acesso.permissao
+                                    }
+                                    onChange={(event) =>
+                                      alterarPermissao(
+                                        empresa.id,
+                                        event
+                                          .target
+                                          .value as PermissaoEmpresa
+                                      )
+                                    }
+                                    className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                    disabled={
+                                      carregando
+                                    }
+                                  >
+                                    <option value="VISUALIZADOR">
+                                      Visualizador
+                                    </option>
 
-                                  <option value="VISUALIZADOR">
-                                    Visualizador
-                                  </option>
-                                </>
-                              )}
-                            </select>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
+                                    <option value="PERSONALIZADO">
+                                      Personalizado
+                                    </option>
+                                  </select>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {selecionada &&
+                            acesso.permissao ===
+                              "VISUALIZADOR" && (
+                              <div className="flex items-start gap-3 border-t px-4 py-3">
+                                <Eye
+                                  size={17}
+                                  className="mt-0.5 shrink-0 text-muted-foreground"
+                                />
+
+                                <p className="text-xs leading-5 text-muted-foreground">
+                                  O visualizador pode
+                                  consultar os módulos,
+                                  mas não pode criar,
+                                  editar, excluir,
+                                  validar ou emitir
+                                  documentos.
+                                </p>
+                              </div>
+                            )}
+
+                          {selecionada &&
+                            acesso.permissao ===
+                              "PERSONALIZADO" && (
+                              <div className="space-y-4 border-t p-4">
+                                <div className="flex items-start gap-3">
+                                  <SlidersHorizontal
+                                    size={18}
+                                    className="mt-0.5 shrink-0 text-primary"
+                                  />
+
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      Privilégios
+                                      personalizados
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      Escolha exatamente
+                                      o que este usuário
+                                      poderá fazer nesta
+                                      empresa.
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <PrivilegiosEmpresaTree
+                                  grupos={
+                                    arvorePrivilegios
+                                  }
+                                  selecionados={
+                                    acesso.privilegios
+                                  }
+                                  onChange={(
+                                    privilegios
+                                  ) =>
+                                    alterarPrivilegios(
+                                      empresa.id,
+                                      privilegios
+                                    )
+                                  }
+                                  disabled={
+                                    carregando
+                                  }
+                                />
+                              </div>
+                            )}
+                        </article>
+                      );
+                    }
+                  )}
+                </div>
+              )}
+
+              <p className="mt-4 text-xs leading-5 text-muted-foreground">
+                Vínculos com empresas
+                inativas não aparecem neste
+                formulário e serão mantidos
+                sem alteração.
+              </p>
             </section>
           )}
 

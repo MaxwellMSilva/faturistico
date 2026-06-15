@@ -1,5 +1,9 @@
 "use client";
 
+import type {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import {
   type FormEvent,
   useState,
@@ -10,14 +14,21 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Building2,
+  Eye,
   LoaderCircle,
   Plus,
   Save,
   ShieldCheck,
+  SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 
 import { createUsuario } from "@/actions/usuarios/create-usuario";
+
+import {
+  PrivilegiosEmpresaTree,
+  type GrupoPrivilegioProp,
+} from "@/components/usuarios/privilegios-empresa-tree";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,8 +49,7 @@ type RoleUsuario =
 
 type PermissaoEmpresa =
   | "ADMIN"
-  | "FATURAMENTO"
-  | "OPERADOR"
+  | "PERSONALIZADO"
   | "VISUALIZADOR";
 
 type Empresa = {
@@ -51,6 +61,14 @@ type Empresa = {
   cnpj: string;
 };
 
+type AcessoFormulario = {
+  permissao:
+    PermissaoEmpresa;
+
+  privilegios:
+    PrivilegioEmpresa[];
+};
+
 type Props = {
   empresas: Empresa[];
 
@@ -60,22 +78,18 @@ type Props = {
   gestorRole:
     | "OWNER"
     | "ADMIN";
-};
 
-const nomesPermissoes: Record<
-  PermissaoEmpresa,
-  string
-> = {
-  ADMIN: "Administrador",
-  FATURAMENTO: "Faturamento",
-  OPERADOR: "Operador",
-  VISUALIZADOR: "Visualizador",
+  arvorePrivilegios:
+    GrupoPrivilegioProp[];
 };
 
 function somenteNumeros(
   valor: string
 ) {
-  return valor.replace(/\D/g, "");
+  return valor.replace(
+    /\D/g,
+    ""
+  );
 }
 
 function formatarCnpj(
@@ -84,7 +98,9 @@ function formatarCnpj(
   const numeros =
     somenteNumeros(valor);
 
-  if (numeros.length !== 14) {
+  if (
+    numeros.length !== 14
+  ) {
     return valor;
   }
 
@@ -95,7 +111,8 @@ function formatarCnpj(
 }
 
 function obterRoleInicial(
-  rolesPermitidos: RoleUsuario[]
+  rolesPermitidos:
+    RoleUsuario[]
 ): RoleUsuario {
   if (
     rolesPermitidos.includes(
@@ -115,6 +132,7 @@ export function NovoUsuarioDialog({
   empresas,
   rolesPermitidos,
   gestorRole,
+  arvorePrivilegios,
 }: Props) {
   const router = useRouter();
 
@@ -150,16 +168,11 @@ export function NovoUsuarioDialog({
       )
     );
 
-  /*
-   * Quando uma empresa está selecionada,
-   * seu ID existe neste objeto.
-   */
-
   const [acessos, setAcessos] =
     useState<
       Record<
         string,
-        PermissaoEmpresa
+        AcessoFormulario
       >
     >({});
 
@@ -187,16 +200,20 @@ export function NovoUsuarioDialog({
     setAcessos((anteriores) => {
       const novosAcessos: Record<
         string,
-        PermissaoEmpresa
+        AcessoFormulario
       > = {};
 
       Object.keys(
         anteriores
       ).forEach((empresaId) => {
-        novosAcessos[empresaId] =
-          novaRole === "ADMIN"
-            ? "ADMIN"
-            : "OPERADOR";
+        novosAcessos[empresaId] = {
+          permissao:
+            novaRole === "ADMIN"
+              ? "ADMIN"
+              : "VISUALIZADOR",
+
+          privilegios: [],
+        };
       });
 
       return novosAcessos;
@@ -209,12 +226,9 @@ export function NovoUsuarioDialog({
     empresaId: string
   ) {
     setAcessos((anteriores) => {
-      const selecionada =
-        Boolean(
-          anteriores[empresaId]
-        );
-
-      if (selecionada) {
+      if (
+        anteriores[empresaId]
+      ) {
         const novos = {
           ...anteriores,
         };
@@ -227,10 +241,14 @@ export function NovoUsuarioDialog({
       return {
         ...anteriores,
 
-        [empresaId]:
-          role === "ADMIN"
-            ? "ADMIN"
-            : "OPERADOR",
+        [empresaId]: {
+          permissao:
+            role === "ADMIN"
+              ? "ADMIN"
+              : "VISUALIZADOR",
+
+          privilegios: [],
+        },
       };
     });
 
@@ -239,12 +257,51 @@ export function NovoUsuarioDialog({
 
   function alterarPermissao(
     empresaId: string,
-    permissao: PermissaoEmpresa
+    permissao:
+      PermissaoEmpresa
   ) {
     setAcessos((anteriores) => ({
       ...anteriores,
-      [empresaId]: permissao,
+
+      [empresaId]: {
+        permissao,
+
+        privilegios:
+          permissao ===
+          "PERSONALIZADO"
+            ? anteriores[
+                empresaId
+              ]?.privilegios ??
+              []
+            : [],
+      },
     }));
+
+    setErro("");
+  }
+
+  function alterarPrivilegios(
+    empresaId: string,
+    privilegios:
+      PrivilegioEmpresa[]
+  ) {
+    setAcessos((anteriores) => {
+      const acesso =
+        anteriores[empresaId];
+
+      if (!acesso) {
+        return anteriores;
+      }
+
+      return {
+        ...anteriores,
+
+        [empresaId]: {
+          ...acesso,
+          privilegios,
+        },
+      };
+    });
 
     setErro("");
   }
@@ -292,7 +349,10 @@ export function NovoUsuarioDialog({
       return;
     }
 
-    if (senha !== confirmarSenha) {
+    if (
+      senha !==
+      confirmarSenha
+    ) {
       setErro(
         "As senhas não conferem."
       );
@@ -306,10 +366,15 @@ export function NovoUsuarioDialog({
       ).map(
         ([
           empresaId,
-          permissao,
+          acesso,
         ]) => ({
           empresaId,
-          permissao,
+
+          permissao:
+            acesso.permissao,
+
+          privilegios:
+            acesso.privilegios,
         })
       );
 
@@ -318,7 +383,37 @@ export function NovoUsuarioDialog({
       0
     ) {
       setErro(
-        "Selecione pelo menos uma empresa para o usuário."
+        "Selecione pelo menos uma empresa."
+      );
+
+      return;
+    }
+
+    const acessoPersonalizadoSemPrivilegios =
+      acessosSelecionados.find(
+        (acesso) =>
+          acesso.permissao ===
+            "PERSONALIZADO" &&
+          acesso.privilegios.length ===
+            0
+      );
+
+    if (
+      acessoPersonalizadoSemPrivilegios
+    ) {
+      const empresa =
+        empresas.find(
+          (item) =>
+            item.id ===
+            acessoPersonalizadoSemPrivilegios.empresaId
+        );
+
+      setErro(
+        `Selecione pelo menos um privilégio para a empresa "${
+          empresa?.nomeFantasia ??
+          empresa?.razaoSocial ??
+          "selecionada"
+        }".`
       );
 
       return;
@@ -400,7 +495,7 @@ export function NovoUsuarioDialog({
         Novo usuário
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>
             Novo usuário
@@ -408,8 +503,7 @@ export function NovoUsuarioDialog({
 
           <DialogDescription>
             Cadastre o usuário e defina
-            quais empresas ele poderá
-            acessar.
+            seus acessos em cada empresa.
           </DialogDescription>
         </DialogHeader>
 
@@ -429,8 +523,8 @@ export function NovoUsuarioDialog({
                 </h3>
 
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Informe o nome, e-mail e
-                  senha inicial.
+                  Informe os dados de
+                  acesso à plataforma.
                 </p>
               </div>
             </div>
@@ -457,7 +551,6 @@ export function NovoUsuarioDialog({
                   }}
                   placeholder="Nome completo"
                   disabled={carregando}
-                  autoComplete="name"
                   required
                 />
               </div>
@@ -484,7 +577,6 @@ export function NovoUsuarioDialog({
                   }}
                   placeholder="usuario@empresa.com.br"
                   disabled={carregando}
-                  autoComplete="email"
                   required
                 />
               </div>
@@ -562,7 +654,6 @@ export function NovoUsuarioDialog({
                   }}
                   placeholder="Mínimo de 6 caracteres"
                   disabled={carregando}
-                  autoComplete="new-password"
                   minLength={6}
                   required
                 />
@@ -590,7 +681,6 @@ export function NovoUsuarioDialog({
                   }}
                   placeholder="Repita a senha"
                   disabled={carregando}
-                  autoComplete="new-password"
                   minLength={6}
                   required
                 />
@@ -610,43 +700,40 @@ export function NovoUsuarioDialog({
                 </h3>
 
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Selecione as empresas e a
-                  permissão do usuário em
-                  cada ambiente.
+                  Selecione as empresas e
+                  configure o tipo de acesso.
                 </p>
               </div>
             </div>
 
             {empresas.length === 0 ? (
               <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                Nenhuma empresa disponível
-                para vincular ao usuário.
+                Nenhuma empresa ativa
+                disponível.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {empresas.map(
                   (empresa) => {
-                    const permissao =
+                    const acesso =
                       acessos[
                         empresa.id
                       ];
 
                     const selecionada =
-                      Boolean(
-                        permissao
-                      );
+                      Boolean(acesso);
 
                     return (
-                      <div
+                      <article
                         key={empresa.id}
                         className={[
-                          "rounded-xl border p-4 transition-colors",
+                          "rounded-xl border transition-colors",
                           selecionada
                             ? "border-primary/40 bg-primary/5"
                             : "bg-background",
                         ].join(" ")}
                       >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                           <label className="flex cursor-pointer items-start gap-3">
                             <input
                               type="checkbox"
@@ -683,73 +770,120 @@ export function NovoUsuarioDialog({
                           </label>
 
                           {selecionada && (
-                            <div className="w-full sm:w-56">
-                              <select
-                                value={
-                                  permissao
-                                }
-                                onChange={(
-                                  event
-                                ) =>
-                                  alterarPermissao(
-                                    empresa.id,
-                                    event
-                                      .target
-                                      .value as PermissaoEmpresa
-                                  )
-                                }
-                                className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                                disabled={
-                                  carregando ||
-                                  usuarioAdministrador
-                                }
-                              >
-                                {usuarioAdministrador ? (
-                                  <option value="ADMIN">
-                                    Administrador
+                            <div className="w-full sm:w-64">
+                              {usuarioAdministrador ? (
+                                <div className="flex h-10 items-center gap-2 rounded-md border bg-muted/30 px-3 text-sm">
+                                  <ShieldCheck
+                                    size={16}
+                                    className="text-primary"
+                                  />
+
+                                  Administrador
+                                </div>
+                              ) : (
+                                <select
+                                  value={
+                                    acesso.permissao
+                                  }
+                                  onChange={(event) =>
+                                    alterarPermissao(
+                                      empresa.id,
+                                      event
+                                        .target
+                                        .value as PermissaoEmpresa
+                                    )
+                                  }
+                                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                                  disabled={
+                                    carregando
+                                  }
+                                >
+                                  <option value="VISUALIZADOR">
+                                    Visualizador
                                   </option>
-                                ) : (
-                                  <>
-                                    <option value="FATURAMENTO">
-                                      Faturamento
-                                    </option>
 
-                                    <option value="OPERADOR">
-                                      Operador
-                                    </option>
-
-                                    <option value="VISUALIZADOR">
-                                      Visualizador
-                                    </option>
-                                  </>
-                                )}
-                              </select>
+                                  <option value="PERSONALIZADO">
+                                    Personalizado
+                                  </option>
+                                </select>
+                              )}
                             </div>
                           )}
                         </div>
-                      </div>
+
+                        {selecionada &&
+                          acesso.permissao ===
+                            "VISUALIZADOR" && (
+                            <div className="flex items-start gap-3 border-t px-4 py-3">
+                              <Eye
+                                size={17}
+                                className="mt-0.5 shrink-0 text-muted-foreground"
+                              />
+
+                              <p className="text-xs leading-5 text-muted-foreground">
+                                O visualizador pode
+                                consultar os módulos,
+                                mas não pode criar,
+                                editar, excluir,
+                                validar ou emitir
+                                documentos.
+                              </p>
+                            </div>
+                          )}
+
+                        {selecionada &&
+                          acesso.permissao ===
+                            "PERSONALIZADO" && (
+                            <div className="space-y-4 border-t p-4">
+                              <div className="flex items-start gap-3">
+                                <SlidersHorizontal
+                                  size={18}
+                                  className="mt-0.5 shrink-0 text-primary"
+                                />
+
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    Configure os
+                                    privilégios
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Escolha exatamente
+                                    o que este usuário
+                                    poderá fazer nesta
+                                    empresa.
+                                  </p>
+                                </div>
+                              </div>
+
+                              <PrivilegiosEmpresaTree
+                                grupos={
+                                  arvorePrivilegios
+                                }
+                                selecionados={
+                                  acesso.privilegios
+                                }
+                                onChange={(
+                                  privilegios
+                                ) =>
+                                  alterarPrivilegios(
+                                    empresa.id,
+                                    privilegios
+                                  )
+                                }
+                                disabled={
+                                  carregando
+                                }
+                              />
+                            </div>
+                          )}
+                      </article>
                     );
                   }
                 )}
               </div>
             )}
           </section>
-
-          {usuarioAdministrador && (
-            <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-              <ShieldCheck
-                size={18}
-                className="mt-0.5 shrink-0 text-primary"
-              />
-
-              <p className="text-sm text-muted-foreground">
-                O administrador receberá
-                permissão administrativa em
-                todas as empresas
-                selecionadas.
-              </p>
-            </div>
-          )}
 
           {erro && (
             <div

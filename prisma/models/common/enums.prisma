@@ -43,8 +43,7 @@ enum StatusAssinatura {
 enum PermissaoEmpresa {
   OWNER
   ADMIN
-  FATURAMENTO
-  OPERADOR
+  PERSONALIZADO
   VISUALIZADOR
 }
 

@@ -2,13 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 
-import { hash } from "bcryptjs";
+import {
+  Prisma,
+  type PrivilegioEmpresa,
+} from "@prisma/client";
 
-import { Prisma } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 import { prisma } from "@/lib/prisma";
 
 import { validarGestaoUsuarios } from "@/lib/usuarios/validar-gestao-usuarios";
+
+import {
+  privilegioEmpresaValido,
+  resolverPrivilegiosEmpresa,
+} from "@/lib/usuarios/privilegios-empresa";
 
 type RoleNovoUsuario =
   | "ADMIN"
@@ -16,8 +24,7 @@ type RoleNovoUsuario =
 
 type PermissaoNovoUsuario =
   | "ADMIN"
-  | "FATURAMENTO"
-  | "OPERADOR"
+  | "PERSONALIZADO"
   | "VISUALIZADOR";
 
 type AcessoEmpresa = {
@@ -25,6 +32,8 @@ type AcessoEmpresa = {
 
   permissao:
     PermissaoNovoUsuario;
+
+  privilegios?: string[];
 };
 
 type CreateUsuarioData = {
@@ -117,7 +126,7 @@ export async function createUsuario(
     return {
       success: false,
       message:
-        "Informe uma função válida para o usuário.",
+        "Informe uma função válida.",
     };
   }
 
@@ -137,13 +146,15 @@ export async function createUsuario(
   }
 
   if (
-    !Array.isArray(data.acessos) ||
+    !Array.isArray(
+      data.acessos
+    ) ||
     data.acessos.length === 0
   ) {
     return {
       success: false,
       message:
-        "Selecione pelo menos uma empresa para o usuário.",
+        "Selecione pelo menos uma empresa.",
     };
   }
 
@@ -177,23 +188,23 @@ export async function createUsuario(
   }
 
   /*
-   * Permissão empresarial conforme
-   * o papel global.
+   * Valida permissões conforme o papel
+   * global do novo usuário.
    */
 
   if (data.role === "ADMIN") {
-    const permissaoInvalida =
+    const acessoInvalido =
       acessosUnicos.some(
         (acesso) =>
           acesso.permissao !==
           "ADMIN"
       );
 
-    if (permissaoInvalida) {
+    if (acessoInvalido) {
       return {
         success: false,
         message:
-          "Um administrador deve possuir permissão de administrador nas empresas selecionadas.",
+          "Administradores devem possuir permissão ADMIN nas empresas selecionadas.",
       };
     }
   }
@@ -201,12 +212,11 @@ export async function createUsuario(
   if (data.role === "USUARIO") {
     const permissoesPermitidas =
       new Set([
-        "FATURAMENTO",
-        "OPERADOR",
+        "PERSONALIZADO",
         "VISUALIZADOR",
       ]);
 
-    const permissaoInvalida =
+    const acessoInvalido =
       acessosUnicos.some(
         (acesso) =>
           !permissoesPermitidas.has(
@@ -214,25 +224,114 @@ export async function createUsuario(
           )
       );
 
-    if (permissaoInvalida) {
+    if (acessoInvalido) {
       return {
         success: false,
         message:
-          "Usuários comuns não podem receber permissão de proprietário ou administrador.",
+          "Usuários comuns devem utilizar acesso personalizado ou visualizador.",
       };
     }
   }
 
   /*
-   * Verifica quais empresas o gestor
-   * pode administrar.
+   * Monta e valida os privilégios
+   * personalizados.
    */
 
+  const acessosPreparados:
+    Array<{
+      empresaId: string;
+
+      permissao:
+        PermissaoNovoUsuario;
+
+      privilegios:
+        PrivilegioEmpresa[];
+    }> = [];
+
+  for (
+    const acesso of
+    acessosUnicos
+  ) {
+    if (
+      acesso.permissao !==
+      "PERSONALIZADO"
+    ) {
+      acessosPreparados.push({
+        empresaId:
+          acesso.empresaId,
+
+        permissao:
+          acesso.permissao,
+
+        privilegios: [],
+      });
+
+      continue;
+    }
+
+    const privilegiosRecebidos =
+      Array.from(
+        new Set(
+          acesso.privilegios ??
+            []
+        )
+      );
+
+    const privilegioInvalido =
+      privilegiosRecebidos.find(
+        (privilegio) =>
+          !privilegioEmpresaValido(
+            privilegio
+          )
+      );
+
+    if (privilegioInvalido) {
+      return {
+        success: false,
+        message:
+          "Existe um privilégio inválido na seleção.",
+      };
+    }
+
+    const privilegiosResolvidos =
+      resolverPrivilegiosEmpresa(
+        privilegiosRecebidos as PrivilegioEmpresa[]
+      );
+
+    if (
+      privilegiosResolvidos.length ===
+      0
+    ) {
+      return {
+        success: false,
+        message:
+          "Selecione pelo menos um privilégio para o acesso personalizado.",
+      };
+    }
+
+    acessosPreparados.push({
+      empresaId:
+        acesso.empresaId,
+
+      permissao:
+        "PERSONALIZADO",
+
+      privilegios:
+        privilegiosResolvidos,
+    });
+  }
+
   const empresasSelecionadas =
-    acessosUnicos.map(
+    acessosPreparados.map(
       (acesso) =>
         acesso.empresaId
     );
+
+  /*
+   * Verifica se as empresas estão ativas
+   * e se o gestor pode administrá-las.
+   */
 
   let empresasPermitidas:
     string[];
@@ -309,7 +408,7 @@ export async function createUsuario(
     return {
       success: false,
       message:
-        "Você não possui permissão para vincular usuários a uma das empresas selecionadas.",
+        "Você não possui permissão para vincular o usuário a uma das empresas selecionadas.",
     };
   }
 
@@ -353,7 +452,7 @@ export async function createUsuario(
 
           empresas: {
             create:
-              acessosUnicos.map(
+              acessosPreparados.map(
                 (acesso) => ({
                   empresaId:
                     acesso.empresaId,
@@ -362,6 +461,21 @@ export async function createUsuario(
                     acesso.permissao,
 
                   ativo: true,
+
+                  privilegios:
+                    acesso.permissao ===
+                      "PERSONALIZADO"
+                      ? {
+                          create:
+                            acesso.privilegios.map(
+                              (
+                                privilegio
+                              ) => ({
+                                privilegio,
+                              })
+                            ),
+                        }
+                      : undefined,
                 })
               ),
           },

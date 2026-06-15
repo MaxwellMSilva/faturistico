@@ -1,0 +1,73 @@
+enum PrivilegioEmpresa {
+  // Dashboard
+  DASHBOARD_VISUALIZAR
+
+  // Clientes
+  CLIENTES_VISUALIZAR
+  CLIENTES_CRIAR
+  CLIENTES_EDITAR
+  CLIENTES_EXCLUIR
+
+  // Produtos
+  PRODUTOS_VISUALIZAR
+  PRODUTOS_CRIAR
+  PRODUTOS_EDITAR
+  PRODUTOS_EXCLUIR
+
+  // Naturezas de operação
+  NATUREZAS_VISUALIZAR
+  NATUREZAS_CRIAR
+  NATUREZAS_EDITAR
+  NATUREZAS_EXCLUIR
+
+  // Transportadores
+  TRANSPORTADORES_VISUALIZAR
+  TRANSPORTADORES_CRIAR
+  TRANSPORTADORES_EDITAR
+  TRANSPORTADORES_EXCLUIR
+
+  // Veículos
+  VEICULOS_VISUALIZAR
+  VEICULOS_CRIAR
+  VEICULOS_EDITAR
+  VEICULOS_EXCLUIR
+
+  // Motoristas
+  MOTORISTAS_VISUALIZAR
+  MOTORISTAS_CRIAR
+  MOTORISTAS_EDITAR
+  MOTORISTAS_EXCLUIR
+
+  // NF-e
+  NFE_VISUALIZAR
+  NFE_CRIAR
+  NFE_EDITAR
+  NFE_EXCLUIR_RASCUNHO
+  NFE_VALIDAR
+  NFE_EMITIR
+  NFE_CANCELAR
+
+  // Configurações fiscais
+  CONFIGURACOES_VISUALIZAR
+  CONFIGURACOES_EDITAR
+
+  // Certificado digital
+  CERTIFICADO_VISUALIZAR
+  CERTIFICADO_SUBSTITUIR
+}
+
+model UsuarioEmpresaPrivilegio {
+  id String @id @default(cuid())
+
+  usuarioEmpresaId String
+
+  usuarioEmpresa UsuarioEmpresa @relation(fields: [usuarioEmpresaId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  privilegio PrivilegioEmpresa
+
+  createdAt DateTime @default(now())
+
+  @@unique([usuarioEmpresaId, privilegio])
+  @@index([usuarioEmpresaId])
+  @@index([privilegio])
+}
