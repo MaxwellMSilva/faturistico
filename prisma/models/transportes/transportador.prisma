@@ -44,6 +44,8 @@ model Transportador {
   veiculos   Veiculo[]
   motoristas Motorista[]
 
+  transportesNfe TransporteNotaFiscal[] @relation("TransportadorTransporteNfe")
+
   @@unique([empresaId, cpfCnpj])
   @@unique([empresaId, rntrc])
   @@index([empresaId])

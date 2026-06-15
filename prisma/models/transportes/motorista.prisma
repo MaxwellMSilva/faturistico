@@ -21,6 +21,8 @@ model Motorista {
 
   ativo Boolean @default(true)
 
+  transportesNfe TransporteNotaFiscal[] @relation("MotoristaTransporteNfe")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

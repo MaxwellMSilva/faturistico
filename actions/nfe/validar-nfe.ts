@@ -115,6 +115,7 @@ export async function validarNfe(
         empresa: true,
         cliente: true,
         naturezaOperacao: true,
+        transporte: true,
 
         itens: {
           orderBy: {
@@ -446,6 +447,338 @@ export async function validarNfe(
         "A natureza de operação indica destinatário contribuinte de ICMS, " +
           "mas o cliente não possui inscrição estadual."
       );
+    }
+  }
+
+  /*
+   * Transporte
+   */
+
+  const transporte =
+    nota.transporte;
+
+  if (!transporte) {
+    erros.push(
+      "Informe a modalidade do frete da NF-e."
+    );
+  } else {
+    const semTransporte =
+      transporte.modalidadeFrete ===
+      "SEM_TRANSPORTE";
+
+    const modalidadesValidas =
+      new Set([
+        "POR_CONTA_EMITENTE",
+        "POR_CONTA_DESTINATARIO",
+        "POR_CONTA_TERCEIROS",
+        "TRANSPORTE_PROPRIO_EMITENTE",
+        "TRANSPORTE_PROPRIO_DESTINATARIO",
+        "SEM_TRANSPORTE",
+      ]);
+
+    if (
+      !modalidadesValidas.has(
+        transporte.modalidadeFrete
+      )
+    ) {
+      erros.push(
+        "A modalidade do frete é inválida."
+      );
+    }
+
+    if (!semTransporte) {
+      /*
+       * Transportador
+       */
+
+      const possuiTransportador =
+        Boolean(
+          transporte.transportadorId ||
+            transporte.transportadorNome ||
+            transporte.transportadorCpfCnpj
+        );
+
+      if (possuiTransportador) {
+        if (
+          !possuiTexto(
+            transporte.transportadorNome
+          )
+        ) {
+          erros.push(
+            "Informe o nome ou razão social do transportador."
+          );
+        }
+
+        const documentoTransportador =
+          somenteNumeros(
+            transporte.transportadorCpfCnpj
+          );
+
+        if (
+          documentoTransportador &&
+          documentoTransportador.length !==
+            11 &&
+          documentoTransportador.length !==
+            14
+        ) {
+          erros.push(
+            "O CPF ou CNPJ do transportador é inválido."
+          );
+        }
+
+        if (
+          transporte.transportadorUf &&
+          transporte.transportadorUf
+            .trim().length !== 2
+        ) {
+          erros.push(
+            "A UF do transportador é inválida."
+          );
+        }
+      }
+
+      if (
+        [
+          "POR_CONTA_EMITENTE",
+          "POR_CONTA_DESTINATARIO",
+          "POR_CONTA_TERCEIROS",
+        ].includes(
+          transporte.modalidadeFrete
+        ) &&
+        !possuiTransportador
+      ) {
+        avisos.push(
+          "A modalidade de frete selecionada não possui transportador informado."
+        );
+      }
+
+      /*
+       * Veículo
+       */
+
+      const possuiVeiculo =
+        Boolean(
+          transporte.veiculoId ||
+            transporte.veiculoPlaca ||
+            transporte.veiculoRenavam ||
+            transporte.veiculoUf
+        );
+
+      if (possuiVeiculo) {
+        const placa =
+          transporte.veiculoPlaca
+            ?.replace(
+              /[^a-zA-Z0-9]/g,
+              ""
+            )
+            .toUpperCase() ?? "";
+
+        const placaAntiga =
+          /^[A-Z]{3}\d{4}$/.test(
+            placa
+          );
+
+        const placaMercosul =
+          /^[A-Z]{3}\d[A-Z]\d{2}$/.test(
+            placa
+          );
+
+        if (
+          !placaAntiga &&
+          !placaMercosul
+        ) {
+          erros.push(
+            "A placa do veículo de transporte é inválida."
+          );
+        }
+
+        if (
+          transporte.veiculoUf?.trim()
+            .length !== 2
+        ) {
+          erros.push(
+            "Informe uma UF válida para o veículo de transporte."
+          );
+        }
+
+        const renavam =
+          somenteNumeros(
+            transporte.veiculoRenavam
+          );
+
+        if (
+          renavam &&
+          renavam.length !== 11
+        ) {
+          erros.push(
+            "O RENAVAM do veículo de transporte é inválido."
+          );
+        }
+      }
+
+      if (
+        [
+          "TRANSPORTE_PROPRIO_EMITENTE",
+          "TRANSPORTE_PROPRIO_DESTINATARIO",
+        ].includes(
+          transporte.modalidadeFrete
+        ) &&
+        !possuiVeiculo
+      ) {
+        avisos.push(
+          "A modalidade de transporte próprio foi selecionada, mas nenhum veículo foi informado."
+        );
+      }
+
+      /*
+       * Motorista
+       */
+
+      const possuiMotorista =
+        Boolean(
+          transporte.motoristaId ||
+            transporte.motoristaNome ||
+            transporte.motoristaCpf ||
+            transporte.motoristaCnh
+        );
+
+      if (possuiMotorista) {
+        if (
+          !possuiTexto(
+            transporte.motoristaNome
+          )
+        ) {
+          erros.push(
+            "Informe o nome do motorista."
+          );
+        }
+
+        const cpfMotorista =
+          somenteNumeros(
+            transporte.motoristaCpf
+          );
+
+        if (
+          cpfMotorista &&
+          cpfMotorista.length !== 11
+        ) {
+          erros.push(
+            "O CPF do motorista é inválido."
+          );
+        }
+
+        const cnhMotorista =
+          somenteNumeros(
+            transporte.motoristaCnh
+          );
+
+        if (
+          cnhMotorista &&
+          cnhMotorista.length !== 11
+        ) {
+          erros.push(
+            "O número da CNH do motorista é inválido."
+          );
+        }
+      }
+
+      /*
+       * Volumes
+       */
+
+      if (
+        transporte.quantidadeVolumes !==
+          null &&
+        transporte.quantidadeVolumes <= 0
+      ) {
+        erros.push(
+          "A quantidade de volumes deve ser maior que zero."
+        );
+      }
+
+      const possuiDadosVolumes =
+        Boolean(
+          transporte.quantidadeVolumes ||
+            possuiTexto(
+              transporte.especieVolumes
+            ) ||
+            possuiTexto(
+              transporte.marcaVolumes
+            ) ||
+            possuiTexto(
+              transporte.numeracaoVolumes
+            ) ||
+            transporte.pesoLiquido !==
+              null ||
+            transporte.pesoBruto !== null
+        );
+
+      if (
+        possuiDadosVolumes &&
+        !transporte.quantidadeVolumes
+      ) {
+        avisos.push(
+          "Existem dados de volumes informados, mas a quantidade de volumes não foi preenchida."
+        );
+      }
+
+      if (
+        transporte.quantidadeVolumes &&
+        !possuiTexto(
+          transporte.especieVolumes
+        )
+      ) {
+        avisos.push(
+          "A quantidade de volumes foi informada, mas a espécie dos volumes está vazia."
+        );
+      }
+
+      /*
+       * Pesos
+       */
+
+      if (
+        transporte.pesoLiquido !== null &&
+        transporte.pesoLiquido.lessThan(
+          0
+        )
+      ) {
+        erros.push(
+          "O peso líquido não pode ser negativo."
+        );
+      }
+
+      if (
+        transporte.pesoBruto !== null &&
+        transporte.pesoBruto.lessThan(
+          0
+        )
+      ) {
+        erros.push(
+          "O peso bruto não pode ser negativo."
+        );
+      }
+
+      if (
+        transporte.pesoLiquido !== null &&
+        transporte.pesoBruto !== null &&
+        transporte.pesoLiquido.greaterThan(
+          transporte.pesoBruto
+        )
+      ) {
+        erros.push(
+          "O peso líquido não pode ser maior que o peso bruto."
+        );
+      }
+
+      if (
+        transporte.pesoLiquido !== null &&
+        transporte.pesoBruto === null
+      ) {
+        avisos.push(
+          "O peso líquido foi informado, mas o peso bruto não foi preenchido."
+        );
+      }
     }
   }
 

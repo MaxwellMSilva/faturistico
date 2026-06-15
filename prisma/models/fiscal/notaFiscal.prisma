@@ -61,6 +61,8 @@ model NotaFiscal {
   itens   ItemNotaFiscal[]
   eventos EventoFiscal[]
 
+  transporte TransporteNotaFiscal?
+
   @@unique([empresaId, tipoDocumento, numero, serie])
   @@index([empresaId])
   @@index([clienteId])

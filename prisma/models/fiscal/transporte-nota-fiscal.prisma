@@ -1,0 +1,84 @@
+model TransporteNotaFiscal {
+  id String @id @default(cuid())
+
+  notaFiscalId String @unique
+
+  notaFiscal NotaFiscal @relation(fields: [notaFiscalId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  modalidadeFrete ModalidadeFrete @default(SEM_TRANSPORTE)
+
+  /**
+   * Vínculos com os cadastros atuais.
+   * Caso um cadastro seja excluído, o
+   * transporte da NF-e permanece salvo
+   * por meio dos campos de cópia abaixo.
+   */
+
+  transportadorId String?
+
+  transportador Transportador? @relation("TransportadorTransporteNfe", fields: [transportadorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  veiculoId String?
+
+  veiculo Veiculo? @relation("VeiculoTransporteNfe", fields: [veiculoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  motoristaId String?
+
+  motorista Motorista? @relation("MotoristaTransporteNfe", fields: [motoristaId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  /**
+   * Cópia dos dados do transportador.
+   */
+
+  transportadorNome              String?
+  transportadorCpfCnpj           String?
+  transportadorInscricaoEstadual String?
+  transportadorRntrc             String?
+
+  transportadorLogradouro String?
+  transportadorNumero     String?
+  transportadorBairro     String?
+  transportadorMunicipio  String?
+  transportadorUf         String?
+
+  /**
+   * Cópia dos dados do veículo.
+   */
+
+  veiculoPlaca       String?
+  veiculoRenavam     String?
+  veiculoUf          String?
+  veiculoMarcaModelo String?
+  veiculoTipo        TipoVeiculo?
+
+  /**
+   * Cópia dos dados do motorista.
+   * Será útil para controle interno
+   * e para a futura emissão do MDF-e.
+   */
+
+  motoristaNome String?
+  motoristaCpf  String?
+  motoristaCnh  String?
+
+  /**
+   * Volumes transportados.
+   */
+
+  quantidadeVolumes Int?
+
+  especieVolumes   String?
+  marcaVolumes     String?
+  numeracaoVolumes String?
+
+  pesoLiquido Decimal?
+  pesoBruto   Decimal?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([transportadorId])
+  @@index([veiculoId])
+  @@index([motoristaId])
+  @@index([modalidadeFrete])
+}
