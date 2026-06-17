@@ -4,12 +4,11 @@ import Link from "next/link";
 
 import {
   ArrowLeftRight,
-  Building2,
   LoaderCircle,
   LogOut,
-  ShieldCheck,
 } from "lucide-react";
 
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { signOut } from "next-auth/react";
@@ -17,25 +16,35 @@ import { signOut } from "next-auth/react";
 type Props = {
   empresaNome: string;
   usuarioNome: string;
-  permissao: string;
 };
 
-const nomesPermissoes: Record<
+const titulosPagina: Record<
   string,
   string
 > = {
-  OWNER: "Proprietário",
-  ADMIN: "Administrador",
-  VISUALIZADOR: "Visualizador",
+  dashboard: "Dashboard",
+  clientes: "Clientes",
+  produtos: "Produtos",
+  "naturezas-operacao":
+    "Naturezas de operação",
+  nfe: "NF-e",
+  mdfe: "MDF-e",
+  transportadores: "Transportadores",
+  veiculos: "Veículos",
+  motoristas: "Motoristas",
+  configuracoes: "Configurações",
 };
 
 export function EmpresaHeader({
   empresaNome,
   usuarioNome,
-  permissao,
 }: Props) {
+  const pathname = usePathname();
   const [saindo, setSaindo] =
     useState(false);
+
+  const isDashboard =
+    pathname.endsWith("/dashboard");
 
   const empresaExibicao =
     empresaNome.trim() ||
@@ -45,14 +54,22 @@ export function EmpresaHeader({
     usuarioNome.trim() ||
     "Usuário";
 
-  const nomePermissao =
-    nomesPermissoes[permissao] ??
-    permissao;
-
   const inicial =
     usuarioExibicao
       .charAt(0)
       .toUpperCase();
+
+  const segmentos =
+    pathname.split("/").filter(Boolean);
+
+  const ultimoSegmento =
+    segmentos[
+      segmentos.length - 1
+    ] ?? "dashboard";
+
+  const tituloPagina =
+    titulosPagina[ultimoSegmento] ??
+    "Painel";
 
   async function handleLogout() {
     try {
@@ -71,60 +88,22 @@ export function EmpresaHeader({
     }
   }
 
-  return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-      <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6">
-        {/* Empresa atual */}
-
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Building2 size={20} />
-          </div>
-
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">
-              Ambiente da empresa
-            </p>
-
-            <p
-              className="max-w-44 truncate text-sm font-semibold sm:max-w-72 lg:max-w-md"
-              title={empresaExibicao}
-            >
-              {empresaExibicao}
-            </p>
-          </div>
-        </div>
-
-        {/* Usuário e ações */}
-
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+  if (isDashboard) {
+    return (
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+        <div className="flex h-14 items-center justify-end gap-2 px-5 sm:px-6">
           <Link
             href="/empresas"
-            className="hidden h-10 items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex"
+            className="hidden h-8 items-center justify-center gap-2 rounded-lg border border-border/60 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted md:inline-flex"
           >
-            <ArrowLeftRight size={16} />
+            <ArrowLeftRight size={14} />
 
             Trocar empresa
           </Link>
 
-          <div className="hidden max-w-52 text-right lg:block">
-            <p
-              className="truncate text-sm font-medium"
-              title={usuarioExibicao}
-            >
-              {usuarioExibicao}
-            </p>
-
-            <p className="inline-flex items-center justify-end gap-1 text-xs text-muted-foreground">
-              <ShieldCheck size={13} />
-
-              {nomePermissao}
-            </p>
-          </div>
-
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-full border bg-muted/30 text-sm font-semibold"
-            title={`${usuarioExibicao} — ${nomePermissao}`}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+            title={usuarioExibicao}
           >
             {inicial}
           </div>
@@ -133,15 +112,68 @@ export function EmpresaHeader({
             type="button"
             onClick={handleLogout}
             disabled={saindo}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-border/60 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
           >
             {saindo ? (
               <LoaderCircle
-                size={16}
+                size={14}
                 className="animate-spin"
               />
             ) : (
-              <LogOut size={16} />
+              <LogOut size={14} />
+            )}
+          </button>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+      <div className="flex min-h-[60px] items-center justify-between gap-4 px-5 py-3 sm:px-6">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
+            {tituloPagina}
+          </h1>
+
+          <p
+            className="mt-0.5 truncate text-xs text-muted-foreground sm:text-sm"
+            title={empresaExibicao}
+          >
+            {empresaExibicao}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/empresas"
+            className="hidden h-9 items-center justify-center gap-2 rounded-lg border border-border/60 bg-card px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted md:inline-flex"
+          >
+            <ArrowLeftRight size={15} />
+
+            Trocar empresa
+          </Link>
+
+          <div
+            className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary sm:flex"
+            title={usuarioExibicao}
+          >
+            {inicial}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={saindo}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border/60 bg-card px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {saindo ? (
+              <LoaderCircle
+                size={15}
+                className="animate-spin"
+              />
+            ) : (
+              <LogOut size={15} />
             )}
 
             <span className="hidden sm:inline">
@@ -150,33 +182,6 @@ export function EmpresaHeader({
                 : "Sair"}
             </span>
           </button>
-        </div>
-      </div>
-
-      {/* Barra móvel */}
-
-      <div className="border-t px-4 py-2 md:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium">
-              {usuarioExibicao}
-            </p>
-
-            <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <ShieldCheck size={12} />
-
-              {nomePermissao}
-            </p>
-          </div>
-
-          <Link
-            href="/empresas"
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border bg-background px-3 text-xs font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ArrowLeftRight size={14} />
-
-            Trocar empresa
-          </Link>
         </div>
       </div>
     </header>

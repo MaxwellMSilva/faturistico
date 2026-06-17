@@ -51,13 +51,13 @@ export default async function PortalLayout({
   }
 
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div className="min-h-screen bg-background">
       <PortalHeader
         nome={usuario.nome}
         role={usuario.role}
       />
 
-      <main className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+      <main className="mx-auto w-full max-w-[1400px] p-5 sm:p-6">
         {children}
       </main>
     </div>

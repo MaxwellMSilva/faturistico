@@ -87,12 +87,12 @@ export default async function PainelPage() {
     <div className="mx-auto w-full max-w-6xl space-y-8">
       {/* Apresentação */}
 
-      <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-        <div className="p-6 sm:p-8">
+      <section className="dashboard-card overflow-hidden">
+        <div className="p-5 sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-2xl">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <FileText size={24} />
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <FileText size={22} />
               </div>
 
               <p className="text-sm font-medium text-primary">
@@ -110,7 +110,7 @@ export default async function PainelPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 rounded-xl border bg-muted/20 px-4 py-3">
+            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <ShieldCheck size={21} />
               </div>
@@ -157,7 +157,7 @@ export default async function PainelPage() {
                   key={opcao.href}
                   aria-disabled="true"
                   title="Você não possui permissão para gerenciar usuários"
-                  className="relative cursor-not-allowed overflow-hidden rounded-2xl border bg-card p-6 opacity-50 shadow-sm"
+                  className="relative cursor-not-allowed overflow-hidden dashboard-card p-6 opacity-50"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -204,7 +204,7 @@ export default async function PainelPage() {
               <Link
                 key={opcao.href}
                 href={opcao.href}
-                className="group relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group relative overflow-hidden dashboard-stat p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
@@ -244,7 +244,7 @@ export default async function PainelPage() {
 
       {/* Orientação */}
 
-      <section className="rounded-2xl border bg-muted/20 p-5">
+      <section className="dashboard-card bg-muted/20 p-5">
         <div className="flex items-start gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-primary shadow-sm">
             <Building2 size={20} />

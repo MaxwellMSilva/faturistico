@@ -110,8 +110,8 @@ export function PortalHeader({
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-card/80 backdrop-blur-md">
+      <div className="mx-auto flex h-[60px] max-w-[1400px] items-center justify-between gap-4 px-5 sm:px-6">
         {/* Marca e navegação */}
 
         <div className="flex min-w-0 items-center gap-6">
@@ -189,7 +189,7 @@ export function PortalHeader({
                     "relative flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     ativa
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   ].join(" ")}
                 >
@@ -198,7 +198,7 @@ export function PortalHeader({
                   {link.titulo}
 
                   {ativa && (
-                    <span className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-primary" />
+                    <span className="absolute inset-x-3 -bottom-[14px] h-0.5 rounded-full bg-primary" />
                   )}
                 </Link>
               );
@@ -258,9 +258,9 @@ export function PortalHeader({
 
       <nav
         aria-label="Navegação móvel"
-        className="border-t md:hidden"
+        className="border-t border-border/60 md:hidden"
       >
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-1 px-4 py-2">
+        <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-1 px-5 py-2">
           {links.map((link) => {
             const Icone =
               link.icone;
@@ -309,7 +309,7 @@ export function PortalHeader({
                   "flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   ativa
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 ].join(" ")}
               >

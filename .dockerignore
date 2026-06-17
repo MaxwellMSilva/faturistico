@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+npm-debug.log*
+.env
+.env.*
+!.env.example
+!.env.docker.example
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+uploads
+certificados
+*.pfx
+*.p12

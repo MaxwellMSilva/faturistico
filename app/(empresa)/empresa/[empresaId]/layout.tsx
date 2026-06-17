@@ -34,10 +34,21 @@ export default async function EmpresaLayout({
     empresa.razaoSocial;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-muted/20">
+    <div className="flex h-screen overflow-hidden bg-background">
       <EmpresaSidebar
         empresaId={empresa.id}
         empresaNome={empresaNome}
+        usuarioNome={
+          session.user.name ??
+          "Usuário"
+        }
+        usuarioEmail={
+          session.user.email ??
+          undefined
+        }
+        permissao={
+          acesso.permissao
+        }
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -47,12 +58,9 @@ export default async function EmpresaLayout({
             session.user.name ??
             "Usuário"
           }
-          permissao={
-            acesso.permissao
-          }
         />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-5 sm:p-6">
           {children}
         </main>
       </div>

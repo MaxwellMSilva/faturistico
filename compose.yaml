@@ -1,0 +1,29 @@
+services:
+  faturistico:
+    container_name: faturistico
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: file:/app/data/faturistico.db
+      NEXTAUTH_URL: http://localhost:3000
+      RUN_SEED: ${RUN_SEED:-true}
+    volumes:
+      - faturistico_data:/app/data
+      - faturistico_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/entrar || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  faturistico_data:
+  faturistico_uploads:
