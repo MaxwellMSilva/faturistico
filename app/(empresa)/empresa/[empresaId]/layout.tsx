@@ -2,6 +2,7 @@ import { getContextoEmpresa } from "@/lib/empresa/get-contexto-empresa";
 
 import { EmpresaHeader } from "@/components/empresa-ambiente/empresa-header";
 import { EmpresaSidebar } from "@/components/empresa-ambiente/empresa-sidebar";
+import { EmpresaMobileSidebar } from "@/components/empresa-ambiente/empresa-mobile-sidebar";
 
 export const dynamic =
   "force-dynamic";
@@ -33,34 +34,53 @@ export default async function EmpresaLayout({
     empresa.nomeFantasia ??
     empresa.razaoSocial;
 
+  const usuarioNome =
+    session.user?.name ??
+    "Usuário";
+
+  const usuarioEmail =
+    session.user?.email ??
+    undefined;
+
+  const propriedadesSidebar = {
+    empresaId:
+      empresa.id,
+
+    empresaNome,
+
+    usuarioNome,
+
+    usuarioEmail,
+
+    permissao:
+      acesso.permissao,
+  };
+
   return (
     <div className="empresa-shell flex h-screen overflow-hidden">
+      {/* Sidebar desktop */}
+
       <EmpresaSidebar
-        empresaId={empresa.id}
-        empresaNome={empresaNome}
-        usuarioNome={
-          session.user?.name ??
-          "Usuário"
-        }
-        usuarioEmail={
-          session.user?.email ??
-          undefined
-        }
-        permissao={
-          acesso.permissao
-        }
+        {...propriedadesSidebar}
+        variante="desktop"
       />
 
       <div className="empresa-main flex min-w-0 flex-1 flex-col">
+        {/* Sidebar mobile */}
+
+        <EmpresaMobileSidebar
+          {...propriedadesSidebar}
+        />
+
         <EmpresaHeader
-          empresaNome={empresaNome}
+          empresaNome={
+            empresaNome
+          }
           usuarioNome={
-            session.user?.name ??
-            "Usuário"
+            usuarioNome
           }
           usuarioEmail={
-            session.user?.email ??
-            undefined
+            usuarioEmail
           }
           permissao={
             acesso.permissao
