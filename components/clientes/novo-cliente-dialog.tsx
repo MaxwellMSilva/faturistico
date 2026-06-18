@@ -8,11 +8,14 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
+  ArrowLeft,
+  ArrowRight,
   BadgeCheck,
   LoaderCircle,
   Plus,
   Save,
   Search,
+  X,
 } from "lucide-react";
 
 import { createCliente } from "@/actions/clientes/create-cliente";
@@ -29,6 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
 import {
   FormStepperBody,
   FormStepperDialogContent,
@@ -270,7 +274,6 @@ export function NovoClienteDialog({
   }: CidadeSelecionada) {
     setForm((anterior) => ({
       ...anterior,
-
       municipio,
       uf,
       codigoMunicipio,
@@ -284,9 +287,7 @@ export function NovoClienteDialog({
   ) {
     setForm((anterior) => ({
       ...anterior,
-
       tipoPessoa,
-
       cpfCnpj: "",
       nome: "",
     }));
@@ -305,6 +306,8 @@ export function NovoClienteDialog({
   }
 
   function validarPassoAtual() {
+    limparMensagens();
+
     const documento =
       somenteNumeros(
         form.cpfCnpj
@@ -401,8 +404,12 @@ export function NovoClienteDialog({
 
   function handlePassoAnterior() {
     limparMensagens();
+
     setPassoAtual((anterior) =>
-      Math.max(anterior - 1, 0)
+      Math.max(
+        anterior - 1,
+        0
+      )
     );
   }
 
@@ -526,6 +533,20 @@ export function NovoClienteDialog({
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
+
+    /*
+     * Proteção contra submit antecipado.
+     *
+     * Caso o formulário seja enviado no passo
+     * Identificação ou Contato, ele apenas avança.
+     *
+     * O createCliente só poderá ser executado
+     * quando estiver no último passo.
+     */
+    if (passoAtual < ultimoPasso) {
+      handleProximoPasso();
+      return;
+    }
 
     limparMensagens();
 
@@ -744,500 +765,526 @@ export function NovoClienteDialog({
         >
           <FormStepperBody>
             {passoAtual === 0 && (
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <label
-                  htmlFor="tipoPessoa"
-                  className="text-sm font-medium"
-                >
-                  Tipo de pessoa
-                </label>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="tipoPessoa"
+                    className="text-sm font-medium"
+                  >
+                    Tipo de pessoa
+                  </label>
 
-                <select
-                  id="tipoPessoa"
-                  value={
-                    form.tipoPessoa
-                  }
-                  onChange={(event) =>
-                    alterarTipoPessoa(
-                      event.target
-                        .value as TipoPessoa
-                    )
-                  }
-                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                  disabled={bloqueado}
-                >
-                  <option value="JURIDICA">
-                    Pessoa jurídica
-                  </option>
-
-                  <option value="FISICA">
-                    Pessoa física
-                  </option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="nome"
-                  className="text-sm font-medium"
-                >
-                  {pessoaJuridica
-                    ? "Razão social"
-                    : "Nome completo"}
-                </label>
-
-                <Input
-                  id="nome"
-                  className="h-11"
-                  placeholder={
-                    pessoaJuridica
-                      ? "Razão social do cliente"
-                      : "Nome completo do cliente"
-                  }
-                  value={form.nome}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "nome",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <label
-                  htmlFor="cpfCnpj"
-                  className="text-sm font-medium"
-                >
-                  {pessoaJuridica
-                    ? "CNPJ"
-                    : "CPF"}
-                </label>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    id="cpfCnpj"
-                    className="h-11 flex-1"
-                    placeholder={
-                      pessoaJuridica
-                        ? "00.000.000/0000-00"
-                        : "000.000.000-00"
-                    }
-                    inputMode="numeric"
+                  <select
+                    id="tipoPessoa"
                     value={
-                      form.cpfCnpj
+                      form.tipoPessoa
                     }
                     onChange={(event) =>
+                      alterarTipoPessoa(
+                        event.target
+                          .value as TipoPessoa
+                      )
+                    }
+                    className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                    disabled={bloqueado}
+                  >
+                    <option value="JURIDICA">
+                      Pessoa jurídica
+                    </option>
+
+                    <option value="FISICA">
+                      Pessoa física
+                    </option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="nome"
+                    className="text-sm font-medium"
+                  >
+                    {pessoaJuridica
+                      ? "Razão social"
+                      : "Nome completo"}
+                  </label>
+
+                  <Input
+                    id="nome"
+                    className="h-11"
+                    placeholder={
+                      pessoaJuridica
+                        ? "Razão social do cliente"
+                        : "Nome completo do cliente"
+                    }
+                    value={form.nome}
+                    onChange={(event) =>
                       atualizarCampo(
-                        "cpfCnpj",
-                        formatarDocumento(
-                          event.target
-                            .value,
-                          form.tipoPessoa
-                        )
+                        "nome",
+                        event.target.value
                       )
                     }
                     disabled={bloqueado}
                     required
                   />
+                </div>
 
-                  {pessoaJuridica && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 sm:min-w-36"
-                      onClick={
-                        buscarCnpj
+                <div className="space-y-2 md:col-span-2">
+                  <label
+                    htmlFor="cpfCnpj"
+                    className="text-sm font-medium"
+                  >
+                    {pessoaJuridica
+                      ? "CNPJ"
+                      : "CPF"}
+                  </label>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="cpfCnpj"
+                      className="h-11 flex-1"
+                      placeholder={
+                        pessoaJuridica
+                          ? "00.000.000/0000-00"
+                          : "000.000.000-00"
+                      }
+                      inputMode="numeric"
+                      value={
+                        form.cpfCnpj
+                      }
+                      onChange={(event) =>
+                        atualizarCampo(
+                          "cpfCnpj",
+                          formatarDocumento(
+                            event.target
+                              .value,
+                            form.tipoPessoa
+                          )
+                        )
                       }
                       disabled={bloqueado}
-                    >
-                      {buscandoCnpj ? (
-                        <>
-                          <LoaderCircle
-                            size={17}
-                            className="animate-spin"
-                          />
+                      required
+                    />
 
-                          Consultando...
-                        </>
-                      ) : (
-                        <>
-                          <Search
-                            size={17}
-                          />
+                    {pessoaJuridica && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 sm:min-w-36"
+                        onClick={
+                          buscarCnpj
+                        }
+                        disabled={bloqueado}
+                      >
+                        {buscandoCnpj ? (
+                          <>
+                            <LoaderCircle
+                              size={17}
+                              className="animate-spin"
+                            />
 
-                          Buscar CNPJ
-                        </>
-                      )}
-                    </Button>
-                  )}
+                            Consultando...
+                          </>
+                        ) : (
+                          <>
+                            <Search
+                              size={17}
+                            />
+
+                            Buscar CNPJ
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="inscricaoEstadual"
+                    className="text-sm font-medium"
+                  >
+                    Inscrição estadual
+                  </label>
+
+                  <Input
+                    id="inscricaoEstadual"
+                    className="h-11"
+                    placeholder="Inscrição estadual"
+                    value={
+                      form
+                        .inscricaoEstadual
+                    }
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "inscricaoEstadual",
+                        event.target.value
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="inscricaoMunicipal"
+                    className="text-sm font-medium"
+                  >
+                    Inscrição municipal
+                  </label>
+
+                  <Input
+                    id="inscricaoMunicipal"
+                    className="h-11"
+                    placeholder="Inscrição municipal"
+                    value={
+                      form
+                        .inscricaoMunicipal
+                    }
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "inscricaoMunicipal",
+                        event.target.value
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label
+                    htmlFor="suframa"
+                    className="text-sm font-medium"
+                  >
+                    SUFRAMA
+                  </label>
+
+                  <Input
+                    id="suframa"
+                    className="h-11"
+                    placeholder="Inscrição SUFRAMA, quando aplicável"
+                    value={form.suframa}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "suframa",
+                        event.target.value
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="inscricaoEstadual"
-                  className="text-sm font-medium"
-                >
-                  Inscrição estadual
-                </label>
-
-                <Input
-                  id="inscricaoEstadual"
-                  className="h-11"
-                  placeholder="Inscrição estadual"
-                  value={
-                    form
-                      .inscricaoEstadual
-                  }
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "inscricaoEstadual",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="inscricaoMunicipal"
-                  className="text-sm font-medium"
-                >
-                  Inscrição municipal
-                </label>
-
-                <Input
-                  id="inscricaoMunicipal"
-                  className="h-11"
-                  placeholder="Inscrição municipal"
-                  value={
-                    form
-                      .inscricaoMunicipal
-                  }
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "inscricaoMunicipal",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <label
-                  htmlFor="suframa"
-                  className="text-sm font-medium"
-                >
-                  SUFRAMA
-                </label>
-
-                <Input
-                  id="suframa"
-                  className="h-11"
-                  placeholder="Inscrição SUFRAMA, quando aplicável"
-                  value={form.suframa}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "suframa",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-            </div>
             )}
 
             {passoAtual === 1 && (
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <label
-                  htmlFor="emailCliente"
-                  className="text-sm font-medium"
-                >
-                  E-mail
-                </label>
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="emailCliente"
+                    className="text-sm font-medium"
+                  >
+                    E-mail
+                  </label>
 
-                <Input
-                  id="emailCliente"
-                  type="email"
-                  className="h-11"
-                  placeholder="cliente@exemplo.com"
-                  value={form.email}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "email",
-                      event.target.value
-                    )
-                  }
-                  autoComplete="email"
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="telefoneCliente"
-                  className="text-sm font-medium"
-                >
-                  Telefone
-                </label>
-
-                <Input
-                  id="telefoneCliente"
-                  className="h-11"
-                  placeholder="(00) 00000-0000"
-                  inputMode="tel"
-                  value={form.telefone}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "telefone",
-                      formatarTelefone(
+                  <Input
+                    id="emailCliente"
+                    type="email"
+                    className="h-11"
+                    placeholder="cliente@exemplo.com"
+                    value={form.email}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "email",
                         event.target.value
                       )
-                    )
-                  }
-                  autoComplete="tel"
-                  disabled={bloqueado}
-                />
+                    }
+                    autoComplete="email"
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="telefoneCliente"
+                    className="text-sm font-medium"
+                  >
+                    Telefone
+                  </label>
+
+                  <Input
+                    id="telefoneCliente"
+                    className="h-11"
+                    placeholder="(00) 00000-0000"
+                    inputMode="tel"
+                    value={form.telefone}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "telefone",
+                        formatarTelefone(
+                          event.target.value
+                        )
+                      )
+                    }
+                    autoComplete="tel"
+                    disabled={bloqueado}
+                  />
+                </div>
               </div>
-            </div>
             )}
 
             {passoAtual === 2 && (
-            <div className="grid gap-5 md:grid-cols-6">
-              <div className="space-y-2 md:col-span-2">
-                <label
-                  htmlFor="cepCliente"
-                  className="text-sm font-medium"
-                >
-                  CEP
-                </label>
+              <div className="grid gap-5 md:grid-cols-6">
+                <div className="space-y-2 md:col-span-2">
+                  <label
+                    htmlFor="cepCliente"
+                    className="text-sm font-medium"
+                  >
+                    CEP
+                  </label>
 
-                <Input
-                  id="cepCliente"
-                  className="h-11"
-                  placeholder="00000-000"
-                  inputMode="numeric"
-                  value={form.cep}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "cep",
-                      formatarCep(
+                  <Input
+                    id="cepCliente"
+                    className="h-11"
+                    placeholder="00000-000"
+                    inputMode="numeric"
+                    value={form.cep}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "cep",
+                        formatarCep(
+                          event.target.value
+                        )
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-4">
+                  <label
+                    htmlFor="logradouroCliente"
+                    className="text-sm font-medium"
+                  >
+                    Logradouro
+                  </label>
+
+                  <Input
+                    id="logradouroCliente"
+                    className="h-11"
+                    placeholder="Rua, avenida, rodovia..."
+                    value={
+                      form.logradouro
+                    }
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "logradouro",
                         event.target.value
                       )
-                    )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label
+                    htmlFor="numeroCliente"
+                    className="text-sm font-medium"
+                  >
+                    Número
+                  </label>
+
+                  <Input
+                    id="numeroCliente"
+                    className="h-11"
+                    placeholder="Número ou S/N"
+                    value={form.numero}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "numero",
+                        event.target.value
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-4">
+                  <label
+                    htmlFor="complementoCliente"
+                    className="text-sm font-medium"
+                  >
+                    Complemento
+                  </label>
+
+                  <Input
+                    id="complementoCliente"
+                    className="h-11"
+                    placeholder="Sala, bloco, apartamento..."
+                    value={
+                      form.complemento
+                    }
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "complemento",
+                        event.target.value
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-6">
+                  <label
+                    htmlFor="bairroCliente"
+                    className="text-sm font-medium"
+                  >
+                    Bairro
+                  </label>
+
+                  <Input
+                    id="bairroCliente"
+                    className="h-11"
+                    placeholder="Bairro"
+                    value={form.bairro}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "bairro",
+                        event.target.value
+                      )
+                    }
+                    disabled={bloqueado}
+                  />
+                </div>
+
+                <CidadeIbgeSearch
+                  municipio={
+                    form.municipio
+                  }
+                  uf={form.uf}
+                  codigoMunicipio={
+                    form.codigoMunicipio
+                  }
+                  onChange={
+                    atualizarCidade
                   }
                   disabled={bloqueado}
                 />
               </div>
+            )}
 
-              <div className="space-y-2 md:col-span-4">
-                <label
-                  htmlFor="logradouroCliente"
-                  className="text-sm font-medium"
+            <div
+              aria-live="polite"
+              className="mt-5 space-y-3"
+            >
+              {mensagem && (
+                <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+                  <BadgeCheck
+                    size={18}
+                    className="mt-0.5 shrink-0"
+                  />
+
+                  <p>{mensagem}</p>
+                </div>
+              )}
+
+              {erro && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
                 >
-                  Logradouro
-                </label>
-
-                <Input
-                  id="logradouroCliente"
-                  className="h-11"
-                  placeholder="Rua, avenida, rodovia..."
-                  value={
-                    form.logradouro
-                  }
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "logradouro",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <label
-                  htmlFor="numeroCliente"
-                  className="text-sm font-medium"
-                >
-                  Número
-                </label>
-
-                <Input
-                  id="numeroCliente"
-                  className="h-11"
-                  placeholder="Número ou S/N"
-                  value={form.numero}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "numero",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-4">
-                <label
-                  htmlFor="complementoCliente"
-                  className="text-sm font-medium"
-                >
-                  Complemento
-                </label>
-
-                <Input
-                  id="complementoCliente"
-                  className="h-11"
-                  placeholder="Sala, bloco, apartamento..."
-                  value={
-                    form.complemento
-                  }
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "complemento",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-6">
-                <label
-                  htmlFor="bairroCliente"
-                  className="text-sm font-medium"
-                >
-                  Bairro
-                </label>
-
-                <Input
-                  id="bairroCliente"
-                  className="h-11"
-                  placeholder="Bairro"
-                  value={form.bairro}
-                  onChange={(event) =>
-                    atualizarCampo(
-                      "bairro",
-                      event.target.value
-                    )
-                  }
-                  disabled={bloqueado}
-                />
-              </div>
-
-              <CidadeIbgeSearch
-                municipio={
-                  form.municipio
-                }
-                uf={form.uf}
-                codigoMunicipio={
-                  form.codigoMunicipio
-                }
-                onChange={
-                  atualizarCidade
-                }
-                disabled={bloqueado}
-              />
+                  {erro}
+                </div>
+              )}
             </div>
-            )}
-
-          <div
-            aria-live="polite"
-            className="mt-5 space-y-3"
-          >
-            {mensagem && (
-              <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
-                <BadgeCheck
-                  size={18}
-                  className="mt-0.5 shrink-0"
-                />
-
-                <p>{mensagem}</p>
-              </div>
-            )}
-
-            {erro && (
-              <div
-                role="alert"
-                className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-              >
-                {erro}
-              </div>
-            )}
-          </div>
           </FormStepperBody>
 
           <FormStepperFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={() =>
-                setAberto(false)
-              }
-              disabled={bloqueado}
-            >
-              Cancelar
-            </Button>
+            <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center justify-between gap-3 sm:justify-start">
+                <div className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
+                  {passoAtual + 1}
+                </div>
 
-            {passoAtual > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11"
-                onClick={
-                  handlePassoAnterior
-                }
-                disabled={bloqueado}
-              >
-                Voltar
-              </Button>
-            )}
+                <div>
+                  <p className="text-sm font-medium">
+                    {PASSOS_CLIENTE[passoAtual].titulo}
+                  </p>
 
-            {passoAtual < ultimoPasso ? (
-              <Button
-                type="button"
-                className="h-11 sm:min-w-40"
-                onClick={
-                  handleProximoPasso
-                }
-                disabled={bloqueado}
-              >
-                Próximo
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                className="h-11 sm:min-w-44"
-                disabled={bloqueado}
-              >
-                {carregando ? (
-                  <>
-                    <LoaderCircle
-                      size={17}
-                      className="animate-spin"
-                    />
+                  <p className="text-xs text-muted-foreground">
+                    Etapa {passoAtual + 1} de{" "}
+                    {PASSOS_CLIENTE.length}
+                  </p>
+                </div>
+              </div>
 
-                    Cadastrando...
-                  </>
-                ) : (
-                  <>
-                    <Save size={17} />
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 rounded-xl px-4 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setAberto(false)}
+                  disabled={bloqueado}
+                >
+                  <X size={17} />
 
-                    Cadastrar cliente
-                  </>
+                  Cancelar
+                </Button>
+
+                {passoAtual > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-xl px-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    onClick={handlePassoAnterior}
+                    disabled={bloqueado}
+                  >
+                    <ArrowLeft size={17} />
+
+                    Voltar
+                  </Button>
                 )}
-              </Button>
-            )}
+
+                {passoAtual < ultimoPasso ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-40"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+
+                      handleProximoPasso();
+                    }}
+                    disabled={bloqueado}
+                  >
+                    Continuar
+
+                    <ArrowRight size={17} />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-48"
+                    disabled={bloqueado}
+                  >
+                    {carregando ? (
+                      <>
+                        <LoaderCircle
+                          size={17}
+                          className="animate-spin"
+                        />
+
+                        Cadastrando...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={17} />
+
+                        Cadastrar cliente
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
           </FormStepperFooter>
         </form>
       </FormStepperDialogContent>
