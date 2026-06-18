@@ -1,7 +1,13 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import {
   Building2,
+  Power,
+  PowerOff,
   Search,
   UserRound,
   Users,
@@ -12,9 +18,12 @@ import { getClientes } from "@/actions/clientes/get-clientes";
 import { NovoClienteDialog } from "@/components/clientes/novo-cliente-dialog";
 import { ClienteEditButton } from "@/components/clientes/cliente-edit-button";
 import { ClienteDeleteButton } from "@/components/clientes/cliente-delete-button";
+import { ClienteStatusButton } from "@/components/clientes/cliente-status-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -26,8 +35,14 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    status?: string;
   }>;
 };
+
+type FiltroStatus =
+  | "TODOS"
+  | "ATIVOS"
+  | "INATIVOS";
 
 function somenteNumeros(
   valor?: string | null
@@ -36,6 +51,23 @@ function somenteNumeros(
     valor?.replace(/\D/g, "") ??
     ""
   );
+}
+
+function normalizarStatus(
+  valor?: string
+): FiltroStatus {
+  const status =
+    valor?.toUpperCase();
+
+  if (status === "ATIVOS") {
+    return "ATIVOS";
+  }
+
+  if (status === "INATIVOS") {
+    return "INATIVOS";
+  }
+
+  return "TODOS";
 }
 
 function formatarDocumento(
@@ -108,12 +140,118 @@ export default async function ClientesPage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    status = "",
+  } = await searchParams;
+
+  const filtroStatus =
+    normalizarStatus(status);
+
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.CLIENTES_VISUALIZAR,
+      {
+        exigirEmpresaAtiva: false,
+      }
+    );
 
   const clientesRaw =
     await getClientes(
       empresaId
+    );
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.CLIENTES_CRIAR
+    );
+
+  const podeEditar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.CLIENTES_EDITAR
+    );
+
+  const podeAlterarStatus =
+    possuiPrivilegio(
+      PrivilegioEmpresa.CLIENTES_ALTERAR_STATUS
+    );
+
+  const podeExcluir =
+    possuiPrivilegio(
+      PrivilegioEmpresa.CLIENTES_EXCLUIR
+    );
+
+  const clientesPorStatus =
+    clientesRaw.filter(
+      (cliente) => {
+        if (
+          filtroStatus ===
+          "ATIVOS"
+        ) {
+          return cliente.ativo;
+        }
+
+        if (
+          filtroStatus ===
+          "INATIVOS"
+        ) {
+          return !cliente.ativo;
+        }
+
+        return true;
+      }
     );
 
   const termoTexto =
@@ -125,7 +263,7 @@ export default async function ClientesPage({
     somenteNumeros(busca);
 
   const clientes = termoTexto
-    ? clientesRaw.filter(
+    ? clientesPorStatus.filter(
         (cliente) => {
           const encontrouTexto = [
             cliente.nome,
@@ -159,7 +297,17 @@ export default async function ClientesPage({
           );
         }
       )
-    : clientesRaw;
+    : clientesPorStatus;
+
+  const totalAtivos =
+    clientesRaw.filter(
+      (cliente) =>
+        cliente.ativo
+    ).length;
+
+  const totalInativos =
+    clientesRaw.length -
+    totalAtivos;
 
   const totalPessoaFisica =
     clientesRaw.filter(
@@ -175,82 +323,147 @@ export default async function ClientesPage({
         "JURIDICA"
     ).length;
 
+  const rotaBase =
+    `/empresa/${empresaId}/clientes`;
+
+  function criarHref({
+    novoStatus =
+      filtroStatus,
+    incluirBusca = true,
+  }: {
+    novoStatus?: FiltroStatus;
+    incluirBusca?: boolean;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (
+      novoStatus !== "TODOS"
+    ) {
+      parametros.set(
+        "status",
+        novoStatus.toLowerCase()
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   function renderizarAcoes(
     cliente: (typeof clientesRaw)[number]
   ) {
+    const possuiAlgumaAcao =
+      podeEditar ||
+      podeAlterarStatus ||
+      podeExcluir;
+
+    if (!possuiAlgumaAcao) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          Sem ações disponíveis
+        </span>
+      );
+    }
+
     return (
-      <div className="flex justify-end gap-2">
-        <ClienteEditButton
-          empresaId={empresaId}
-          cliente={{
-            id:
-              cliente.id,
+      <div className="flex flex-wrap justify-end gap-2">
+        {podeEditar && (
+          <ClienteEditButton
+            empresaId={empresaId}
+            cliente={{
+              id:
+                cliente.id,
 
-            tipoPessoa:
-              cliente.tipoPessoa,
+              tipoPessoa:
+                cliente.tipoPessoa,
 
-            nome:
-              cliente.nome,
+              nome:
+                cliente.nome,
 
-            cpfCnpj:
-              cliente.cpfCnpj,
+              cpfCnpj:
+                cliente.cpfCnpj,
 
-            inscricaoEstadual:
-              cliente
-                .inscricaoEstadual,
+              inscricaoEstadual:
+                cliente
+                  .inscricaoEstadual,
 
-            inscricaoMunicipal:
-              cliente
-                .inscricaoMunicipal,
+              inscricaoMunicipal:
+                cliente
+                  .inscricaoMunicipal,
 
-            suframa:
-              cliente.suframa,
+              suframa:
+                cliente.suframa,
 
-            email:
-              cliente.email,
+              email:
+                cliente.email,
 
-            telefone:
-              cliente.telefone,
+              telefone:
+                cliente.telefone,
 
-            cep:
-              cliente.cep,
+              cep:
+                cliente.cep,
 
-            logradouro:
-              cliente.logradouro,
+              logradouro:
+                cliente.logradouro,
 
-            numero:
-              cliente.numero,
+              numero:
+                cliente.numero,
 
-            complemento:
-              cliente.complemento,
+              complemento:
+                cliente.complemento,
 
-            bairro:
-              cliente.bairro,
+              bairro:
+                cliente.bairro,
 
-            municipio:
-              cliente.municipio,
+              municipio:
+                cliente.municipio,
 
-            codigoMunicipio:
-              cliente.codigoMunicipio,
+              codigoMunicipio:
+                cliente.codigoMunicipio,
 
-            uf:
-              cliente.uf,
-          }}
-        />
+              uf:
+                cliente.uf,
+            }}
+          />
+        )}
 
-        <ClienteDeleteButton
-          empresaId={empresaId}
-          clienteId={cliente.id}
-          clienteNome={cliente.nome}
-        />
+        {podeAlterarStatus && (
+          <ClienteStatusButton
+            empresaId={empresaId}
+            clienteId={cliente.id}
+            clienteNome={cliente.nome}
+            ativo={cliente.ativo}
+          />
+        )}
+
+        {podeExcluir && (
+          <ClienteDeleteButton
+            empresaId={empresaId}
+            clienteId={cliente.id}
+            clienteNome={cliente.nome}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="w-full space-y-8">
-      {/* Cabeçalho */}
-
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -270,19 +483,27 @@ export default async function ClientesPage({
           </div>
         </div>
 
-        <NovoClienteDialog
-          empresaId={empresaId}
-        />
+        {podeCriar && (
+          <NovoClienteDialog
+            empresaId={empresaId}
+          />
+        )}
       </div>
 
-      {/* Indicadores */}
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está inativa. Os
+          cadastros estão disponíveis
+          somente para consulta.
+        </div>
+      )}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">
-                Total de clientes
+                Total
               </p>
 
               <p className="mt-1 text-3xl font-bold tracking-tight">
@@ -292,6 +513,42 @@ export default async function ClientesPage({
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Users size={21} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ativos
+              </p>
+
+              <p className="mt-1 text-3xl font-bold tracking-tight">
+                {totalAtivos}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+              <Power size={21} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Inativos
+              </p>
+
+              <p className="mt-1 text-3xl font-bold tracking-tight">
+                {totalInativos}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+              <PowerOff size={21} />
             </div>
           </div>
         </div>
@@ -314,7 +571,7 @@ export default async function ClientesPage({
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-card p-5 shadow-sm sm:col-span-2 xl:col-span-1">
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">
@@ -333,13 +590,89 @@ export default async function ClientesPage({
         </div>
       </section>
 
-      {/* Busca */}
-
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "TODOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "TODOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            Todos
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "ATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "ATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <Power size={15} />
+
+            Ativos
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "INATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "INATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <PowerOff size={15} />
+
+            Inativos
+          </Button>
+        </div>
+
         <form
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
+          {filtroStatus !==
+            "TODOS" && (
+            <input
+              type="hidden"
+              name="status"
+              value={filtroStatus.toLowerCase()}
+            />
+          )}
+
           <div className="relative flex-1">
             <Search
               size={17}
@@ -369,7 +702,10 @@ export default async function ClientesPage({
               nativeButton={false}
               render={
                 <Link
-                  href={`/empresa/${empresaId}/clientes`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -380,7 +716,9 @@ export default async function ClientesPage({
           )}
         </form>
 
-        {busca && (
+        {(busca ||
+          filtroStatus !==
+            "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
             {clientes.length === 1
               ? "1 cliente encontrado."
@@ -388,8 +726,6 @@ export default async function ClientesPage({
           </p>
         )}
       </section>
-
-      {/* Estado vazio */}
 
       {clientes.length === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
@@ -399,43 +735,41 @@ export default async function ClientesPage({
             </div>
 
             <h2 className="mt-5 text-xl font-semibold tracking-tight">
-              {busca
-                ? "Nenhum cliente encontrado"
-                : "Nenhum cliente cadastrado"}
+              Nenhum cliente encontrado
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos clientes correspondentes aos termos informados."
-                : "Cadastre seu primeiro cliente para utilizá-lo nas operações e notas fiscais."}
+              Não encontramos clientes
+              correspondentes aos filtros
+              informados.
             </p>
 
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    href={`/empresa/${empresaId}/clientes`}
-                  />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  href={rotaBase}
+                />
+              }
+              variant="outline"
+              className="mt-6 h-11"
+            >
+              Limpar filtros
+            </Button>
           </div>
         </section>
       ) : (
         <>
-          {/* Cards no celular */}
-
           <div className="grid gap-4 md:hidden">
             {clientes.map(
               (cliente) => (
                 <article
                   key={cliente.id}
-                  className="rounded-2xl border bg-card p-5 shadow-sm"
+                  className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                    !cliente.ativo
+                      ? "opacity-80"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -451,10 +785,24 @@ export default async function ClientesPage({
                       )}
                     </div>
 
-                    <div className="min-w-0">
-                      <h2 className="truncate font-semibold">
-                        {cliente.nome}
-                      </h2>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate font-semibold">
+                          {cliente.nome}
+                        </h2>
+
+                        <span
+                          className={
+                            cliente.ativo
+                              ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                              : "rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+                          }
+                        >
+                          {cliente.ativo
+                            ? "Ativo"
+                            : "Inativo"}
+                        </span>
+                      </div>
 
                       <p className="mt-1 text-sm text-muted-foreground">
                         {cliente.tipoPessoa ===
@@ -525,11 +873,9 @@ export default async function ClientesPage({
             )}
           </div>
 
-          {/* Tabela no computador */}
-
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -552,6 +898,10 @@ export default async function ClientesPage({
                       Telefone
                     </th>
 
+                    <th className="px-5 py-4 text-left text-sm font-medium">
+                      Status
+                    </th>
+
                     <th className="px-5 py-4 text-right text-sm font-medium">
                       Ações
                     </th>
@@ -563,7 +913,11 @@ export default async function ClientesPage({
                     (cliente) => (
                       <tr
                         key={cliente.id}
-                        className="border-t transition-colors hover:bg-muted/20"
+                        className={`border-t transition-colors hover:bg-muted/20 ${
+                          !cliente.ativo
+                            ? "bg-muted/10 opacity-80"
+                            : ""
+                        }`}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -617,6 +971,20 @@ export default async function ClientesPage({
                           {formatarTelefone(
                             cliente.telefone
                           )}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={
+                              cliente.ativo
+                                ? "inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                                : "inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+                            }
+                          >
+                            {cliente.ativo
+                              ? "Ativo"
+                              : "Inativo"}
+                          </span>
                         </td>
 
                         <td className="px-5 py-4">

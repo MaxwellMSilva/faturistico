@@ -12,9 +12,7 @@ export type GrupoPrivilegioEmpresa = {
   id: string;
   titulo: string;
   descricao: string;
-
-  privilegios:
-    ItemPrivilegioEmpresa[];
+  privilegios: ItemPrivilegioEmpresa[];
 };
 
 /*
@@ -90,6 +88,17 @@ export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
 
         {
           valor:
+            PrivilegioEmpresa.CLIENTES_ALTERAR_STATUS,
+
+          titulo:
+            "Ativar e inativar clientes",
+
+          descricao:
+            "Permite ativar ou inativar clientes cadastrados.",
+        },
+
+        {
+          valor:
             PrivilegioEmpresa.CLIENTES_EXCLUIR,
 
           titulo:
@@ -141,6 +150,17 @@ export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
 
           descricao:
             "Permite alterar produtos cadastrados.",
+        },
+
+        {
+          valor:
+            PrivilegioEmpresa.PRODUTOS_ALTERAR_STATUS,
+
+          titulo:
+            "Ativar e inativar produtos",
+
+          descricao:
+            "Permite ativar ou inativar produtos cadastrados.",
         },
 
         {
@@ -201,6 +221,17 @@ export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
 
         {
           valor:
+            PrivilegioEmpresa.NATUREZAS_ALTERAR_STATUS,
+
+          titulo:
+            "Ativar e inativar naturezas",
+
+          descricao:
+            "Permite ativar ou inativar naturezas de operação.",
+        },
+
+        {
+          valor:
             PrivilegioEmpresa.NATUREZAS_EXCLUIR,
 
           titulo:
@@ -252,6 +283,17 @@ export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
 
           descricao:
             "Permite alterar os dados dos transportadores.",
+        },
+
+        {
+          valor:
+            PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS,
+
+          titulo:
+            "Ativar e inativar transportadores",
+
+          descricao:
+            "Permite ativar ou inativar transportadores cadastrados.",
         },
 
         {
@@ -311,6 +353,17 @@ export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
 
         {
           valor:
+            PrivilegioEmpresa.VEICULOS_ALTERAR_STATUS,
+
+          titulo:
+            "Ativar e inativar veículos",
+
+          descricao:
+            "Permite ativar ou inativar veículos cadastrados.",
+        },
+
+        {
+          valor:
             PrivilegioEmpresa.VEICULOS_EXCLUIR,
 
           titulo:
@@ -362,6 +415,17 @@ export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
 
           descricao:
             "Permite alterar os dados dos motoristas.",
+        },
+
+        {
+          valor:
+            PrivilegioEmpresa.MOTORISTAS_ALTERAR_STATUS,
+
+          titulo:
+            "Ativar e inativar motoristas",
+
+          descricao:
+            "Permite ativar ou inativar motoristas cadastrados.",
         },
 
         {
@@ -584,10 +648,8 @@ export const todosPrivilegiosEmpresa =
 /*
  * Dependências automáticas.
  *
- * Exemplo:
- * para editar um cliente, o usuário
- * também precisa conseguir visualizar
- * o módulo de clientes.
+ * Para modificar um cadastro, o usuário
+ * também precisa visualizar o módulo.
  */
 
 export const dependenciasPrivilegios: Partial<
@@ -604,6 +666,11 @@ export const dependenciasPrivilegios: Partial<
     PrivilegioEmpresa.CLIENTES_VISUALIZAR,
   ],
 
+  [PrivilegioEmpresa.CLIENTES_ALTERAR_STATUS]:
+    [
+      PrivilegioEmpresa.CLIENTES_VISUALIZAR,
+    ],
+
   [PrivilegioEmpresa.CLIENTES_EXCLUIR]: [
     PrivilegioEmpresa.CLIENTES_VISUALIZAR,
   ],
@@ -615,6 +682,11 @@ export const dependenciasPrivilegios: Partial<
   [PrivilegioEmpresa.PRODUTOS_EDITAR]: [
     PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
   ],
+
+  [PrivilegioEmpresa.PRODUTOS_ALTERAR_STATUS]:
+    [
+      PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
+    ],
 
   [PrivilegioEmpresa.PRODUTOS_EXCLUIR]: [
     PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
@@ -628,6 +700,11 @@ export const dependenciasPrivilegios: Partial<
     PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
   ],
 
+  [PrivilegioEmpresa.NATUREZAS_ALTERAR_STATUS]:
+    [
+      PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
+    ],
+
   [PrivilegioEmpresa.NATUREZAS_EXCLUIR]: [
     PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
   ],
@@ -638,6 +715,11 @@ export const dependenciasPrivilegios: Partial<
     ],
 
   [PrivilegioEmpresa.TRANSPORTADORES_EDITAR]:
+    [
+      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
+    ],
+
+  [PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS]:
     [
       PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
     ],
@@ -655,6 +737,11 @@ export const dependenciasPrivilegios: Partial<
     PrivilegioEmpresa.VEICULOS_VISUALIZAR,
   ],
 
+  [PrivilegioEmpresa.VEICULOS_ALTERAR_STATUS]:
+    [
+      PrivilegioEmpresa.VEICULOS_VISUALIZAR,
+    ],
+
   [PrivilegioEmpresa.VEICULOS_EXCLUIR]: [
     PrivilegioEmpresa.VEICULOS_VISUALIZAR,
   ],
@@ -666,6 +753,11 @@ export const dependenciasPrivilegios: Partial<
   [PrivilegioEmpresa.MOTORISTAS_EDITAR]: [
     PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
   ],
+
+  [PrivilegioEmpresa.MOTORISTAS_ALTERAR_STATUS]:
+    [
+      PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
+    ],
 
   [PrivilegioEmpresa.MOTORISTAS_EXCLUIR]:
     [

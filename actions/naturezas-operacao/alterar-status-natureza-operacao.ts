@@ -3,88 +3,97 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  Prisma,
   PrivilegioEmpresa,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-type DeleteClienteData = {
-  clienteId: string;
+type AlterarStatusNaturezaData = {
   empresaId: string;
+  naturezaId: string;
+  ativo: boolean;
 };
 
-type DeleteClienteResult =
+type AlterarStatusNaturezaResult =
   | {
       success: true;
+      ativo: boolean;
+      message: string;
     }
   | {
       success: false;
       message: string;
     };
 
-export async function deleteCliente({
-  clienteId,
+export async function alterarStatusNaturezaOperacao({
   empresaId,
-}: DeleteClienteData): Promise<DeleteClienteResult> {
+  naturezaId,
+  ativo,
+}: AlterarStatusNaturezaData): Promise<AlterarStatusNaturezaResult> {
   try {
     await validarPrivilegioEmpresa(
       empresaId,
-      PrivilegioEmpresa.CLIENTES_EXCLUIR
+      PrivilegioEmpresa.NATUREZAS_ALTERAR_STATUS
     );
 
-    const cliente =
-      await prisma.cliente.findFirst({
+    const natureza =
+      await prisma.naturezaOperacao.findFirst({
         where: {
-          id: clienteId,
+          id: naturezaId,
           empresaId,
         },
 
         select: {
           id: true,
+          ativo: true,
         },
       });
 
-    if (!cliente) {
+    if (!natureza) {
       return {
         success: false,
         message:
-          "Cliente não encontrado nesta empresa.",
+          "Natureza de operação não encontrada nesta empresa.",
       };
     }
 
-    await prisma.cliente.delete({
+    if (natureza.ativo === ativo) {
+      return {
+        success: true,
+        ativo,
+        message: ativo
+          ? "A natureza de operação já está ativa."
+          : "A natureza de operação já está inativa.",
+      };
+    }
+
+    await prisma.naturezaOperacao.update({
       where: {
-        id: cliente.id,
+        id: natureza.id,
+      },
+
+      data: {
+        ativo,
       },
     });
 
     revalidatePath(
-      `/empresa/${empresaId}/clientes`
+      `/empresa/${empresaId}/naturezas-operacao`
     );
 
     return {
       success: true,
+      ativo,
+      message: ativo
+        ? "Natureza de operação ativada com sucesso."
+        : "Natureza de operação inativada com sucesso.",
     };
   } catch (error) {
     console.error(
-      "Erro ao excluir cliente:",
+      "Erro ao alterar status da natureza de operação:",
       error
     );
-
-    if (
-      error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
-      return {
-        success: false,
-        message:
-          "Este cliente possui documentos vinculados e não pode ser excluído. Inative o cliente.",
-      };
-    }
 
     if (error instanceof Error) {
       if (
@@ -94,7 +103,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Você não possui permissão para excluir clientes.",
+            "Você não possui permissão para ativar ou inativar naturezas de operação.",
         };
       }
 
@@ -105,7 +114,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Não é possível excluir clientes de uma empresa inativa.",
+            "Não é possível alterar naturezas de uma empresa inativa.",
         };
       }
 
@@ -137,7 +146,7 @@ export async function deleteCliente({
     return {
       success: false,
       message:
-        "Não foi possível excluir o cliente.",
+        "Não foi possível alterar o status da natureza de operação.",
     };
   }
 }

@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
-import { prisma } from "@/lib/prisma";
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { prisma } from "@/lib/prisma";
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 type DeleteNaturezaOperacaoData = {
   naturezaId: string;
@@ -41,48 +44,49 @@ export async function deleteNaturezaOperacao({
   naturezaId,
   empresaId,
 }: DeleteNaturezaOperacaoData): Promise<DeleteNaturezaOperacaoResult> {
-  await validarAcessoEmpresa(
-    empresaId
-  );
+  try {
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.NATUREZAS_EXCLUIR
+    );
 
-  const natureza =
-    await prisma.naturezaOperacao.findFirst({
-      where: {
-        id: naturezaId,
-        empresaId,
-      },
+    const natureza =
+      await prisma.naturezaOperacao.findFirst({
+        where: {
+          id: naturezaId,
+          empresaId,
+        },
 
-      select: {
-        id: true,
+        select: {
+          id: true,
 
-        _count: {
-          select: {
-            notasFiscais: true,
+          _count: {
+            select: {
+              notasFiscais: true,
+            },
           },
         },
-      },
-    });
+      });
 
-  if (!natureza) {
-    return {
-      success: false,
-      message:
-        "Natureza de operação não encontrada nesta empresa.",
-    };
-  }
+    if (!natureza) {
+      return {
+        success: false,
+        message:
+          "Natureza de operação não encontrada nesta empresa.",
+      };
+    }
 
-  if (
-    natureza._count.notasFiscais >
-    0
-  ) {
-    return {
-      success: false,
-      message:
-        "Esta natureza possui notas fiscais vinculadas e não pode ser excluída.",
-    };
-  }
+    if (
+      natureza._count.notasFiscais >
+      0
+    ) {
+      return {
+        success: false,
+        message:
+          "Esta natureza possui notas fiscais vinculadas e não pode ser excluída. Inative a natureza de operação.",
+      };
+    }
 
-  try {
     await prisma.naturezaOperacao.delete({
       where: {
         id: natureza.id,
@@ -109,8 +113,56 @@ export async function deleteNaturezaOperacao({
       return {
         success: false,
         message:
-          "Esta natureza possui registros vinculados e não pode ser excluída.",
+          "Esta natureza possui registros vinculados e não pode ser excluída. Inative a natureza de operação.",
       };
+    }
+
+    if (error instanceof Error) {
+      if (
+        error.message ===
+        "PRIVILEGIO_NAO_AUTORIZADO"
+      ) {
+        return {
+          success: false,
+          message:
+            "Você não possui permissão para excluir naturezas de operação.",
+        };
+      }
+
+      if (
+        error.message ===
+        "EMPRESA_INATIVA_SOMENTE_LEITURA"
+      ) {
+        return {
+          success: false,
+          message:
+            "Não é possível excluir naturezas de uma empresa inativa.",
+        };
+      }
+
+      if (
+        error.message ===
+        "USUARIO_NAO_AUTENTICADO"
+      ) {
+        return {
+          success: false,
+          message:
+            "Sua sessão expirou. Entre novamente.",
+        };
+      }
+
+      if (
+        error.message ===
+          "USUARIO_INVALIDO_OU_INATIVO" ||
+        error.message ===
+          "ACESSO_EMPRESA_NAO_AUTORIZADO"
+      ) {
+        return {
+          success: false,
+          message:
+            "Você não possui acesso a esta empresa.",
+        };
+      }
     }
 
     return {

@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  Prisma,
   PrivilegioEmpresa,
 } from "@prisma/client";
 
@@ -11,28 +10,32 @@ import { prisma } from "@/lib/prisma";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-type DeleteClienteData = {
-  clienteId: string;
+type AlterarStatusClienteData = {
   empresaId: string;
+  clienteId: string;
+  ativo: boolean;
 };
 
-type DeleteClienteResult =
+type AlterarStatusClienteResult =
   | {
       success: true;
+      ativo: boolean;
+      message: string;
     }
   | {
       success: false;
       message: string;
     };
 
-export async function deleteCliente({
-  clienteId,
+export async function alterarStatusCliente({
   empresaId,
-}: DeleteClienteData): Promise<DeleteClienteResult> {
+  clienteId,
+  ativo,
+}: AlterarStatusClienteData): Promise<AlterarStatusClienteResult> {
   try {
     await validarPrivilegioEmpresa(
       empresaId,
-      PrivilegioEmpresa.CLIENTES_EXCLUIR
+      PrivilegioEmpresa.CLIENTES_ALTERAR_STATUS
     );
 
     const cliente =
@@ -44,6 +47,7 @@ export async function deleteCliente({
 
         select: {
           id: true,
+          ativo: true,
         },
       });
 
@@ -55,9 +59,23 @@ export async function deleteCliente({
       };
     }
 
-    await prisma.cliente.delete({
+    if (cliente.ativo === ativo) {
+      return {
+        success: true,
+        ativo,
+        message: ativo
+          ? "O cliente já está ativo."
+          : "O cliente já está inativo.",
+      };
+    }
+
+    await prisma.cliente.update({
       where: {
         id: cliente.id,
+      },
+
+      data: {
+        ativo,
       },
     });
 
@@ -67,24 +85,16 @@ export async function deleteCliente({
 
     return {
       success: true,
+      ativo,
+      message: ativo
+        ? "Cliente ativado com sucesso."
+        : "Cliente inativado com sucesso.",
     };
   } catch (error) {
     console.error(
-      "Erro ao excluir cliente:",
+      "Erro ao alterar status do cliente:",
       error
     );
-
-    if (
-      error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
-      return {
-        success: false,
-        message:
-          "Este cliente possui documentos vinculados e não pode ser excluído. Inative o cliente.",
-      };
-    }
 
     if (error instanceof Error) {
       if (
@@ -94,7 +104,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Você não possui permissão para excluir clientes.",
+            "Você não possui permissão para ativar ou inativar clientes.",
         };
       }
 
@@ -105,7 +115,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Não é possível excluir clientes de uma empresa inativa.",
+            "Não é possível alterar clientes de uma empresa inativa.",
         };
       }
 
@@ -137,7 +147,7 @@ export async function deleteCliente({
     return {
       success: false,
       message:
-        "Não foi possível excluir o cliente.",
+        "Não foi possível alterar o status do cliente.",
     };
   }
 }

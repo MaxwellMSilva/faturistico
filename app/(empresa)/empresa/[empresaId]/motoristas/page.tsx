@@ -1,11 +1,21 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import type {
+  LucideIcon,
+} from "lucide-react";
+
+import {
   AlertTriangle,
   BadgeCheck,
   CircleCheck,
   CircleX,
   IdCard,
+  Power,
+  PowerOff,
   Search,
   UserRound,
 } from "lucide-react";
@@ -15,9 +25,12 @@ import { getDadosMotorista } from "@/actions/motoristas/get-dados-motorista";
 
 import { MotoristaDialog } from "@/components/motoristas/motorista-dialog";
 import { MotoristaDeleteButton } from "@/components/motoristas/motorista-delete-button";
+import { MotoristaStatusButton } from "@/components/motoristas/motorista-status-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -29,8 +42,14 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    status?: string;
   }>;
 };
+
+type FiltroStatus =
+  | "TODOS"
+  | "ATIVOS"
+  | "INATIVOS";
 
 function somenteNumeros(
   valor?: string | null
@@ -96,6 +115,23 @@ function formatarData(
   ).format(valor);
 }
 
+function normalizarStatus(
+  valor?: string
+): FiltroStatus {
+  const status =
+    valor?.toUpperCase();
+
+  if (status === "ATIVOS") {
+    return "ATIVOS";
+  }
+
+  if (status === "INATIVOS") {
+    return "INATIVOS";
+  }
+
+  return "TODOS";
+}
+
 function obterSituacaoCnh(
   validade?: Date | null
 ) {
@@ -108,9 +144,15 @@ function obterSituacaoCnh(
     };
   }
 
-  const hoje = new Date();
+  const hoje =
+    new Date();
 
-  hoje.setHours(0, 0, 0, 0);
+  hoje.setHours(
+    0,
+    0,
+    0,
+    0
+  );
 
   const dataValidade =
     new Date(validade);
@@ -147,7 +189,8 @@ function obterSituacaoCnh(
     return {
       status:
         "PROXIMA_VENCIMENTO",
-      texto: "Próxima do vencimento",
+      texto:
+        "Próxima do vencimento",
       descricao:
         dias === 0
           ? "Vence hoje"
@@ -170,16 +213,130 @@ export default async function MotoristasPage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    status = "",
+  } = await searchParams;
+
+  const filtroStatus =
+    normalizarStatus(
+      status
+    );
+
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
+      {
+        exigirEmpresaAtiva:
+          false,
+      }
+    );
 
   const [
     motoristasRaw,
     dadosFormulario,
   ] = await Promise.all([
-    getMotoristas(empresaId),
-    getDadosMotorista(empresaId),
+    getMotoristas(
+      empresaId
+    ),
+
+    getDadosMotorista(
+      empresaId
+    ),
   ]);
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.MOTORISTAS_CRIAR
+    );
+
+  const podeEditar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.MOTORISTAS_EDITAR
+    );
+
+  const podeAlterarStatus =
+    possuiPrivilegio(
+      PrivilegioEmpresa.MOTORISTAS_ALTERAR_STATUS
+    );
+
+  const podeExcluir =
+    possuiPrivilegio(
+      PrivilegioEmpresa.MOTORISTAS_EXCLUIR
+    );
+
+  const motoristasPorStatus =
+    motoristasRaw.filter(
+      (motorista) => {
+        if (
+          filtroStatus ===
+          "ATIVOS"
+        ) {
+          return motorista.ativo;
+        }
+
+        if (
+          filtroStatus ===
+          "INATIVOS"
+        ) {
+          return !motorista.ativo;
+        }
+
+        return true;
+      }
+    );
 
   const termo =
     busca
@@ -187,10 +344,12 @@ export default async function MotoristasPage({
       .toLowerCase();
 
   const termoNumerico =
-    somenteNumeros(busca);
+    somenteNumeros(
+      busca
+    );
 
   const motoristas = termo
-    ? motoristasRaw.filter(
+    ? motoristasPorStatus.filter(
         (motorista) => {
           const situacao =
             obterSituacaoCnh(
@@ -235,13 +394,17 @@ export default async function MotoristasPage({
           );
         }
       )
-    : motoristasRaw;
+    : motoristasPorStatus;
 
   const totalAtivos =
     motoristasRaw.filter(
       (motorista) =>
         motorista.ativo
     ).length;
+
+  const totalInativos =
+    motoristasRaw.length -
+    totalAtivos;
 
   const totalVencidas =
     motoristasRaw.filter(
@@ -260,63 +423,160 @@ export default async function MotoristasPage({
         "PROXIMA_VENCIMENTO"
     ).length;
 
+  const rotaBase =
+    `/empresa/${empresaId}/motoristas`;
+
+  function criarHref({
+    novoStatus =
+      filtroStatus,
+
+    incluirBusca = true,
+  }: {
+    novoStatus?:
+      FiltroStatus;
+
+    incluirBusca?:
+      boolean;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (
+      novoStatus !==
+      "TODOS"
+    ) {
+      parametros.set(
+        "status",
+        novoStatus.toLowerCase()
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   function renderizarAcoes(
-    motorista: (typeof motoristasRaw)[number]
+    motorista:
+      (typeof motoristasRaw)[number]
   ) {
+    const possuiAlgumaAcao =
+      podeEditar ||
+      podeAlterarStatus ||
+      podeExcluir;
+
+    if (!possuiAlgumaAcao) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          Sem ações disponíveis
+        </span>
+      );
+    }
+
     return (
-      <div className="flex justify-end gap-2">
-        <MotoristaDialog
-          empresaId={empresaId}
-          transportadores={
-            dadosFormulario.transportadores
-          }
-          motorista={{
-            id: motorista.id,
+      <div className="flex flex-wrap justify-end gap-2">
+        {podeEditar && (
+          <MotoristaDialog
+            empresaId={
+              empresaId
+            }
+            transportadores={
+              dadosFormulario
+                .transportadores
+            }
+            motorista={{
+              id:
+                motorista.id,
 
-            transportadorId:
-              motorista.transportadorId,
+              transportadorId:
+                motorista
+                  .transportadorId,
 
-            nome: motorista.nome,
+              nome:
+                motorista.nome,
 
-            cpf: motorista.cpf,
+              cpf:
+                motorista.cpf,
 
-            numeroCnh:
-              motorista.numeroCnh,
+              numeroCnh:
+                motorista.numeroCnh,
 
-            categoriaCnh:
-              motorista.categoriaCnh,
+              categoriaCnh:
+                motorista
+                  .categoriaCnh,
 
-            validadeCnh:
-              motorista.validadeCnh
-                ?.toISOString() ??
-              null,
+              validadeCnh:
+                motorista
+                  .validadeCnh
+                  ?.toISOString() ??
+                null,
 
-            telefone:
-              motorista.telefone,
+              telefone:
+                motorista.telefone,
 
-            ativo: motorista.ativo,
-          }}
-        />
+              ativo:
+                motorista.ativo,
+            }}
+          />
+        )}
 
-        <MotoristaDeleteButton
-          empresaId={empresaId}
-          motoristaId={
-            motorista.id
-          }
-          motoristaNome={
-            motorista.nome
-          }
-        />
+        {podeAlterarStatus && (
+          <MotoristaStatusButton
+            empresaId={
+              empresaId
+            }
+            motoristaId={
+              motorista.id
+            }
+            motoristaNome={
+              motorista.nome
+            }
+            ativo={
+              motorista.ativo
+            }
+          />
+        )}
+
+        {podeExcluir && (
+          <MotoristaDeleteButton
+            empresaId={
+              empresaId
+            }
+            motoristaId={
+              motorista.id
+            }
+            motoristaNome={
+              motorista.nome
+            }
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="w-full space-y-8">
+      {/* Cabeçalho */}
+
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <UserRound size={24} />
+            <UserRound
+              size={24}
+            />
           </div>
 
           <div>
@@ -326,56 +586,188 @@ export default async function MotoristasPage({
 
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
               Gerencie motoristas,
-              habilitações, vencimentos e
-              vínculos com transportadores.
+              habilitações, vencimentos
+              e vínculos com
+              transportadores.
             </p>
           </div>
         </div>
 
-        <MotoristaDialog
-          empresaId={empresaId}
-          transportadores={
-            dadosFormulario.transportadores
-          }
-        />
+        {podeCriar && (
+          <MotoristaDialog
+            empresaId={
+              empresaId
+            }
+            transportadores={
+              dadosFormulario
+                .transportadores
+            }
+          />
+        )}
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está
+          inativa. Os motoristas
+          estão disponíveis somente
+          para consulta.
+        </div>
+      )}
+
+      {/* Indicadores */}
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Indicador
-          titulo="Total de motoristas"
+          titulo="Total"
           valor={
             motoristasRaw.length
           }
-          icone={UserRound}
+          icone={
+            UserRound
+          }
         />
 
         <Indicador
-          titulo="Motoristas ativos"
-          valor={totalAtivos}
-          icone={CircleCheck}
+          titulo="Ativos"
+          valor={
+            totalAtivos
+          }
+          icone={
+            CircleCheck
+          }
           variante="sucesso"
         />
 
         <Indicador
+          titulo="Inativos"
+          valor={
+            totalInativos
+          }
+          icone={
+            PowerOff
+          }
+          variante="aviso"
+        />
+
+        <Indicador
           titulo="CNHs próximas"
-          valor={totalProximas}
-          icone={AlertTriangle}
+          valor={
+            totalProximas
+          }
+          icone={
+            AlertTriangle
+          }
           variante="aviso"
         />
 
         <Indicador
           titulo="CNHs vencidas"
-          valor={totalVencidas}
-          icone={CircleX}
+          valor={
+            totalVencidas
+          }
+          icone={
+            CircleX
+          }
           variante="erro"
         />
       </section>
 
+      {/* Filtros e busca */}
+
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            nativeButton={
+              false
+            }
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "TODOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "TODOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            Todos
+          </Button>
+
+          <Button
+            nativeButton={
+              false
+            }
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "ATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "ATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <Power
+              size={15}
+            />
+
+            Ativos
+          </Button>
+
+          <Button
+            nativeButton={
+              false
+            }
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "INATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "INATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <PowerOff
+              size={15}
+            />
+
+            Inativos
+          </Button>
+        </div>
+
         <form
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
+          {filtroStatus !==
+            "TODOS" && (
+            <input
+              type="hidden"
+              name="status"
+              value={filtroStatus.toLowerCase()}
+            />
+          )}
+
           <div className="relative flex-1">
             <Search
               size={17}
@@ -384,7 +776,9 @@ export default async function MotoristasPage({
 
             <Input
               name="busca"
-              defaultValue={busca}
+              defaultValue={
+                busca
+              }
               className="h-11 pl-10"
               placeholder="Buscar por nome, CPF, CNH, categoria ou transportador..."
             />
@@ -395,17 +789,24 @@ export default async function MotoristasPage({
             variant="outline"
             className="h-11"
           >
-            <Search size={17} />
+            <Search
+              size={17}
+            />
 
             Buscar
           </Button>
 
           {busca && (
             <Button
-              nativeButton={false}
+              nativeButton={
+                false
+              }
               render={
                 <Link
-                  href={`/empresa/${empresaId}/motoristas`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -416,52 +817,62 @@ export default async function MotoristasPage({
           )}
         </form>
 
-        {busca && (
+        {(busca ||
+          filtroStatus !==
+            "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {motoristas.length === 1
+            {motoristas.length ===
+            1
               ? "1 motorista encontrado."
               : `${motoristas.length} motoristas encontrados.`}
           </p>
         )}
       </section>
 
+      {/* Estado vazio */}
+
       {motoristas.length === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <UserRound size={30} />
+              <UserRound
+                size={30}
+              />
             </div>
 
             <h2 className="mt-5 text-xl font-semibold">
-              {busca
-                ? "Nenhum motorista encontrado"
-                : "Nenhum motorista cadastrado"}
+              Nenhum motorista
+              encontrado
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos motoristas correspondentes aos termos informados."
-                : "Cadastre os motoristas utilizados nas operações de transporte."}
+              Não encontramos
+              motoristas correspondentes
+              aos filtros informados.
             </p>
 
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    href={`/empresa/${empresaId}/motoristas`}
-                  />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
+            <Button
+              nativeButton={
+                false
+              }
+              render={
+                <Link
+                  href={
+                    rotaBase
+                  }
+                />
+              }
+              variant="outline"
+              className="mt-6 h-11"
+            >
+              Limpar filtros
+            </Button>
           </div>
         </section>
       ) : (
         <>
+          {/* Cards para celular */}
+
           <div className="grid gap-4 md:hidden">
             {motoristas.map(
               (motorista) => {
@@ -472,8 +883,14 @@ export default async function MotoristasPage({
 
                 return (
                   <article
-                    key={motorista.id}
-                    className="rounded-2xl border bg-card p-5 shadow-sm"
+                    key={
+                      motorista.id
+                    }
+                    className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                      !motorista.ativo
+                        ? "opacity-80"
+                        : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
@@ -485,7 +902,9 @@ export default async function MotoristasPage({
 
                         <div className="min-w-0">
                           <h2 className="truncate font-semibold">
-                            {motorista.nome}
+                            {
+                              motorista.nome
+                            }
                           </h2>
 
                           <p className="mt-1 text-sm text-muted-foreground">
@@ -562,9 +981,11 @@ export default async function MotoristasPage({
             )}
           </div>
 
+          {/* Tabela para computador */}
+
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px]">
+              <table className="w-full min-w-[1300px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -611,8 +1032,14 @@ export default async function MotoristasPage({
 
                       return (
                         <tr
-                          key={motorista.id}
-                          className="border-t transition-colors hover:bg-muted/20"
+                          key={
+                            motorista.id
+                          }
+                          className={`border-t transition-colors hover:bg-muted/20 ${
+                            !motorista.ativo
+                              ? "bg-muted/10 opacity-80"
+                              : ""
+                          }`}
                         >
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
@@ -704,8 +1131,7 @@ export default async function MotoristasPage({
 type IndicadorProps = {
   titulo: string;
   valor: number;
-
-  icone: typeof UserRound;
+  icone: LucideIcon;
 
   variante?:
     | "padrao"
@@ -745,7 +1171,9 @@ function Indicador({
         <div
           className={`flex h-11 w-11 items-center justify-center rounded-xl ${classeIcone}`}
         >
-          <Icone size={21} />
+          <Icone
+            size={21}
+          />
         </div>
       </div>
     </div>
@@ -761,9 +1189,10 @@ function StatusAtivo({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
         ativo
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "bg-destructive/10 text-destructive",
+          : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
       ].join(" ")}
     >
       {ativo
@@ -806,7 +1235,9 @@ function StatusCnh({
       <span
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${classe}`}
       >
-        <Icone size={13} />
+        <Icone
+          size={13}
+        />
 
         {texto}
       </span>

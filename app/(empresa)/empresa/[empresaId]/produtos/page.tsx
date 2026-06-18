@@ -1,8 +1,14 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import {
   Boxes,
   Package,
+  Power,
+  PowerOff,
   Search,
   Wrench,
 } from "lucide-react";
@@ -12,9 +18,12 @@ import { getProdutos } from "@/actions/produtos/get-produto";
 import { NovoProdutoDialog } from "@/components/produtos/novo-produto-dialog";
 import { ProdutoEditButton } from "@/components/produtos/produto-edit-button";
 import { ProdutoDeleteButton } from "@/components/produtos/produto-delete-button";
+import { ProdutoStatusButton } from "@/components/produtos/produto-status-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -26,8 +35,14 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    status?: string;
   }>;
 };
+
+type FiltroStatus =
+  | "TODOS"
+  | "ATIVOS"
+  | "INATIVOS";
 
 function formatarValor(
   valor: number
@@ -44,7 +59,27 @@ function formatarValor(
 function exibirCodigo(
   valor?: string | null
 ) {
-  return valor?.trim() || "Não informado";
+  return (
+    valor?.trim() ||
+    "Não informado"
+  );
+}
+
+function normalizarStatus(
+  valor?: string
+): FiltroStatus {
+  const status =
+    valor?.toUpperCase();
+
+  if (status === "ATIVOS") {
+    return "ATIVOS";
+  }
+
+  if (status === "INATIVOS") {
+    return "INATIVOS";
+  }
+
+  return "TODOS";
 }
 
 export default async function ProdutosPage({
@@ -54,12 +89,118 @@ export default async function ProdutosPage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    status = "",
+  } = await searchParams;
+
+  const filtroStatus =
+    normalizarStatus(status);
+
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
+      {
+        exigirEmpresaAtiva: false,
+      }
+    );
 
   const produtosRaw =
     await getProdutos(
       empresaId
+    );
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.PRODUTOS_CRIAR
+    );
+
+  const podeEditar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.PRODUTOS_EDITAR
+    );
+
+  const podeAlterarStatus =
+    possuiPrivilegio(
+      PrivilegioEmpresa.PRODUTOS_ALTERAR_STATUS
+    );
+
+  const podeExcluir =
+    possuiPrivilegio(
+      PrivilegioEmpresa.PRODUTOS_EXCLUIR
+    );
+
+  const produtosPorStatus =
+    produtosRaw.filter(
+      (produto) => {
+        if (
+          filtroStatus ===
+          "ATIVOS"
+        ) {
+          return produto.ativo;
+        }
+
+        if (
+          filtroStatus ===
+          "INATIVOS"
+        ) {
+          return !produto.ativo;
+        }
+
+        return true;
+      }
     );
 
   const termo =
@@ -68,7 +209,7 @@ export default async function ProdutosPage({
       .toLowerCase();
 
   const produtos = termo
-    ? produtosRaw.filter(
+    ? produtosPorStatus.filter(
         (produto) =>
           [
             produto.codigo,
@@ -91,7 +232,17 @@ export default async function ProdutosPage({
               .includes(termo)
           )
       )
-    : produtosRaw;
+    : produtosPorStatus;
+
+  const totalAtivos =
+    produtosRaw.filter(
+      (produto) =>
+        produto.ativo
+    ).length;
+
+  const totalInativos =
+    produtosRaw.length -
+    totalAtivos;
 
   const totalProdutos =
     produtosRaw.filter(
@@ -107,137 +258,207 @@ export default async function ProdutosPage({
         "SERVICO"
     ).length;
 
+  const rotaBase =
+    `/empresa/${empresaId}/produtos`;
+
+  function criarHref({
+    novoStatus =
+      filtroStatus,
+
+    incluirBusca = true,
+  }: {
+    novoStatus?: FiltroStatus;
+    incluirBusca?: boolean;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (
+      novoStatus !== "TODOS"
+    ) {
+      parametros.set(
+        "status",
+        novoStatus.toLowerCase()
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   function renderizarAcoes(
     produto: (typeof produtosRaw)[number]
   ) {
+    const possuiAlgumaAcao =
+      podeEditar ||
+      podeAlterarStatus ||
+      podeExcluir;
+
+    if (!possuiAlgumaAcao) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          Sem ações disponíveis
+        </span>
+      );
+    }
+
     return (
-      <div className="flex justify-end gap-2">
-        <ProdutoEditButton
-          empresaId={empresaId}
-          produto={{
-            id:
-              produto.id,
+      <div className="flex flex-wrap justify-end gap-2">
+        {podeEditar && (
+          <ProdutoEditButton
+            empresaId={empresaId}
+            produto={{
+              id:
+                produto.id,
 
-            codigo:
-              produto.codigo,
+              codigo:
+                produto.codigo,
 
-            descricao:
-              produto.descricao,
+              descricao:
+                produto.descricao,
 
-            tipo:
-              produto.tipo,
+              tipo:
+                produto.tipo,
 
-            unidade:
-              produto.unidade,
+              unidade:
+                produto.unidade,
 
-            ean:
-              produto.ean,
+              ean:
+                produto.ean,
 
-            ncm:
-              produto.ncm,
+              ncm:
+                produto.ncm,
 
-            cest:
-              produto.cest,
+              cest:
+                produto.cest,
 
-            cfopPadrao:
-              produto.cfopPadrao,
+              cfopPadrao:
+                produto.cfopPadrao,
 
-            valorUnitario:
-              Number(
-                produto.valorUnitario
-              ),
+              valorUnitario:
+                Number(
+                  produto.valorUnitario
+                ),
 
-            origemMercadoria:
-              produto.origemMercadoria,
+              origemMercadoria:
+                produto.origemMercadoria,
 
-            cstIcms:
-              produto.cstIcms,
+              cstIcms:
+                produto.cstIcms,
 
-            csosnIcms:
-              produto.csosnIcms,
+              csosnIcms:
+                produto.csosnIcms,
 
-            modalidadeBcIcms:
-              produto.modalidadeBcIcms,
+              modalidadeBcIcms:
+                produto.modalidadeBcIcms,
 
-            reducaoBcIcms:
-              Number(
-                produto.reducaoBcIcms ??
-                  0
-              ),
+              reducaoBcIcms:
+                Number(
+                  produto.reducaoBcIcms ??
+                    0
+                ),
 
-            aliquotaIcms:
-              Number(
-                produto.aliquotaIcms ??
-                  0
-              ),
+              aliquotaIcms:
+                Number(
+                  produto.aliquotaIcms ??
+                    0
+                ),
 
-            cstPis:
-              produto.cstPis,
+              cstPis:
+                produto.cstPis,
 
-            aliquotaPis:
-              Number(
-                produto.aliquotaPis ??
-                  0
-              ),
+              aliquotaPis:
+                Number(
+                  produto.aliquotaPis ??
+                    0
+                ),
 
-            cstCofins:
-              produto.cstCofins,
+              cstCofins:
+                produto.cstCofins,
 
-            aliquotaCofins:
-              Number(
+              aliquotaCofins:
+                Number(
+                  produto
+                    .aliquotaCofins ??
+                    0
+                ),
+
+              cstIpi:
+                produto.cstIpi,
+
+              codigoEnquadramentoIpi:
                 produto
-                  .aliquotaCofins ??
-                  0
-              ),
+                  .codigoEnquadramentoIpi,
 
-            cstIpi:
-              produto.cstIpi,
+              aliquotaIpi:
+                Number(
+                  produto.aliquotaIpi ??
+                    0
+                ),
 
-            codigoEnquadramentoIpi:
-              produto
-                .codigoEnquadramentoIpi,
+              cstIbsCbs:
+                produto.cstIbsCbs,
 
-            aliquotaIpi:
-              Number(
-                produto.aliquotaIpi ??
-                  0
-              ),
-
-            cstIbsCbs:
-              produto.cstIbsCbs,
-
-            classificacaoTributariaIbsCbs:
-              produto
-                .classificacaoTributariaIbsCbs,
-
-            aliquotaIbsUf:
-              Number(
-                produto.aliquotaIbsUf ??
-                  0
-              ),
-
-            aliquotaIbsMun:
-              Number(
+              classificacaoTributariaIbsCbs:
                 produto
-                  .aliquotaIbsMun ??
-                  0
-              ),
+                  .classificacaoTributariaIbsCbs,
 
-            aliquotaCbs:
-              Number(
-                produto.aliquotaCbs ??
-                  0
-              ),
-          }}
-        />
+              aliquotaIbsUf:
+                Number(
+                  produto.aliquotaIbsUf ??
+                    0
+                ),
 
-        <ProdutoDeleteButton
-          empresaId={empresaId}
-          produtoId={produto.id}
-          produtoDescricao={
-            produto.descricao
-          }
-        />
+              aliquotaIbsMun:
+                Number(
+                  produto
+                    .aliquotaIbsMun ??
+                    0
+                ),
+
+              aliquotaCbs:
+                Number(
+                  produto.aliquotaCbs ??
+                    0
+                ),
+            }}
+          />
+        )}
+
+        {podeAlterarStatus && (
+          <ProdutoStatusButton
+            empresaId={empresaId}
+            produtoId={produto.id}
+            produtoDescricao={
+              produto.descricao
+            }
+            ativo={produto.ativo}
+          />
+        )}
+
+        {podeExcluir && (
+          <ProdutoDeleteButton
+            empresaId={empresaId}
+            produtoId={produto.id}
+            produtoDescricao={
+              produto.descricao
+            }
+          />
+        )}
       </div>
     );
   }
@@ -265,19 +486,29 @@ export default async function ProdutosPage({
           </div>
         </div>
 
-        <NovoProdutoDialog
-          empresaId={empresaId}
-        />
+        {podeCriar && (
+          <NovoProdutoDialog
+            empresaId={empresaId}
+          />
+        )}
       </div>
+
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está inativa. Os
+          cadastros estão disponíveis
+          somente para consulta.
+        </div>
+      )}
 
       {/* Indicadores */}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">
-                Total de cadastros
+                Total
               </p>
 
               <p className="mt-1 text-3xl font-bold tracking-tight">
@@ -287,6 +518,42 @@ export default async function ProdutosPage({
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <Boxes size={21} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ativos
+              </p>
+
+              <p className="mt-1 text-3xl font-bold tracking-tight">
+                {totalAtivos}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+              <Power size={21} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Inativos
+              </p>
+
+              <p className="mt-1 text-3xl font-bold tracking-tight">
+                {totalInativos}
+              </p>
+            </div>
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+              <PowerOff size={21} />
             </div>
           </div>
         </div>
@@ -309,7 +576,7 @@ export default async function ProdutosPage({
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-card p-5 shadow-sm sm:col-span-2 xl:col-span-1">
+        <div className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">
@@ -328,13 +595,91 @@ export default async function ProdutosPage({
         </div>
       </section>
 
-      {/* Busca */}
+      {/* Filtros e busca */}
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "TODOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "TODOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            Todos
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "ATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "ATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <Power size={15} />
+
+            Ativos
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "INATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "INATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <PowerOff size={15} />
+
+            Inativos
+          </Button>
+        </div>
+
         <form
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
+          {filtroStatus !==
+            "TODOS" && (
+            <input
+              type="hidden"
+              name="status"
+              value={filtroStatus.toLowerCase()}
+            />
+          )}
+
           <div className="relative flex-1">
             <Search
               size={17}
@@ -364,7 +709,10 @@ export default async function ProdutosPage({
               nativeButton={false}
               render={
                 <Link
-                  href={`/empresa/${empresaId}/produtos`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -375,7 +723,9 @@ export default async function ProdutosPage({
           )}
         </form>
 
-        {busca && (
+        {(busca ||
+          filtroStatus !==
+            "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
             {produtos.length === 1
               ? "1 cadastro encontrado."
@@ -394,31 +744,27 @@ export default async function ProdutosPage({
             </div>
 
             <h2 className="mt-5 text-xl font-semibold tracking-tight">
-              {busca
-                ? "Nenhum produto encontrado"
-                : "Nenhum produto cadastrado"}
+              Nenhum cadastro encontrado
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos produtos ou serviços correspondentes aos termos informados."
-                : "Cadastre seu primeiro produto para utilizá-lo nas operações e notas fiscais."}
+              Não encontramos produtos ou
+              serviços correspondentes aos
+              filtros informados.
             </p>
 
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    href={`/empresa/${empresaId}/produtos`}
-                  />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  href={rotaBase}
+                />
+              }
+              variant="outline"
+              className="mt-6 h-11"
+            >
+              Limpar filtros
+            </Button>
           </div>
         </section>
       ) : (
@@ -435,7 +781,11 @@ export default async function ProdutosPage({
                 return (
                   <article
                     key={produto.id}
-                    className="rounded-2xl border bg-card p-5 shadow-sm"
+                    className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                      !produto.ativo
+                        ? "opacity-80"
+                        : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
@@ -452,11 +802,25 @@ export default async function ProdutosPage({
                         </div>
 
                         <div className="min-w-0">
-                          <h2 className="truncate font-semibold">
-                            {
-                              produto.descricao
-                            }
-                          </h2>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="truncate font-semibold">
+                              {
+                                produto.descricao
+                              }
+                            </h2>
+
+                            <span
+                              className={
+                                produto.ativo
+                                  ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                                  : "rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+                              }
+                            >
+                              {produto.ativo
+                                ? "Ativo"
+                                : "Inativo"}
+                            </span>
+                          </div>
 
                           <p className="mt-1 text-sm text-muted-foreground">
                             Código:{" "}
@@ -537,7 +901,7 @@ export default async function ProdutosPage({
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -564,6 +928,10 @@ export default async function ProdutosPage({
                       Valor
                     </th>
 
+                    <th className="px-5 py-4 text-left text-sm font-medium">
+                      Status
+                    </th>
+
                     <th className="px-5 py-4 text-right text-sm font-medium">
                       Ações
                     </th>
@@ -580,7 +948,11 @@ export default async function ProdutosPage({
                       return (
                         <tr
                           key={produto.id}
-                          className="border-t transition-colors hover:bg-muted/20"
+                          className={`border-t transition-colors hover:bg-muted/20 ${
+                            !produto.ativo
+                              ? "bg-muted/10 opacity-80"
+                              : ""
+                          }`}
                         >
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
@@ -643,6 +1015,20 @@ export default async function ProdutosPage({
                                 produto.valorUnitario
                               )
                             )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <span
+                              className={
+                                produto.ativo
+                                  ? "inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                                  : "inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+                              }
+                            >
+                              {produto.ativo
+                                ? "Ativo"
+                                : "Inativo"}
+                            </span>
                           </td>
 
                           <td className="px-5 py-4">

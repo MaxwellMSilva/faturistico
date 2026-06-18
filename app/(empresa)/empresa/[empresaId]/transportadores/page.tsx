@@ -1,8 +1,14 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import {
   CircleCheck,
   CircleX,
+  Power,
+  PowerOff,
   Search,
   Truck,
   UserRound,
@@ -12,9 +18,12 @@ import { getTransportadores } from "@/actions/transportadores/get-transportadore
 
 import { TransportadorDialog } from "@/components/transportadores/transportador-dialog";
 import { TransportadorDeleteButton } from "@/components/transportadores/transportador-delete-button";
+import { TransportadorStatusButton } from "@/components/transportadores/transportador-status-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -26,8 +35,14 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    status?: string;
   }>;
 };
+
+type FiltroStatus =
+  | "TODOS"
+  | "ATIVOS"
+  | "INATIVOS";
 
 function somenteNumeros(
   valor?: string | null
@@ -88,6 +103,23 @@ function formatarTelefone(
   return telefone;
 }
 
+function normalizarStatus(
+  valor?: string
+): FiltroStatus {
+  const status =
+    valor?.toUpperCase();
+
+  if (status === "ATIVOS") {
+    return "ATIVOS";
+  }
+
+  if (status === "INATIVOS") {
+    return "INATIVOS";
+  }
+
+  return "TODOS";
+}
+
 export default async function TransportadoresPage({
   params,
   searchParams,
@@ -95,12 +127,118 @@ export default async function TransportadoresPage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    status = "",
+  } = await searchParams;
+
+  const filtroStatus =
+    normalizarStatus(status);
+
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
+      {
+        exigirEmpresaAtiva: false,
+      }
+    );
 
   const transportadoresRaw =
     await getTransportadores(
       empresaId
+    );
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.TRANSPORTADORES_CRIAR
+    );
+
+  const podeEditar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.TRANSPORTADORES_EDITAR
+    );
+
+  const podeAlterarStatus =
+    possuiPrivilegio(
+      PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS
+    );
+
+  const podeExcluir =
+    possuiPrivilegio(
+      PrivilegioEmpresa.TRANSPORTADORES_EXCLUIR
+    );
+
+  const transportadoresPorStatus =
+    transportadoresRaw.filter(
+      (transportador) => {
+        if (
+          filtroStatus ===
+          "ATIVOS"
+        ) {
+          return transportador.ativo;
+        }
+
+        if (
+          filtroStatus ===
+          "INATIVOS"
+        ) {
+          return !transportador.ativo;
+        }
+
+        return true;
+      }
     );
 
   const termoTexto =
@@ -113,7 +251,7 @@ export default async function TransportadoresPage({
 
   const transportadores =
     termoTexto
-      ? transportadoresRaw.filter(
+      ? transportadoresPorStatus.filter(
           (transportador) => {
             const encontrouTexto = [
               transportador.nome,
@@ -154,7 +292,7 @@ export default async function TransportadoresPage({
             );
           }
         )
-      : transportadoresRaw;
+      : transportadoresPorStatus;
 
   const totalAtivos =
     transportadoresRaw.filter(
@@ -166,90 +304,164 @@ export default async function TransportadoresPage({
     transportadoresRaw.length -
     totalAtivos;
 
+  const rotaBase =
+    `/empresa/${empresaId}/transportadores`;
+
+  function criarHref({
+    novoStatus =
+      filtroStatus,
+
+    incluirBusca = true,
+  }: {
+    novoStatus?: FiltroStatus;
+    incluirBusca?: boolean;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (
+      novoStatus !== "TODOS"
+    ) {
+      parametros.set(
+        "status",
+        novoStatus.toLowerCase()
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   function renderizarAcoes(
     transportador: (typeof transportadoresRaw)[number]
   ) {
+    const possuiAlgumaAcao =
+      podeEditar ||
+      podeAlterarStatus ||
+      podeExcluir;
+
+    if (!possuiAlgumaAcao) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          Sem ações disponíveis
+        </span>
+      );
+    }
+
     return (
-      <div className="flex justify-end gap-2">
-        <TransportadorDialog
-          empresaId={empresaId}
-          transportador={{
-            id:
-              transportador.id,
+      <div className="flex flex-wrap justify-end gap-2">
+        {podeEditar && (
+          <TransportadorDialog
+            empresaId={empresaId}
+            transportador={{
+              id:
+                transportador.id,
 
-            tipoPessoa:
-              transportador.tipoPessoa,
+              tipoPessoa:
+                transportador.tipoPessoa,
 
-            nome:
-              transportador.nome,
+              nome:
+                transportador.nome,
 
-            nomeFantasia:
-              transportador.nomeFantasia,
+              nomeFantasia:
+                transportador.nomeFantasia,
 
-            cpfCnpj:
-              transportador.cpfCnpj,
+              cpfCnpj:
+                transportador.cpfCnpj,
 
-            inscricaoEstadual:
-              transportador.inscricaoEstadual,
+              inscricaoEstadual:
+                transportador.inscricaoEstadual,
 
-            inscricaoMunicipal:
-              transportador.inscricaoMunicipal,
+              inscricaoMunicipal:
+                transportador.inscricaoMunicipal,
 
-            rntrc:
-              transportador.rntrc,
+              rntrc:
+                transportador.rntrc,
 
-            email:
-              transportador.email,
+              email:
+                transportador.email,
 
-            telefone:
-              transportador.telefone,
+              telefone:
+                transportador.telefone,
 
-            cep:
-              transportador.cep,
+              cep:
+                transportador.cep,
 
-            logradouro:
-              transportador.logradouro,
+              logradouro:
+                transportador.logradouro,
 
-            numero:
-              transportador.numero,
+              numero:
+                transportador.numero,
 
-            complemento:
-              transportador.complemento,
+              complemento:
+                transportador.complemento,
 
-            bairro:
-              transportador.bairro,
+              bairro:
+                transportador.bairro,
 
-            municipio:
-              transportador.municipio,
+              municipio:
+                transportador.municipio,
 
-            codigoMunicipio:
-              transportador.codigoMunicipio,
+              codigoMunicipio:
+                transportador.codigoMunicipio,
 
-            uf:
-              transportador.uf,
+              uf:
+                transportador.uf,
 
-            ativo:
-              transportador.ativo,
-          }}
-        />
+              ativo:
+                transportador.ativo,
+            }}
+          />
+        )}
 
-        <TransportadorDeleteButton
-          empresaId={empresaId}
-          transportadorId={
-            transportador.id
-          }
-          transportadorNome={
-            transportador.nome
-          }
-          quantidadeVeiculos={
-            transportador._count
-              .veiculos
-          }
-          quantidadeMotoristas={
-            transportador._count
-              .motoristas
-          }
-        />
+        {podeAlterarStatus && (
+          <TransportadorStatusButton
+            empresaId={empresaId}
+            transportadorId={
+              transportador.id
+            }
+            transportadorNome={
+              transportador.nome
+            }
+            ativo={
+              transportador.ativo
+            }
+          />
+        )}
+
+        {podeExcluir && (
+          <TransportadorDeleteButton
+            empresaId={empresaId}
+            transportadorId={
+              transportador.id
+            }
+            transportadorNome={
+              transportador.nome
+            }
+            quantidadeVeiculos={
+              transportador._count
+                .veiculos
+            }
+            quantidadeMotoristas={
+              transportador._count
+                .motoristas
+            }
+          />
+        )}
       </div>
     );
   }
@@ -277,10 +489,20 @@ export default async function TransportadoresPage({
           </div>
         </div>
 
-        <TransportadorDialog
-          empresaId={empresaId}
-        />
+        {podeCriar && (
+          <TransportadorDialog
+            empresaId={empresaId}
+          />
+        )}
       </div>
+
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está inativa. Os
+          transportadores estão disponíveis
+          somente para consulta.
+        </div>
+      )}
 
       {/* Indicadores */}
 
@@ -304,18 +526,96 @@ export default async function TransportadoresPage({
           titulo="Transportadores inativos"
           valor={totalInativos}
           icone={CircleX}
-          variante="erro"
+          variante="alerta"
           className="sm:col-span-2 xl:col-span-1"
         />
       </section>
 
-      {/* Busca */}
+      {/* Filtros e busca */}
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "TODOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "TODOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            Todos
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "ATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "ATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <Power size={15} />
+
+            Ativos
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "INATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "INATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <PowerOff size={15} />
+
+            Inativos
+          </Button>
+        </div>
+
         <form
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
+          {filtroStatus !==
+            "TODOS" && (
+            <input
+              type="hidden"
+              name="status"
+              value={filtroStatus.toLowerCase()}
+            />
+          )}
+
           <div className="relative flex-1">
             <Search
               size={17}
@@ -345,7 +645,10 @@ export default async function TransportadoresPage({
               nativeButton={false}
               render={
                 <Link
-                  href={`/empresa/${empresaId}/transportadores`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -356,7 +659,9 @@ export default async function TransportadoresPage({
           )}
         </form>
 
-        {busca && (
+        {(busca ||
+          filtroStatus !==
+            "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
             {transportadores.length ===
             1
@@ -376,31 +681,29 @@ export default async function TransportadoresPage({
             </div>
 
             <h2 className="mt-5 text-xl font-semibold">
-              {busca
-                ? "Nenhum transportador encontrado"
-                : "Nenhum transportador cadastrado"}
+              Nenhum transportador
+              encontrado
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos transportadores correspondentes aos termos informados."
-                : "Cadastre transportadoras ou profissionais autônomos para utilizá-los nas operações de transporte."}
+              Não encontramos
+              transportadores
+              correspondentes aos filtros
+              informados.
             </p>
 
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    href={`/empresa/${empresaId}/transportadores`}
-                  />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  href={rotaBase}
+                />
+              }
+              variant="outline"
+              className="mt-6 h-11"
+            >
+              Limpar filtros
+            </Button>
           </div>
         </section>
       ) : (
@@ -414,7 +717,11 @@ export default async function TransportadoresPage({
                   key={
                     transportador.id
                   }
-                  className="rounded-2xl border bg-card p-5 shadow-sm"
+                  className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                    !transportador.ativo
+                      ? "opacity-80"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
@@ -523,7 +830,7 @@ export default async function TransportadoresPage({
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1150px]">
+              <table className="w-full min-w-[1250px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -567,7 +874,11 @@ export default async function TransportadoresPage({
                         key={
                           transportador.id
                         }
-                        className="border-t transition-colors hover:bg-muted/20"
+                        className={`border-t transition-colors hover:bg-muted/20 ${
+                          !transportador.ativo
+                            ? "bg-muted/10 opacity-80"
+                            : ""
+                        }`}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -678,7 +989,7 @@ type IndicadorProps = {
   variante?:
     | "padrao"
     | "sucesso"
-    | "erro";
+    | "alerta";
 
   className?: string;
 };
@@ -693,8 +1004,8 @@ function Indicador({
   const classeIcone =
     variante === "sucesso"
       ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : variante === "erro"
-        ? "bg-destructive/10 text-destructive"
+      : variante === "alerta"
+        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
         : "bg-primary/10 text-primary";
 
   return (
@@ -734,9 +1045,10 @@ function StatusBadge({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
         ativo
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "bg-destructive/10 text-destructive",
+          : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
       ].join(" ")}
     >
       {ativo
