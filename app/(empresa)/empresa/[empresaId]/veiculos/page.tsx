@@ -1,9 +1,15 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import {
   CarFront,
   CircleCheck,
   CircleX,
+  Power,
+  PowerOff,
   Search,
   Truck,
 } from "lucide-react";
@@ -13,9 +19,12 @@ import { getDadosVeiculo } from "@/actions/veiculos/get-dados-veiculo";
 
 import { VeiculoDialog } from "@/components/veiculos/veiculo-dialog";
 import { VeiculoDeleteButton } from "@/components/veiculos/veiculo-delete-button";
+import { VeiculoStatusButton } from "@/components/veiculos/veiculo-status-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -27,8 +36,14 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    status?: string;
   }>;
 };
+
+type FiltroStatus =
+  | "TODOS"
+  | "ATIVOS"
+  | "INATIVOS";
 
 const tiposVeiculo: Record<
   string,
@@ -36,20 +51,37 @@ const tiposVeiculo: Record<
 > = {
   CAVALO_MECANICO:
     "Cavalo mecânico",
-  TOCO: "Caminhão toco",
-  TRUCK: "Caminhão truck",
-  CARRETA: "Carreta",
-  REBOQUE: "Reboque",
-  SEMIRREBOQUE: "Semirreboque",
-  UTILITARIO: "Utilitário",
-  OUTRO: "Outro",
+
+  TOCO:
+    "Caminhão toco",
+
+  TRUCK:
+    "Caminhão truck",
+
+  CARRETA:
+    "Carreta",
+
+  REBOQUE:
+    "Reboque",
+
+  SEMIRREBOQUE:
+    "Semirreboque",
+
+  UTILITARIO:
+    "Utilitário",
+
+  OUTRO:
+    "Outro",
 };
 
 function formatarPlaca(
   valor: string
 ) {
   const placa = valor
-    .replace(/[^a-zA-Z0-9]/g, "")
+    .replace(
+      /[^a-zA-Z0-9]/g,
+      ""
+    )
     .toUpperCase();
 
   if (placa.length <= 3) {
@@ -72,9 +104,12 @@ function formatarPeso(
     return "-";
   }
 
-  const numero = Number(valor);
+  const numero =
+    Number(valor);
 
-  if (!Number.isFinite(numero)) {
+  if (
+    !Number.isFinite(numero)
+  ) {
     return "-";
   }
 
@@ -86,6 +121,23 @@ function formatarPeso(
   ).format(numero)} kg`;
 }
 
+function normalizarStatus(
+  valor?: string
+): FiltroStatus {
+  const status =
+    valor?.toUpperCase();
+
+  if (status === "ATIVOS") {
+    return "ATIVOS";
+  }
+
+  if (status === "INATIVOS") {
+    return "INATIVOS";
+  }
+
+  return "TODOS";
+}
+
 export default async function VeiculosPage({
   params,
   searchParams,
@@ -93,16 +145,130 @@ export default async function VeiculosPage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    status = "",
+  } = await searchParams;
+
+  const filtroStatus =
+    normalizarStatus(
+      status
+    );
+
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.VEICULOS_VISUALIZAR,
+      {
+        exigirEmpresaAtiva:
+          false,
+      }
+    );
 
   const [
     veiculosRaw,
     dadosFormulario,
   ] = await Promise.all([
-    getVeiculos(empresaId),
-    getDadosVeiculo(empresaId),
+    getVeiculos(
+      empresaId
+    ),
+
+    getDadosVeiculo(
+      empresaId
+    ),
   ]);
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.VEICULOS_CRIAR
+    );
+
+  const podeEditar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.VEICULOS_EDITAR
+    );
+
+  const podeAlterarStatus =
+    possuiPrivilegio(
+      PrivilegioEmpresa.VEICULOS_ALTERAR_STATUS
+    );
+
+  const podeExcluir =
+    possuiPrivilegio(
+      PrivilegioEmpresa.VEICULOS_EXCLUIR
+    );
+
+  const veiculosPorStatus =
+    veiculosRaw.filter(
+      (veiculo) => {
+        if (
+          filtroStatus ===
+          "ATIVOS"
+        ) {
+          return veiculo.ativo;
+        }
+
+        if (
+          filtroStatus ===
+          "INATIVOS"
+        ) {
+          return !veiculo.ativo;
+        }
+
+        return true;
+      }
+    );
 
   const termo =
     busca
@@ -118,7 +284,7 @@ export default async function VeiculosPage({
       .toLowerCase();
 
   const veiculos = termo
-    ? veiculosRaw.filter(
+    ? veiculosPorStatus.filter(
         (veiculo) => {
           const encontrouTexto = [
             veiculo.placa,
@@ -126,16 +292,21 @@ export default async function VeiculosPage({
             veiculo.ufLicenciamento,
             veiculo.marcaModelo,
             veiculo.tipo,
+
             tiposVeiculo[
               veiculo.tipo
             ],
+
             veiculo.transportador
               ?.nome,
+
             veiculo.ativo
               ? "ativo"
               : "inativo",
           ].some((valor) =>
-            String(valor ?? "")
+            String(
+              valor ?? ""
+            )
               .toLowerCase()
               .includes(termo)
           );
@@ -145,7 +316,9 @@ export default async function VeiculosPage({
               veiculo.placa,
               veiculo.renavam,
             ].some((valor) =>
-              String(valor ?? "")
+              String(
+                valor ?? ""
+              )
                 .replace(
                   /[^a-zA-Z0-9]/g,
                   ""
@@ -162,7 +335,7 @@ export default async function VeiculosPage({
           );
         }
       )
-    : veiculosRaw;
+    : veiculosPorStatus;
 
   const totalAtivos =
     veiculosRaw.filter(
@@ -174,86 +347,192 @@ export default async function VeiculosPage({
     veiculosRaw.length -
     totalAtivos;
 
+  const rotaBase =
+    `/empresa/${empresaId}/veiculos`;
+
+  function criarHref({
+    novoStatus =
+      filtroStatus,
+
+    incluirBusca = true,
+  }: {
+    novoStatus?:
+      FiltroStatus;
+
+    incluirBusca?:
+      boolean;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (
+      novoStatus !==
+      "TODOS"
+    ) {
+      parametros.set(
+        "status",
+        novoStatus.toLowerCase()
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   function renderizarAcoes(
-    veiculo: (typeof veiculosRaw)[number]
+    veiculo:
+      (typeof veiculosRaw)[number]
   ) {
+    const possuiAlgumaAcao =
+      podeEditar ||
+      podeAlterarStatus ||
+      podeExcluir;
+
+    if (!possuiAlgumaAcao) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          Sem ações disponíveis
+        </span>
+      );
+    }
+
     return (
-      <div className="flex justify-end gap-2">
-        <VeiculoDialog
-          empresaId={empresaId}
-          transportadores={
-            dadosFormulario.transportadores
-          }
-          veiculo={{
-            id: veiculo.id,
+      <div className="flex flex-wrap justify-end gap-2">
+        {podeEditar && (
+          <VeiculoDialog
+            empresaId={
+              empresaId
+            }
+            transportadores={
+              dadosFormulario
+                .transportadores
+            }
+            veiculo={{
+              id:
+                veiculo.id,
 
-            transportadorId:
-              veiculo.transportadorId,
+              transportadorId:
+                veiculo
+                  .transportadorId,
 
-            placa: veiculo.placa,
+              placa:
+                veiculo.placa,
 
-            renavam:
-              veiculo.renavam,
+              renavam:
+                veiculo.renavam,
 
-            ufLicenciamento:
-              veiculo.ufLicenciamento,
+              ufLicenciamento:
+                veiculo
+                  .ufLicenciamento,
 
-            tipo: veiculo.tipo,
+              tipo:
+                veiculo.tipo,
 
-            marcaModelo:
-              veiculo.marcaModelo,
+              marcaModelo:
+                veiculo
+                  .marcaModelo,
 
-            anoFabricacao:
-              veiculo.anoFabricacao,
+              anoFabricacao:
+                veiculo
+                  .anoFabricacao,
 
-            anoModelo:
-              veiculo.anoModelo,
+              anoModelo:
+                veiculo
+                  .anoModelo,
 
-            taraKg:
-              veiculo.taraKg ===
-              null
-                ? null
-                : Number(
-                    veiculo.taraKg
-                  ),
+              taraKg:
+                veiculo.taraKg ===
+                null
+                  ? null
+                  : Number(
+                      veiculo
+                        .taraKg
+                    ),
 
-            capacidadeKg:
-              veiculo.capacidadeKg ===
-              null
-                ? null
-                : Number(
-                    veiculo.capacidadeKg
-                  ),
+              capacidadeKg:
+                veiculo
+                  .capacidadeKg ===
+                null
+                  ? null
+                  : Number(
+                      veiculo
+                        .capacidadeKg
+                    ),
 
-            capacidadeM3:
-              veiculo.capacidadeM3 ===
-              null
-                ? null
-                : Number(
-                    veiculo.capacidadeM3
-                  ),
+              capacidadeM3:
+                veiculo
+                  .capacidadeM3 ===
+                null
+                  ? null
+                  : Number(
+                      veiculo
+                        .capacidadeM3
+                    ),
 
-            ativo: veiculo.ativo,
-          }}
-        />
+              ativo:
+                veiculo.ativo,
+            }}
+          />
+        )}
 
-        <VeiculoDeleteButton
-          empresaId={empresaId}
-          veiculoId={veiculo.id}
-          placa={formatarPlaca(
-            veiculo.placa
-          )}
-        />
+        {podeAlterarStatus && (
+          <VeiculoStatusButton
+            empresaId={
+              empresaId
+            }
+            veiculoId={
+              veiculo.id
+            }
+            placa={formatarPlaca(
+              veiculo.placa
+            )}
+            ativo={
+              veiculo.ativo
+            }
+          />
+        )}
+
+        {podeExcluir && (
+          <VeiculoDeleteButton
+            empresaId={
+              empresaId
+            }
+            veiculoId={
+              veiculo.id
+            }
+            placa={formatarPlaca(
+              veiculo.placa
+            )}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="w-full space-y-8">
+      {/* Cabeçalho */}
+
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <CarFront size={24} />
+            <CarFront
+              size={24}
+            />
           </div>
 
           <div>
@@ -262,50 +541,167 @@ export default async function VeiculosPage({
             </h1>
 
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Gerencie veículos de tração,
-              carretas, reboques e
-              utilitários utilizados nas
-              operações de transporte.
+              Gerencie veículos de
+              tração, carretas,
+              reboques e utilitários
+              utilizados nas operações
+              de transporte.
             </p>
           </div>
         </div>
 
-        <VeiculoDialog
-          empresaId={empresaId}
-          transportadores={
-            dadosFormulario.transportadores
-          }
-        />
+        {podeCriar && (
+          <VeiculoDialog
+            empresaId={
+              empresaId
+            }
+            transportadores={
+              dadosFormulario
+                .transportadores
+            }
+          />
+        )}
       </div>
+
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está
+          inativa. Os veículos
+          estão disponíveis somente
+          para consulta.
+        </div>
+      )}
+
+      {/* Indicadores */}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Indicador
           titulo="Total de veículos"
-          valor={veiculosRaw.length}
-          icone={CarFront}
+          valor={
+            veiculosRaw.length
+          }
+          icone={
+            CarFront
+          }
         />
 
         <Indicador
           titulo="Veículos ativos"
-          valor={totalAtivos}
-          icone={CircleCheck}
+          valor={
+            totalAtivos
+          }
+          icone={
+            CircleCheck
+          }
           variante="sucesso"
         />
 
         <Indicador
           titulo="Veículos inativos"
-          valor={totalInativos}
-          icone={CircleX}
-          variante="erro"
+          valor={
+            totalInativos
+          }
+          icone={
+            CircleX
+          }
+          variante="alerta"
           className="sm:col-span-2 xl:col-span-1"
         />
       </section>
 
+      {/* Filtros e busca */}
+
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            nativeButton={
+              false
+            }
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "TODOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "TODOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            Todos
+          </Button>
+
+          <Button
+            nativeButton={
+              false
+            }
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "ATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "ATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <Power size={15} />
+
+            Ativos
+          </Button>
+
+          <Button
+            nativeButton={
+              false
+            }
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "INATIVOS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "INATIVOS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <PowerOff
+              size={15}
+            />
+
+            Inativos
+          </Button>
+        </div>
+
         <form
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
+          {filtroStatus !==
+            "TODOS" && (
+            <input
+              type="hidden"
+              name="status"
+              value={filtroStatus.toLowerCase()}
+            />
+          )}
+
           <div className="relative flex-1">
             <Search
               size={17}
@@ -314,7 +710,9 @@ export default async function VeiculosPage({
 
             <Input
               name="busca"
-              defaultValue={busca}
+              defaultValue={
+                busca
+              }
               className="h-11 pl-10"
               placeholder="Buscar por placa, RENAVAM, tipo, modelo ou transportador..."
             />
@@ -332,10 +730,15 @@ export default async function VeiculosPage({
 
           {busca && (
             <Button
-              nativeButton={false}
+              nativeButton={
+                false
+              }
               render={
                 <Link
-                  href={`/empresa/${empresaId}/veiculos`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -346,58 +749,74 @@ export default async function VeiculosPage({
           )}
         </form>
 
-        {busca && (
+        {(busca ||
+          filtroStatus !==
+            "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {veiculos.length === 1
+            {veiculos.length ===
+            1
               ? "1 veículo encontrado."
               : `${veiculos.length} veículos encontrados.`}
           </p>
         )}
       </section>
 
+      {/* Estado vazio */}
+
       {veiculos.length === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <CarFront size={30} />
+              <CarFront
+                size={30}
+              />
             </div>
 
             <h2 className="mt-5 text-xl font-semibold">
-              {busca
-                ? "Nenhum veículo encontrado"
-                : "Nenhum veículo cadastrado"}
+              Nenhum veículo
+              encontrado
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos veículos correspondentes aos termos informados."
-                : "Cadastre os veículos utilizados pela empresa e pelos transportadores."}
+              Não encontramos veículos
+              correspondentes aos
+              filtros informados.
             </p>
 
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    href={`/empresa/${empresaId}/veiculos`}
-                  />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
+            <Button
+              nativeButton={
+                false
+              }
+              render={
+                <Link
+                  href={
+                    rotaBase
+                  }
+                />
+              }
+              variant="outline"
+              className="mt-6 h-11"
+            >
+              Limpar filtros
+            </Button>
           </div>
         </section>
       ) : (
         <>
+          {/* Cards para celular */}
+
           <div className="grid gap-4 md:hidden">
             {veiculos.map(
               (veiculo) => (
                 <article
-                  key={veiculo.id}
-                  className="rounded-2xl border bg-card p-5 shadow-sm"
+                  key={
+                    veiculo.id
+                  }
+                  className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                    !veiculo.ativo
+                      ? "opacity-80"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
@@ -415,9 +834,11 @@ export default async function VeiculosPage({
                         </h2>
 
                         <p className="mt-1 truncate text-sm text-muted-foreground">
-                          {veiculo.marcaModelo ||
+                          {veiculo
+                            .marcaModelo ||
                             tiposVeiculo[
-                              veiculo.tipo
+                              veiculo
+                                .tipo
                             ]}
                         </p>
                       </div>
@@ -436,7 +857,8 @@ export default async function VeiculosPage({
                       valor={
                         tiposVeiculo[
                           veiculo.tipo
-                        ] ?? veiculo.tipo
+                        ] ??
+                        veiculo.tipo
                       }
                     />
 
@@ -451,7 +873,8 @@ export default async function VeiculosPage({
                     <LinhaInformacao
                       titulo="Transportador"
                       valor={
-                        veiculo.transportador
+                        veiculo
+                          .transportador
                           ?.nome ??
                         "Não vinculado"
                       }
@@ -467,7 +890,8 @@ export default async function VeiculosPage({
                     <LinhaInformacao
                       titulo="Capacidade"
                       valor={formatarPeso(
-                        veiculo.capacidadeKg
+                        veiculo
+                          .capacidadeKg
                       )}
                     />
                   </dl>
@@ -482,9 +906,11 @@ export default async function VeiculosPage({
             )}
           </div>
 
+          {/* Tabela para computador */}
+
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1150px]">
+              <table className="w-full min-w-[1250px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -525,8 +951,14 @@ export default async function VeiculosPage({
                   {veiculos.map(
                     (veiculo) => (
                       <tr
-                        key={veiculo.id}
-                        className="border-t transition-colors hover:bg-muted/20"
+                        key={
+                          veiculo.id
+                        }
+                        className={`border-t transition-colors hover:bg-muted/20 ${
+                          !veiculo.ativo
+                            ? "bg-muted/10 opacity-80"
+                            : ""
+                        }`}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -539,12 +971,14 @@ export default async function VeiculosPage({
                             <div>
                               <p className="font-semibold">
                                 {formatarPlaca(
-                                  veiculo.placa
+                                  veiculo
+                                    .placa
                                 )}
                               </p>
 
                               <p className="mt-0.5 max-w-56 truncate text-xs text-muted-foreground">
-                                {veiculo.marcaModelo ||
+                                {veiculo
+                                  .marcaModelo ||
                                   "Sem marca/modelo"}
                               </p>
                             </div>
@@ -554,7 +988,8 @@ export default async function VeiculosPage({
                         <td className="px-5 py-4 text-sm">
                           {tiposVeiculo[
                             veiculo.tipo
-                          ] ?? veiculo.tipo}
+                          ] ??
+                            veiculo.tipo}
                         </td>
 
                         <td className="px-5 py-4 text-sm">
@@ -593,7 +1028,8 @@ export default async function VeiculosPage({
 
                         <td className="px-5 py-4 text-sm">
                           {formatarPeso(
-                            veiculo.capacidadeKg
+                            veiculo
+                              .capacidadeKg
                           )}
                         </td>
 
@@ -627,12 +1063,13 @@ type IndicadorProps = {
   titulo: string;
   valor: number;
 
-  icone: typeof CarFront;
+  icone:
+    typeof CarFront;
 
   variante?:
     | "padrao"
     | "sucesso"
-    | "erro";
+    | "alerta";
 
   className?: string;
 };
@@ -647,8 +1084,8 @@ function Indicador({
   const classeIcone =
     variante === "sucesso"
       ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : variante === "erro"
-        ? "bg-destructive/10 text-destructive"
+      : variante === "alerta"
+        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
         : "bg-primary/10 text-primary";
 
   return (
@@ -688,9 +1125,10 @@ function StatusBadge({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
         ativo
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "bg-destructive/10 text-destructive",
+          : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
       ].join(" ")}
     >
       {ativo

@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  Prisma,
   PrivilegioEmpresa,
 } from "@prisma/client";
 
@@ -11,80 +10,91 @@ import { prisma } from "@/lib/prisma";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-type DeleteClienteData = {
-  clienteId: string;
+type AlterarStatusVeiculoData = {
   empresaId: string;
+  veiculoId: string;
+  ativo: boolean;
 };
 
-type DeleteClienteResult =
+type AlterarStatusVeiculoResult =
   | {
       success: true;
+      ativo: boolean;
+      message: string;
     }
   | {
       success: false;
       message: string;
     };
 
-export async function deleteCliente({
-  clienteId,
+export async function alterarStatusVeiculo({
   empresaId,
-}: DeleteClienteData): Promise<DeleteClienteResult> {
+  veiculoId,
+  ativo,
+}: AlterarStatusVeiculoData): Promise<AlterarStatusVeiculoResult> {
   try {
     await validarPrivilegioEmpresa(
       empresaId,
-      PrivilegioEmpresa.CLIENTES_EXCLUIR
+      PrivilegioEmpresa.VEICULOS_ALTERAR_STATUS
     );
 
-    const cliente =
-      await prisma.cliente.findFirst({
+    const veiculo =
+      await prisma.veiculo.findFirst({
         where: {
-          id: clienteId,
+          id: veiculoId,
           empresaId,
         },
 
         select: {
           id: true,
+          ativo: true,
         },
       });
 
-    if (!cliente) {
+    if (!veiculo) {
       return {
         success: false,
         message:
-          "Cliente não encontrado nesta empresa.",
+          "Veículo não encontrado nesta empresa.",
       };
     }
 
-    await prisma.cliente.delete({
+    if (veiculo.ativo === ativo) {
+      return {
+        success: true,
+        ativo,
+        message: ativo
+          ? "O veículo já está ativo."
+          : "O veículo já está inativo.",
+      };
+    }
+
+    await prisma.veiculo.update({
       where: {
-        id: cliente.id,
+        id: veiculo.id,
+      },
+
+      data: {
+        ativo,
       },
     });
 
     revalidatePath(
-      `/empresa/${empresaId}/clientes`
+      `/empresa/${empresaId}/veiculos`
     );
 
     return {
       success: true,
+      ativo,
+      message: ativo
+        ? "Veículo ativado com sucesso."
+        : "Veículo inativado com sucesso.",
     };
   } catch (error) {
     console.error(
-      "Erro ao excluir cliente:",
+      "Erro ao alterar status do veículo:",
       error
     );
-
-    if (
-      error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
-      return {
-        success: false,
-        message:
-          "Este cliente possui documentos vinculados e não pode ser excluído. Inative o cliente.",
-      };
-    }
 
     if (error instanceof Error) {
       if (
@@ -94,7 +104,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Você não possui permissão para excluir clientes.",
+            "Você não possui permissão para ativar ou inativar veículos.",
         };
       }
 
@@ -105,7 +115,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Não é possível excluir clientes de uma empresa inativa.",
+            "Não é possível alterar veículos de uma empresa inativa.",
         };
       }
 
@@ -137,7 +147,7 @@ export async function deleteCliente({
     return {
       success: false,
       message:
-        "Não foi possível excluir o cliente.",
+        "Não foi possível alterar o status do veículo.",
     };
   }
 }

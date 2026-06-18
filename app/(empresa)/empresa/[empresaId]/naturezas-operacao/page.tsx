@@ -1,9 +1,15 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import {
   CircleCheck,
   CircleX,
   ClipboardList,
+  Power,
+  PowerOff,
   Search,
 } from "lucide-react";
 
@@ -11,9 +17,12 @@ import { getNaturezasOperacao } from "@/actions/naturezas-operacao/get-naturezas
 
 import { NaturezaOperacaoDialog } from "@/components/naturezas-operacao/natureza-operacao-dialog";
 import { NaturezaDeleteButton } from "@/components/naturezas-operacao/natureza-delete-button";
+import { NaturezaStatusButton } from "@/components/naturezas-operacao/natureza-status-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -25,8 +34,14 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    status?: string;
   }>;
 };
+
+type FiltroStatus =
+  | "TODAS"
+  | "ATIVAS"
+  | "INATIVAS";
 
 const finalidades: Record<
   string,
@@ -47,6 +62,23 @@ function obterFinalidade(
   );
 }
 
+function normalizarStatus(
+  valor?: string
+): FiltroStatus {
+  const status =
+    valor?.toUpperCase();
+
+  if (status === "ATIVAS") {
+    return "ATIVAS";
+  }
+
+  if (status === "INATIVAS") {
+    return "INATIVAS";
+  }
+
+  return "TODAS";
+}
+
 export default async function NaturezasOperacaoPage({
   params,
   searchParams,
@@ -54,12 +86,118 @@ export default async function NaturezasOperacaoPage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    status = "",
+  } = await searchParams;
+
+  const filtroStatus =
+    normalizarStatus(status);
+
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
+      {
+        exigirEmpresaAtiva: false,
+      }
+    );
 
   const naturezasRaw =
     await getNaturezasOperacao(
       empresaId
+    );
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.NATUREZAS_CRIAR
+    );
+
+  const podeEditar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.NATUREZAS_EDITAR
+    );
+
+  const podeAlterarStatus =
+    possuiPrivilegio(
+      PrivilegioEmpresa.NATUREZAS_ALTERAR_STATUS
+    );
+
+  const podeExcluir =
+    possuiPrivilegio(
+      PrivilegioEmpresa.NATUREZAS_EXCLUIR
+    );
+
+  const naturezasPorStatus =
+    naturezasRaw.filter(
+      (natureza) => {
+        if (
+          filtroStatus ===
+          "ATIVAS"
+        ) {
+          return natureza.ativo;
+        }
+
+        if (
+          filtroStatus ===
+          "INATIVAS"
+        ) {
+          return !natureza.ativo;
+        }
+
+        return true;
+      }
     );
 
   const termo =
@@ -68,14 +206,14 @@ export default async function NaturezasOperacaoPage({
       .toLowerCase();
 
   const naturezas = termo
-    ? naturezasRaw.filter(
+    ? naturezasPorStatus.filter(
         (natureza) => {
           const finalidade =
             obterFinalidade(
               natureza.finalidadeNfe
             );
 
-          const status =
+          const statusNatureza =
             natureza.ativo
               ? "ativa"
               : "inativa";
@@ -95,7 +233,7 @@ export default async function NaturezasOperacaoPage({
             natureza.cfop,
             natureza.finalidadeNfe,
             finalidade,
-            status,
+            statusNatureza,
             consumidorFinal,
             contribuinteIcms,
           ].some((valor) =>
@@ -105,7 +243,7 @@ export default async function NaturezasOperacaoPage({
           );
         }
       )
-    : naturezasRaw;
+    : naturezasPorStatus;
 
   const totalAtivas =
     naturezasRaw.filter(
@@ -117,44 +255,114 @@ export default async function NaturezasOperacaoPage({
     naturezasRaw.length -
     totalAtivas;
 
+  const rotaBase =
+    `/empresa/${empresaId}/naturezas-operacao`;
+
+  function criarHref({
+    novoStatus =
+      filtroStatus,
+
+    incluirBusca = true,
+  }: {
+    novoStatus?: FiltroStatus;
+    incluirBusca?: boolean;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (
+      novoStatus !== "TODAS"
+    ) {
+      parametros.set(
+        "status",
+        novoStatus.toLowerCase()
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   function renderizarAcoes(
     natureza: (typeof naturezasRaw)[number]
   ) {
+    const possuiAlgumaAcao =
+      podeEditar ||
+      podeAlterarStatus ||
+      podeExcluir;
+
+    if (!possuiAlgumaAcao) {
+      return (
+        <span className="text-sm text-muted-foreground">
+          Sem ações disponíveis
+        </span>
+      );
+    }
+
     return (
-      <div className="flex justify-end gap-2">
-        <NaturezaOperacaoDialog
-          empresaId={empresaId}
-          natureza={{
-            id:
-              natureza.id,
+      <div className="flex flex-wrap justify-end gap-2">
+        {podeEditar && (
+          <NaturezaOperacaoDialog
+            empresaId={empresaId}
+            natureza={{
+              id:
+                natureza.id,
 
-            descricao:
-              natureza.descricao,
+              descricao:
+                natureza.descricao,
 
-            cfop:
-              natureza.cfop,
+              cfop:
+                natureza.cfop,
 
-            finalidadeNfe:
-              natureza.finalidadeNfe,
+              finalidadeNfe:
+                natureza.finalidadeNfe,
 
-            consumidorFinal:
-              natureza.consumidorFinal,
+              consumidorFinal:
+                natureza.consumidorFinal,
 
-            contribuinteIcms:
-              natureza.contribuinteIcms,
+              contribuinteIcms:
+                natureza.contribuinteIcms,
 
-            ativo:
-              natureza.ativo,
-          }}
-        />
+              ativo:
+                natureza.ativo,
+            }}
+          />
+        )}
 
-        <NaturezaDeleteButton
-          empresaId={empresaId}
-          naturezaId={natureza.id}
-          descricao={
-            natureza.descricao
-          }
-        />
+        {podeAlterarStatus && (
+          <NaturezaStatusButton
+            empresaId={empresaId}
+            naturezaId={natureza.id}
+            descricao={
+              natureza.descricao
+            }
+            ativo={natureza.ativo}
+          />
+        )}
+
+        {podeExcluir && (
+          <NaturezaDeleteButton
+            empresaId={empresaId}
+            naturezaId={natureza.id}
+            descricao={
+              natureza.descricao
+            }
+          />
+        )}
       </div>
     );
   }
@@ -185,10 +393,21 @@ export default async function NaturezasOperacaoPage({
           </div>
         </div>
 
-        <NaturezaOperacaoDialog
-          empresaId={empresaId}
-        />
+        {podeCriar && (
+          <NaturezaOperacaoDialog
+            empresaId={empresaId}
+          />
+        )}
       </div>
+
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está inativa. As
+          naturezas de operação estão
+          disponíveis somente para
+          consulta.
+        </div>
+      )}
 
       {/* Indicadores */}
 
@@ -245,20 +464,98 @@ export default async function NaturezasOperacaoPage({
               </p>
             </div>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400">
               <CircleX size={21} />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Busca */}
+      {/* Filtros e busca */}
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "TODAS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "TODAS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            Todas
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "ATIVAS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "ATIVAS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <Power size={15} />
+
+            Ativas
+          </Button>
+
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                href={criarHref({
+                  novoStatus:
+                    "INATIVAS",
+                })}
+              />
+            }
+            variant={
+              filtroStatus ===
+              "INATIVAS"
+                ? "default"
+                : "outline"
+            }
+            size="sm"
+          >
+            <PowerOff size={15} />
+
+            Inativas
+          </Button>
+        </div>
+
         <form
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
+          {filtroStatus !==
+            "TODAS" && (
+            <input
+              type="hidden"
+              name="status"
+              value={filtroStatus.toLowerCase()}
+            />
+          )}
+
           <div className="relative flex-1">
             <Search
               size={17}
@@ -288,7 +585,10 @@ export default async function NaturezasOperacaoPage({
               nativeButton={false}
               render={
                 <Link
-                  href={`/empresa/${empresaId}/naturezas-operacao`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -299,7 +599,9 @@ export default async function NaturezasOperacaoPage({
           )}
         </form>
 
-        {busca && (
+        {(busca ||
+          filtroStatus !==
+            "TODAS") && (
           <p className="mt-3 text-xs text-muted-foreground">
             {naturezas.length === 1
               ? "1 natureza encontrada."
@@ -320,31 +622,27 @@ export default async function NaturezasOperacaoPage({
             </div>
 
             <h2 className="mt-5 text-xl font-semibold tracking-tight">
-              {busca
-                ? "Nenhuma natureza encontrada"
-                : "Nenhuma natureza cadastrada"}
+              Nenhuma natureza encontrada
             </h2>
 
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos naturezas de operação correspondentes aos termos informados."
-                : "Cadastre uma natureza de operação para utilizá-la nas notas fiscais da empresa."}
+              Não encontramos naturezas
+              de operação correspondentes
+              aos filtros informados.
             </p>
 
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    href={`/empresa/${empresaId}/naturezas-operacao`}
-                  />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  href={rotaBase}
+                />
+              }
+              variant="outline"
+              className="mt-6 h-11"
+            >
+              Limpar filtros
+            </Button>
           </div>
         </section>
       ) : (
@@ -356,7 +654,11 @@ export default async function NaturezasOperacaoPage({
               (natureza) => (
                 <article
                   key={natureza.id}
-                  className="rounded-2xl border bg-card p-5 shadow-sm"
+                  className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                    !natureza.ativo
+                      ? "opacity-80"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
@@ -443,7 +745,7 @@ export default async function NaturezasOperacaoPage({
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -481,7 +783,11 @@ export default async function NaturezasOperacaoPage({
                     (natureza) => (
                       <tr
                         key={natureza.id}
-                        className="border-t transition-colors hover:bg-muted/20"
+                        className={`border-t transition-colors hover:bg-muted/20 ${
+                          !natureza.ativo
+                            ? "bg-muted/10 opacity-80"
+                            : ""
+                        }`}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -570,9 +876,10 @@ function StatusBadge({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
         ativo
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "bg-destructive/10 text-destructive",
+          : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
       ].join(" ")}
     >
       {ativo
@@ -593,6 +900,7 @@ function BooleanBadge({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
         valor
           ? "bg-primary/10 text-primary"
           : "bg-muted text-muted-foreground",

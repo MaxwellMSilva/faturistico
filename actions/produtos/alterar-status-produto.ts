@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  Prisma,
   PrivilegioEmpresa,
 } from "@prisma/client";
 
@@ -11,80 +10,91 @@ import { prisma } from "@/lib/prisma";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-type DeleteClienteData = {
-  clienteId: string;
+type AlterarStatusProdutoData = {
   empresaId: string;
+  produtoId: string;
+  ativo: boolean;
 };
 
-type DeleteClienteResult =
+type AlterarStatusProdutoResult =
   | {
       success: true;
+      ativo: boolean;
+      message: string;
     }
   | {
       success: false;
       message: string;
     };
 
-export async function deleteCliente({
-  clienteId,
+export async function alterarStatusProduto({
   empresaId,
-}: DeleteClienteData): Promise<DeleteClienteResult> {
+  produtoId,
+  ativo,
+}: AlterarStatusProdutoData): Promise<AlterarStatusProdutoResult> {
   try {
     await validarPrivilegioEmpresa(
       empresaId,
-      PrivilegioEmpresa.CLIENTES_EXCLUIR
+      PrivilegioEmpresa.PRODUTOS_ALTERAR_STATUS
     );
 
-    const cliente =
-      await prisma.cliente.findFirst({
+    const produto =
+      await prisma.produto.findFirst({
         where: {
-          id: clienteId,
+          id: produtoId,
           empresaId,
         },
 
         select: {
           id: true,
+          ativo: true,
         },
       });
 
-    if (!cliente) {
+    if (!produto) {
       return {
         success: false,
         message:
-          "Cliente não encontrado nesta empresa.",
+          "Produto não encontrado nesta empresa.",
       };
     }
 
-    await prisma.cliente.delete({
+    if (produto.ativo === ativo) {
+      return {
+        success: true,
+        ativo,
+        message: ativo
+          ? "O produto já está ativo."
+          : "O produto já está inativo.",
+      };
+    }
+
+    await prisma.produto.update({
       where: {
-        id: cliente.id,
+        id: produto.id,
+      },
+
+      data: {
+        ativo,
       },
     });
 
     revalidatePath(
-      `/empresa/${empresaId}/clientes`
+      `/empresa/${empresaId}/produtos`
     );
 
     return {
       success: true,
+      ativo,
+      message: ativo
+        ? "Produto ativado com sucesso."
+        : "Produto inativado com sucesso.",
     };
   } catch (error) {
     console.error(
-      "Erro ao excluir cliente:",
+      "Erro ao alterar status do produto:",
       error
     );
-
-    if (
-      error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
-      return {
-        success: false,
-        message:
-          "Este cliente possui documentos vinculados e não pode ser excluído. Inative o cliente.",
-      };
-    }
 
     if (error instanceof Error) {
       if (
@@ -94,7 +104,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Você não possui permissão para excluir clientes.",
+            "Você não possui permissão para ativar ou inativar produtos.",
         };
       }
 
@@ -105,7 +115,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Não é possível excluir clientes de uma empresa inativa.",
+            "Não é possível alterar produtos de uma empresa inativa.",
         };
       }
 
@@ -137,7 +147,7 @@ export async function deleteCliente({
     return {
       success: false,
       message:
-        "Não foi possível excluir o cliente.",
+        "Não foi possível alterar o status do produto.",
     };
   }
 }

@@ -1,122 +1,58 @@
-import { getServerSession } from "next-auth";
+import type {
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
 
-export async function validarAcessoEmpresa(
-  empresaId: string
+import { privilegiosVisualizador } from "@/lib/usuarios/privilegios-empresa";
+
+type Opcoes = {
+  exigirEmpresaAtiva?: boolean;
+};
+
+export async function validarPrivilegioEmpresa(
+  empresaId: string,
+  privilegio: PrivilegioEmpresa,
+  opcoes: Opcoes = {}
 ) {
-  const session =
-    await getServerSession(
-      authOptions
+  const {
+    exigirEmpresaAtiva = true,
+  } = opcoes;
+
+  const contexto =
+    await validarAcessoEmpresa(
+      empresaId
     );
 
-  if (!session?.user?.id) {
-    throw new Error(
-      "USUARIO_NAO_AUTENTICADO"
-    );
-  }
-
-  const usuario =
-    await prisma.usuario.findUnique({
-      where: {
-        id: session.user.id,
-      },
-
-      select: {
-        id: true,
-        nome: true,
-        email: true,
-        role: true,
-        ativo: true,
-      },
-    });
-
-  if (
-    !usuario ||
-    !usuario.ativo
-  ) {
-    throw new Error(
-      "USUARIO_INVALIDO_OU_INATIVO"
-    );
-  }
-
-  const empresa =
-    await prisma.empresa.findUnique({
-      where: {
-        id: empresaId,
-      },
-
-      select: {
-        id: true,
-        razaoSocial: true,
-        nomeFantasia: true,
-        ativo: true,
-      },
-    });
-
-  if (!empresa) {
-    throw new Error(
-      "EMPRESA_NAO_ENCONTRADA"
-    );
-  }
-
-  const acesso =
-    await prisma.usuarioEmpresa.findUnique({
-      where: {
-        usuarioId_empresaId: {
-          usuarioId:
-            usuario.id,
-
-          empresaId,
-        },
-      },
-
-      select: {
-        id: true,
-        usuarioId: true,
-        empresaId: true,
-
-        permissao: true,
-        ativo: true,
-
-        privilegios: {
-          select: {
-            privilegio: true,
-          },
-        },
-      },
-    });
+  const {
+    usuario,
+    empresa,
+    acesso,
+  } = contexto;
 
   /*
-   * O OWNER global pode acessar todas
-   * as empresas, inclusive inativas.
-   *
-   * Empresa inativa será somente leitura.
+   * Qualquer alteração em empresa
+   * inativa deve ser bloqueada,
+   * inclusive para o OWNER.
+   */
+
+  if (
+    exigirEmpresaAtiva &&
+    !empresa.ativo
+  ) {
+    throw new Error(
+      "EMPRESA_INATIVA_SOMENTE_LEITURA"
+    );
+  }
+
+  /*
+   * OWNER global possui acesso total.
    */
 
   if (
     usuario.role === "OWNER"
   ) {
-    return {
-      usuario,
-      empresa,
-      acesso,
-
-      somenteLeitura:
-        !empresa.ativo,
-    };
-  }
-
-  /*
-   * Demais usuários não podem acessar
-   * empresas inativas.
-   */
-
-  if (!empresa.ativo) {
-    throw new Error(
-      "EMPRESA_INATIVA"
-    );
+    return contexto;
   }
 
   if (
@@ -128,11 +64,90 @@ export async function validarAcessoEmpresa(
     );
   }
 
-  return {
-    usuario,
-    empresa,
-    acesso,
+  /*
+   * ADMIN global precisa possuir
+   * vínculo ADMIN nesta empresa.
+   */
 
-    somenteLeitura: false,
-  };
+  if (
+    usuario.role === "ADMIN"
+  ) {
+    if (
+      acesso.permissao ===
+      "ADMIN"
+    ) {
+      return contexto;
+    }
+
+    throw new Error(
+      "PRIVILEGIO_NAO_AUTORIZADO"
+    );
+  }
+
+  /*
+   * USUARIO não pode possuir vínculo
+   * OWNER ou ADMIN.
+   */
+
+  if (
+    acesso.permissao ===
+      "OWNER" ||
+    acesso.permissao ===
+      "ADMIN"
+  ) {
+    throw new Error(
+      "PERMISSAO_EMPRESA_INVALIDA"
+    );
+  }
+
+  /*
+   * VISUALIZADOR recebe automaticamente
+   * somente privilégios de consulta.
+   */
+
+  if (
+    acesso.permissao ===
+    "VISUALIZADOR"
+  ) {
+    if (
+      privilegiosVisualizador.has(
+        privilegio
+      )
+    ) {
+      return contexto;
+    }
+
+    throw new Error(
+      "PRIVILEGIO_NAO_AUTORIZADO"
+    );
+  }
+
+  /*
+   * PERSONALIZADO depende dos privilégios
+   * gravados em UsuarioEmpresaPrivilegio.
+   */
+
+  if (
+    acesso.permissao ===
+    "PERSONALIZADO"
+  ) {
+    const possuiPrivilegio =
+      acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+
+    if (possuiPrivilegio) {
+      return contexto;
+    }
+
+    throw new Error(
+      "PRIVILEGIO_NAO_AUTORIZADO"
+    );
+  }
+
+  throw new Error(
+    "PRIVILEGIO_NAO_AUTORIZADO"
+  );
 }

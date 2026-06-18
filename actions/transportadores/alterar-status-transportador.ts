@@ -3,88 +3,99 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  Prisma,
   PrivilegioEmpresa,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-type DeleteClienteData = {
-  clienteId: string;
+type AlterarStatusTransportadorData = {
   empresaId: string;
+  transportadorId: string;
+  ativo: boolean;
 };
 
-type DeleteClienteResult =
+type AlterarStatusTransportadorResult =
   | {
       success: true;
+      ativo: boolean;
+      message: string;
     }
   | {
       success: false;
       message: string;
     };
 
-export async function deleteCliente({
-  clienteId,
+export async function alterarStatusTransportador({
   empresaId,
-}: DeleteClienteData): Promise<DeleteClienteResult> {
+  transportadorId,
+  ativo,
+}: AlterarStatusTransportadorData): Promise<AlterarStatusTransportadorResult> {
   try {
     await validarPrivilegioEmpresa(
       empresaId,
-      PrivilegioEmpresa.CLIENTES_EXCLUIR
+      PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS
     );
 
-    const cliente =
-      await prisma.cliente.findFirst({
+    const transportador =
+      await prisma.transportador.findFirst({
         where: {
-          id: clienteId,
+          id: transportadorId,
           empresaId,
         },
 
         select: {
           id: true,
+          ativo: true,
         },
       });
 
-    if (!cliente) {
+    if (!transportador) {
       return {
         success: false,
         message:
-          "Cliente não encontrado nesta empresa.",
+          "Transportador não encontrado nesta empresa.",
       };
     }
 
-    await prisma.cliente.delete({
+    if (
+      transportador.ativo === ativo
+    ) {
+      return {
+        success: true,
+        ativo,
+        message: ativo
+          ? "O transportador já está ativo."
+          : "O transportador já está inativo.",
+      };
+    }
+
+    await prisma.transportador.update({
       where: {
-        id: cliente.id,
+        id: transportador.id,
+      },
+
+      data: {
+        ativo,
       },
     });
 
     revalidatePath(
-      `/empresa/${empresaId}/clientes`
+      `/empresa/${empresaId}/transportadores`
     );
 
     return {
       success: true,
+      ativo,
+      message: ativo
+        ? "Transportador ativado com sucesso."
+        : "Transportador inativado com sucesso.",
     };
   } catch (error) {
     console.error(
-      "Erro ao excluir cliente:",
+      "Erro ao alterar status do transportador:",
       error
     );
-
-    if (
-      error instanceof
-        Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-    ) {
-      return {
-        success: false,
-        message:
-          "Este cliente possui documentos vinculados e não pode ser excluído. Inative o cliente.",
-      };
-    }
 
     if (error instanceof Error) {
       if (
@@ -94,7 +105,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Você não possui permissão para excluir clientes.",
+            "Você não possui permissão para ativar ou inativar transportadores.",
         };
       }
 
@@ -105,7 +116,7 @@ export async function deleteCliente({
         return {
           success: false,
           message:
-            "Não é possível excluir clientes de uma empresa inativa.",
+            "Não é possível alterar transportadores de uma empresa inativa.",
         };
       }
 
@@ -137,7 +148,7 @@ export async function deleteCliente({
     return {
       success: false,
       message:
-        "Não foi possível excluir o cliente.",
+        "Não foi possível alterar o status do transportador.",
     };
   }
 }
