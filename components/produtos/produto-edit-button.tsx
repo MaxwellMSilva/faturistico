@@ -8,13 +8,8 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  BadgeDollarSign,
-  FileCheck2,
-  Landmark,
   LoaderCircle,
-  Package,
   Pencil,
-  Percent,
   Save,
 } from "lucide-react";
 
@@ -29,13 +24,17 @@ import { Input } from "@/components/ui/input";
 
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  FormStepperBody,
+  FormStepperDialogContent,
+  FormStepperFooter,
+  FormStepperNav,
+} from "@/components/ui/form-stepper";
 
 type TipoProduto =
   | "PRODUTO"
@@ -137,6 +136,48 @@ function valorParaCampo(
   return String(
     valor ?? 0
   ).replace(".", ",");
+}
+
+const PASSOS_PRODUTO_COMPLETO = [
+  {
+    id: "basico",
+    titulo: "Dados básicos",
+  },
+  {
+    id: "classificacao",
+    titulo: "Classificação",
+  },
+  {
+    id: "icms",
+    titulo: "ICMS",
+  },
+  {
+    id: "pis-cofins",
+    titulo: "PIS/COFINS",
+  },
+  {
+    id: "ipi",
+    titulo: "IPI",
+  },
+  {
+    id: "ibs-cbs",
+    titulo: "IBS/CBS",
+  },
+] as const;
+
+const PASSOS_SERVICO = [
+  {
+    id: "basico",
+    titulo: "Dados básicos",
+  },
+] as const;
+
+function obterPassosProduto(
+  tipo: TipoProduto
+) {
+  return tipo === "PRODUTO"
+    ? PASSOS_PRODUTO_COMPLETO
+    : PASSOS_SERVICO;
 }
 
 export function ProdutoEditButton({
@@ -279,6 +320,18 @@ export function ProdutoEditButton({
       criarEstadoInicial
     );
 
+  const [
+    passoAtual,
+    setPassoAtual,
+  ] = useState(0);
+
+  const passos = obterPassosProduto(
+    form.tipo
+  );
+
+  const ultimoPasso =
+    passos.length - 1;
+
   function atualizarCampo<
     Campo extends keyof FormState,
   >(
@@ -303,7 +356,137 @@ export function ProdutoEditButton({
       tipo,
     }));
 
+    setPassoAtual(0);
     setErro("");
+  }
+
+  function validarPassoAtual() {
+    const codigo =
+      form.codigo.trim();
+
+    const descricao =
+      form.descricao.trim();
+
+    const unidade =
+      form.unidade
+        .trim()
+        .toUpperCase();
+
+    const valorUnitario =
+      numeroDecimal(
+        form.valorUnitario
+      );
+
+    const ncm =
+      somenteNumeros(form.ncm);
+
+    const cest =
+      somenteNumeros(form.cest);
+
+    const cfop =
+      somenteNumeros(
+        form.cfopPadrao
+      );
+
+    const passoId =
+      passos[passoAtual]?.id;
+
+    if (passoId === "basico") {
+      if (!codigo) {
+        setErro(
+          "Informe o código do produto."
+        );
+
+        return false;
+      }
+
+      if (!descricao) {
+        setErro(
+          "Informe a descrição do produto."
+        );
+
+        return false;
+      }
+
+      if (!unidade) {
+        setErro(
+          "Informe a unidade do produto."
+        );
+
+        return false;
+      }
+
+      if (
+        !Number.isFinite(
+          valorUnitario
+        ) ||
+        valorUnitario < 0
+      ) {
+        setErro(
+          "Informe um valor unitário válido."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    if (passoId === "classificacao") {
+      if (ncm.length !== 8) {
+        setErro(
+          "O NCM deve possuir 8 números."
+        );
+
+        return false;
+      }
+
+      if (
+        cest &&
+        cest.length !== 7
+      ) {
+        setErro(
+          "O CEST deve possuir 7 números."
+        );
+
+        return false;
+      }
+
+      if (
+        cfop &&
+        cfop.length !== 4
+      ) {
+        setErro(
+          "O CFOP deve possuir 4 números."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    return true;
+  }
+
+  function handleProximoPasso() {
+    if (!validarPassoAtual()) {
+      return;
+    }
+
+    setPassoAtual((anterior) =>
+      Math.min(
+        anterior + 1,
+        ultimoPasso
+      )
+    );
+  }
+
+  function handlePassoAnterior() {
+    setErro("");
+    setPassoAtual((anterior) =>
+      Math.max(anterior - 1, 0)
+    );
   }
 
   async function handleSubmit(
@@ -578,6 +761,7 @@ export function ProdutoEditButton({
           );
 
           setErro("");
+          setPassoAtual(0);
         }
       }}
     >
@@ -595,8 +779,8 @@ export function ProdutoEditButton({
         Editar
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <FormStepperDialogContent>
+        <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>
             Editar produto
           </DialogTitle>
@@ -607,19 +791,18 @@ export function ProdutoEditButton({
           </DialogDescription>
         </DialogHeader>
 
+        <FormStepperNav
+          passos={[...passos]}
+          passoAtual={passoAtual}
+        />
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          {/* Dados básicos */}
-
-          <section className="rounded-xl border bg-muted/10 p-5">
-            <CabecalhoSecao
-              icone={Package}
-              titulo="Dados básicos"
-              descricao="Identificação, unidade e valor do cadastro."
-            />
-
+          <FormStepperBody>
+            {passos[passoAtual]?.id ===
+              "basico" && (
             <div className="grid gap-5 md:grid-cols-2">
               <CampoTexto
                 id={`codigo-${produto.id}`}
@@ -737,28 +920,21 @@ export function ProdutoEditButton({
                 </div>
               </div>
             </div>
-          </section>
+            )}
 
-          {!produtoFiscal && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-              Os campos fiscais de mercadoria
-              não são exibidos para serviços.
-              O módulo de NFS-e será tratado
-              separadamente.
-            </div>
-          )}
+            {!produtoFiscal &&
+              passos[passoAtual]?.id ===
+                "basico" && (
+              <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+                Os campos fiscais de mercadoria
+                não são exibidos para serviços.
+                O módulo de NFS-e será tratado
+                separadamente.
+              </div>
+            )}
 
-          {produtoFiscal && (
-            <>
-              {/* Classificação */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <CabecalhoSecao
-                  icone={FileCheck2}
-                  titulo="Classificação fiscal"
-                  descricao="Códigos fiscais, classificação e origem da mercadoria."
-                />
-
+            {passos[passoAtual]?.id ===
+              "classificacao" && (
                 <div className="grid gap-5 md:grid-cols-2">
                   <CampoNumerico
                     id={`ean-${produto.id}`}
@@ -897,17 +1073,10 @@ export function ProdutoEditButton({
                     </select>
                   </div>
                 </div>
-              </section>
+            )}
 
-              {/* ICMS */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <CabecalhoSecao
-                  icone={Landmark}
-                  titulo="ICMS"
-                  descricao="Use CST para Regime Normal ou CSOSN para Simples Nacional."
-                />
-
+            {passos[passoAtual]?.id ===
+              "icms" && (
                 <div className="grid gap-5 md:grid-cols-2">
                   <CampoNumerico
                     id={`cst-icms-${produto.id}`}
@@ -1015,17 +1184,10 @@ export function ProdutoEditButton({
                     />
                   </div>
                 </div>
-              </section>
+            )}
 
-              {/* PIS e COFINS */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <CabecalhoSecao
-                  icone={Percent}
-                  titulo="PIS e COFINS"
-                  descricao="Códigos de situação tributária e respectivas alíquotas."
-                />
-
+            {passos[passoAtual]?.id ===
+              "pis-cofins" && (
                 <div className="grid gap-5 md:grid-cols-2">
                   <CampoNumerico
                     id={`cst-pis-${produto.id}`}
@@ -1089,17 +1251,10 @@ export function ProdutoEditButton({
                     disabled={carregando}
                   />
                 </div>
-              </section>
+            )}
 
-              {/* IPI */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <CabecalhoSecao
-                  icone={BadgeDollarSign}
-                  titulo="IPI"
-                  descricao="Preencha somente quando houver incidência de IPI."
-                />
-
+            {passos[passoAtual]?.id ===
+              "ipi" && (
                 <div className="grid gap-5 md:grid-cols-3">
                   <CampoNumerico
                     id={`cst-ipi-${produto.id}`}
@@ -1149,11 +1304,10 @@ export function ProdutoEditButton({
                     disabled={carregando}
                   />
                 </div>
-              </section>
+            )}
 
-              {/* IBS e CBS */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
+            {passos[passoAtual]?.id ===
+              "ibs-cbs" && (
                 <ProdutoIbsCbsFields
                   form={{
                     cstIbsCbs:
@@ -1184,21 +1338,20 @@ export function ProdutoEditButton({
                   }
                   disabled={carregando}
                 />
-              </section>
-            </>
-          )}
+            )}
 
           {erro && (
             <div
               role="alert"
               aria-live="polite"
-              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
               {erro}
             </div>
           )}
+          </FormStepperBody>
 
-          <DialogFooter>
+          <FormStepperFooter>
             <Button
               type="button"
               variant="outline"
@@ -1211,62 +1364,59 @@ export function ProdutoEditButton({
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-44"
-              disabled={carregando}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            {passoAtual > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={
+                  handlePassoAnterior
+                }
+                disabled={carregando}
+              >
+                Voltar
+              </Button>
+            )}
 
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+            {passoAtual < ultimoPasso ? (
+              <Button
+                type="button"
+                className="h-11 sm:min-w-40"
+                onClick={
+                  handleProximoPasso
+                }
+                disabled={carregando}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className="h-11 sm:min-w-44"
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
 
-                  Salvar alterações
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    Salvar alterações
+                  </>
+                )}
+              </Button>
+            )}
+          </FormStepperFooter>
         </form>
-      </DialogContent>
+      </FormStepperDialogContent>
     </Dialog>
-  );
-}
-
-type CabecalhoSecaoProps = {
-  icone: typeof Package;
-  titulo: string;
-  descricao: string;
-};
-
-function CabecalhoSecao({
-  icone: Icone,
-  titulo,
-  descricao,
-}: CabecalhoSecaoProps) {
-  return (
-    <div className="mb-5 flex items-start gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <Icone size={20} />
-      </div>
-
-      <div>
-        <h3 className="font-semibold">
-          {titulo}
-        </h3>
-
-        <p className="mt-1 text-sm text-muted-foreground">
-          {descricao}
-        </p>
-      </div>
-    </div>
   );
 }
 

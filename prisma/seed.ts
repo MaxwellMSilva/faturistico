@@ -4,6 +4,7 @@ import { hash } from "bcryptjs";
 import {
   Prisma,
   RoleUsuario,
+  TipoItem,
 } from "@prisma/client";
 
 import { prisma } from "../lib/prisma";
@@ -334,14 +335,15 @@ async function seedDemo(
         });
 
       const data = {
+        tipo: TipoItem.PRODUTO,
         codigo: "PROD-001",
         descricao: "Teclado USB ABNT2",
         unidade: "UN",
         valorUnitario:
           new Prisma.Decimal("89.90"),
         ncm: "84716052",
-        cfop: "5102",
-        origemMercadoria: "0",
+        cfopPadrao: "5102",
+        origemMercadoria: 0,
         csosnIcms: "102",
         cstPis: "49",
         cstCofins: "49",

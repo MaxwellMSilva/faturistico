@@ -2,20 +2,15 @@
 
 import Link from "next/link";
 
-import { usePathname } from "next/navigation";
-
-import { useState } from "react";
-
 import {
-  Building2,
-  FileText,
-  LoaderCircle,
-  LockKeyhole,
-  LogOut,
-  Users,
+  ChevronRight,
+  Search,
 } from "lucide-react";
 
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+
+import { cn } from "@/lib/utils";
 
 type RoleUsuario =
   | "OWNER"
@@ -23,48 +18,425 @@ type RoleUsuario =
   | "USUARIO";
 
 type Props = {
-  nome: string;
+  usuarioNome: string;
+  usuarioEmail?: string;
   role: RoleUsuario;
 };
 
-type LinkPortal = {
+type PaginaNavegacao = {
+  nome: string;
   href: string;
-  titulo: string;
-  icone: typeof Building2;
-
-  restritoUsuarios?: boolean;
+  grupo: string;
+  palavras: string[];
 };
 
-const links: LinkPortal[] = [
-  {
-    href: "/empresas",
-    titulo: "Empresas",
-    icone: Building2,
-  },
-  {
-    href: "/usuarios",
-    titulo: "Usuários",
-    icone: Users,
+type BreadcrumbItem = {
+  label: string;
+  href?: string;
+};
 
-    restritoUsuarios: true,
-  },
-];
+const rotulosRole = {
+  OWNER: "Proprietário",
+  ADMIN: "Administrador",
+  USUARIO: "Visualizador",
+} as const;
 
-export function PortalHeader({
-  nome,
-  role,
-}: Props) {
-  const pathname =
-    usePathname();
+function criarPaginas(
+  podeGerenciarUsuarios: boolean
+): PaginaNavegacao[] {
+  return [
+    {
+      nome: "Painel",
+      href: "/painel",
+      grupo: "Plataforma",
+      palavras: [
+        "painel",
+        "inicio",
+        "home",
+      ],
+    },
+    {
+      nome: "Empresas",
+      href: "/empresas",
+      grupo: "Plataforma",
+      palavras: [
+        "empresas",
+        "empresa",
+        "cnpj",
+      ],
+    },
+    {
+      nome: "Nova empresa",
+      href: "/empresas/nova",
+      grupo: "Empresas",
+      palavras: [
+        "nova",
+        "cadastro",
+        "criar",
+      ],
+    },
+    ...(podeGerenciarUsuarios
+      ? [
+          {
+            nome: "Usuários",
+            href: "/usuarios",
+            grupo: "Plataforma",
+            palavras: [
+              "usuarios",
+              "usuario",
+              "acesso",
+            ],
+          } satisfies PaginaNavegacao,
+        ]
+      : []),
+  ];
+}
 
-  const [saindo, setSaindo] =
+function obterContextoPagina(
+  pathname: string
+) {
+  if (pathname === "/painel") {
+    return {
+      titulo: "Painel geral",
+      breadcrumbs: [
+        {
+          label: "Plataforma",
+          href: "/painel",
+        },
+        {
+          label: "Painel geral",
+        },
+      ],
+    };
+  }
+
+  if (pathname === "/empresas") {
+    return {
+      titulo: "Empresas",
+      breadcrumbs: [
+        {
+          label: "Plataforma",
+          href: "/painel",
+        },
+        {
+          label: "Empresas",
+        },
+      ],
+    };
+  }
+
+  if (
+    pathname === "/empresas/nova"
+  ) {
+    return {
+      titulo: "Nova empresa",
+      breadcrumbs: [
+        {
+          label: "Plataforma",
+          href: "/painel",
+        },
+        {
+          label: "Empresas",
+          href: "/empresas",
+        },
+        {
+          label: "Nova empresa",
+        },
+      ],
+    };
+  }
+
+  if (
+    pathname.startsWith(
+      "/empresas/"
+    ) &&
+    pathname.endsWith("/editar")
+  ) {
+    return {
+      titulo: "Editar empresa",
+      breadcrumbs: [
+        {
+          label: "Plataforma",
+          href: "/painel",
+        },
+        {
+          label: "Empresas",
+          href: "/empresas",
+        },
+        {
+          label: "Editar empresa",
+        },
+      ],
+    };
+  }
+
+  if (pathname === "/usuarios") {
+    return {
+      titulo: "Usuários",
+      breadcrumbs: [
+        {
+          label: "Plataforma",
+          href: "/painel",
+        },
+        {
+          label: "Usuários",
+        },
+      ],
+    };
+  }
+
+  return {
+    titulo: "Plataforma",
+    breadcrumbs: [
+      {
+        label: "Plataforma",
+        href: "/painel",
+      },
+    ],
+  };
+}
+
+function Breadcrumb({
+  itens,
+}: {
+  itens: BreadcrumbItem[];
+}) {
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className="mt-1"
+    >
+      <ol className="flex min-w-0 flex-wrap items-center gap-1 text-[11px] text-muted-foreground sm:text-xs">
+        {itens.map((item, indice) => {
+          const ultimo =
+            indice ===
+            itens.length - 1;
+
+          return (
+            <li
+              key={`${item.label}-${indice}`}
+              className="flex min-w-0 items-center gap-1"
+            >
+              {indice > 0 && (
+                <ChevronRight
+                  size={12}
+                  className="shrink-0 text-muted-foreground/70"
+                  aria-hidden
+                />
+              )}
+
+              {item.href && !ultimo ? (
+                <Link
+                  href={item.href}
+                  className="truncate transition-colors hover:text-foreground"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <span
+                  className={cn(
+                    "truncate",
+                    ultimo &&
+                      "font-medium text-foreground/80"
+                  )}
+                >
+                  {item.label}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+function BuscaPaginas({
+  paginas,
+}: {
+  paginas: PaginaNavegacao[];
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [termo, setTermo] =
+    useState("");
+
+  const [aberto, setAberto] =
     useState(false);
 
-  const nomeExibicao =
-    nome.trim() || "Usuário";
+  const resultados = useMemo(() => {
+    const busca = termo
+      .trim()
+      .toLowerCase();
+
+    if (!busca) {
+      return paginas.slice(0, 6);
+    }
+
+    return paginas.filter((pagina) => {
+      const texto = [
+        pagina.nome,
+        pagina.grupo,
+        ...pagina.palavras,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return texto.includes(busca);
+    });
+  }, [paginas, termo]);
+
+  function navegar(href: string) {
+    setTermo("");
+    setAberto(false);
+    router.push(href);
+  }
+
+  return (
+    <div className="relative min-w-0 flex-1">
+      <label className="relative block">
+        <Search
+          size={16}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
+
+        <input
+          type="search"
+          value={termo}
+          placeholder="Buscar páginas da plataforma..."
+          onChange={(event) => {
+            setTermo(event.target.value);
+            setAberto(true);
+          }}
+          onFocus={() =>
+            setAberto(true)
+          }
+          onBlur={() => {
+            window.setTimeout(
+              () => setAberto(false),
+              150
+            );
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              resultados[0]
+            ) {
+              navegar(
+                resultados[0].href
+              );
+            }
+
+            if (
+              event.key === "Escape"
+            ) {
+              setAberto(false);
+            }
+          }}
+          className="h-11 w-full rounded-xl border border-border/70 bg-muted/40 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10"
+        />
+      </label>
+
+      {aberto &&
+        resultados.length > 0 && (
+          <div className="absolute top-[calc(100%+0.5rem)] z-50 w-full overflow-hidden rounded-xl border border-border/70 bg-white shadow-lg">
+            <ul className="max-h-64 overflow-y-auto py-1">
+              {resultados.map(
+                (pagina) => {
+                  const ativa =
+                    pathname ===
+                      pagina.href ||
+                    pathname.startsWith(
+                      `${pagina.href}/`
+                    );
+
+                  return (
+                    <li
+                      key={pagina.href}
+                    >
+                      <button
+                        type="button"
+                        onMouseDown={(
+                          event
+                        ) => {
+                          event.preventDefault();
+
+                          navegar(
+                            pagina.href
+                          );
+                        }}
+                        className={cn(
+                          "flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                          ativa &&
+                            "bg-primary/5"
+                        )}
+                      >
+                        <span className="text-sm font-medium">
+                          {pagina.nome}
+                        </span>
+
+                        <span className="text-[11px] text-muted-foreground">
+                          {pagina.grupo}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
+              )}
+            </ul>
+          </div>
+        )}
+    </div>
+  );
+}
+
+function PerfilUsuario({
+  inicial,
+  usuarioExibicao,
+  contextoExibicao,
+}: {
+  inicial: string;
+  usuarioExibicao: string;
+  contextoExibicao: string;
+}) {
+  return (
+    <div className="flex h-11 max-w-[240px] min-w-0 shrink-0 items-center gap-2.5 rounded-xl border border-border/70 bg-white pl-1.5 pr-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-cyan-500 text-xs font-semibold text-white">
+        {inicial}
+      </div>
+
+      <div className="hidden min-w-0 md:block">
+        <p
+          className="truncate text-sm font-semibold leading-4"
+          title={usuarioExibicao}
+        >
+          {usuarioExibicao}
+        </p>
+
+        <p
+          className="truncate text-[11px] leading-4 text-muted-foreground"
+          title={contextoExibicao}
+        >
+          {contextoExibicao}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function PortalHeader({
+  usuarioNome,
+  role,
+}: Props) {
+  const pathname = usePathname();
+
+  const usuarioExibicao =
+    usuarioNome.trim() ||
+    "Usuário";
 
   const inicial =
-    nomeExibicao
+    usuarioExibicao
       .charAt(0)
       .toUpperCase();
 
@@ -72,255 +444,42 @@ export function PortalHeader({
     role === "OWNER" ||
     role === "ADMIN";
 
-  function rotaAtiva(
-    href: string
-  ) {
-    return (
-      pathname === href ||
-      pathname.startsWith(
-        `${href}/`
-      )
-    );
-  }
+  const paginas = criarPaginas(
+    podeGerenciarUsuarios
+  );
 
-  function linkBloqueado(
-    link: LinkPortal
-  ) {
-    return (
-      link.restritoUsuarios &&
-      !podeGerenciarUsuarios
-    );
-  }
-
-  async function handleLogout() {
-    try {
-      setSaindo(true);
-
-      await signOut({
-        callbackUrl: "/entrar",
-      });
-    } catch (error) {
-      console.error(
-        "Erro ao sair:",
-        error
-      );
-
-      setSaindo(false);
-    }
-  }
+  const { titulo, breadcrumbs } =
+    obterContextoPagina(pathname);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-card/80 backdrop-blur-md">
-      <div className="mx-auto flex h-[60px] max-w-[1400px] items-center justify-between gap-4 px-5 sm:px-6">
-        {/* Marca e navegação */}
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-white">
+      <div className="flex min-h-[72px] items-center gap-3 px-5 py-3 sm:gap-4 sm:px-6">
+        <div className="min-w-0 shrink-0 sm:w-[180px] lg:w-[220px] xl:w-[260px]">
+          <h1 className="truncate text-sm font-bold tracking-tight text-foreground lg:text-base">
+            {titulo}
+          </h1>
 
-        <div className="flex min-w-0 items-center gap-6">
-          <Link
-            href="/painel"
-            className="flex shrink-0 items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-              <FileText size={20} />
-            </div>
-
-            <div className="hidden sm:block">
-              <p className="text-base font-bold leading-none tracking-tight">
-                Faturístico
-              </p>
-
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Gestão fiscal
-              </p>
-            </div>
-          </Link>
-
-          {/* Navegação desktop */}
-
-          <nav
-            aria-label="Navegação principal"
-            className="hidden items-center gap-1 md:flex"
-          >
-            {links.map((link) => {
-              const Icone =
-                link.icone;
-
-              const bloqueado =
-                linkBloqueado(
-                  link
-                );
-
-              const ativa =
-                !bloqueado &&
-                rotaAtiva(
-                  link.href
-                );
-
-              if (bloqueado) {
-                return (
-                  <button
-                    key={link.href}
-                    type="button"
-                    disabled
-                    title="Você não possui permissão para gerenciar usuários"
-                    className="relative flex h-10 cursor-not-allowed items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground opacity-45"
-                  >
-                    <Icone size={17} />
-
-                    {link.titulo}
-
-                    <LockKeyhole
-                      size={13}
-                      className="ml-0.5"
-                    />
-                  </button>
-                );
-              }
-
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={
-                    ativa
-                      ? "page"
-                      : undefined
-                  }
-                  className={[
-                    "relative flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    ativa
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  ].join(" ")}
-                >
-                  <Icone size={17} />
-
-                  {link.titulo}
-
-                  {ativa && (
-                    <span className="absolute inset-x-3 -bottom-[14px] h-0.5 rounded-full bg-primary" />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="hidden sm:block">
+            <Breadcrumb
+              itens={breadcrumbs}
+            />
+          </div>
         </div>
 
-        {/* Conta */}
+        <BuscaPaginas
+          paginas={paginas}
+        />
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <div className="hidden max-w-48 text-right lg:block">
-            <p className="truncate text-sm font-medium">
-              {nomeExibicao}
-            </p>
-
-            <p className="text-xs text-muted-foreground">
-              {role === "OWNER"
-                ? "Proprietário"
-                : role === "ADMIN"
-                  ? "Administrador"
-                  : "Usuário"}
-            </p>
-          </div>
-
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-full border bg-muted/30 text-sm font-semibold"
-            title={nomeExibicao}
-          >
-            {inicial}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={saindo}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {saindo ? (
-              <LoaderCircle
-                size={16}
-                className="animate-spin"
-              />
-            ) : (
-              <LogOut size={16} />
-            )}
-
-            <span className="hidden sm:inline">
-              {saindo
-                ? "Saindo..."
-                : "Sair"}
-            </span>
-          </button>
-        </div>
+        <PerfilUsuario
+          inicial={inicial}
+          usuarioExibicao={
+            usuarioExibicao
+          }
+          contextoExibicao={
+            rotulosRole[role]
+          }
+        />
       </div>
-
-      {/* Navegação móvel */}
-
-      <nav
-        aria-label="Navegação móvel"
-        className="border-t border-border/60 md:hidden"
-      >
-        <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-1 px-5 py-2">
-          {links.map((link) => {
-            const Icone =
-              link.icone;
-
-            const bloqueado =
-              linkBloqueado(
-                link
-              );
-
-            const ativa =
-              !bloqueado &&
-              rotaAtiva(
-                link.href
-              );
-
-            if (bloqueado) {
-              return (
-                <button
-                  key={link.href}
-                  type="button"
-                  disabled
-                  title="Você não possui permissão para gerenciar usuários"
-                  className="flex h-10 cursor-not-allowed items-center justify-center gap-2 rounded-lg text-sm font-medium text-muted-foreground opacity-45"
-                >
-                  <Icone size={17} />
-
-                  {link.titulo}
-
-                  <LockKeyhole
-                    size={13}
-                  />
-                </button>
-              );
-            }
-
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={
-                  ativa
-                    ? "page"
-                    : undefined
-                }
-                className={[
-                  "flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  ativa
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                ].join(" ")}
-              >
-                <Icone size={17} />
-
-                {link.titulo}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </header>
   );
 }

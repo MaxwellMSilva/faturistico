@@ -9,16 +9,11 @@ import { useRouter } from "next/navigation";
 
 import {
   AlertTriangle,
-  Building2,
-  Contact,
   LoaderCircle,
-  MapPin,
   Pencil,
   Plus,
   Save,
   Truck,
-  UserRound,
-  type LucideIcon,
 } from "lucide-react";
 
 import { createTransportador } from "@/actions/transportadores/create-transportador";
@@ -29,13 +24,17 @@ import { Input } from "@/components/ui/input";
 
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  FormStepperBody,
+  FormStepperDialogContent,
+  FormStepperFooter,
+  FormStepperNav,
+} from "@/components/ui/form-stepper";
 import { CidadeIbgeSearch } from "../empresa/cidade-ibge-search";
 
 type TipoPessoa =
@@ -309,6 +308,21 @@ function validarCnpj(
   );
 }
 
+const PASSOS_TRANSPORTADOR = [
+  {
+    id: "identificacao",
+    titulo: "Identificação",
+  },
+  {
+    id: "contato",
+    titulo: "Contato",
+  },
+  {
+    id: "endereco",
+    titulo: "Endereço",
+  },
+] as const;
+
 export function TransportadorDialog({
   empresaId,
   transportador,
@@ -422,6 +436,176 @@ export function TransportadorDialog({
     useState<FormTransportador>(
       criarEstadoInicial
     );
+
+  const [
+    passoAtual,
+    setPassoAtual,
+  ] = useState(0);
+
+  const ultimoPasso =
+    PASSOS_TRANSPORTADOR.length - 1;
+
+  function reiniciarDialogo() {
+    setForm(criarEstadoInicial());
+    setErro("");
+    setPassoAtual(0);
+  }
+
+  function validarPassoAtual() {
+    const nome =
+      form.nome.trim();
+
+    const cpfCnpj =
+      somenteNumeros(
+        form.cpfCnpj
+      );
+
+    const email =
+      form.email
+        .trim()
+        .toLowerCase();
+
+    const telefone =
+      somenteNumeros(
+        form.telefone
+      );
+
+    const cep =
+      somenteNumeros(form.cep);
+
+    const codigoMunicipio =
+      somenteNumeros(
+        form.codigoMunicipio
+      );
+
+    const uf =
+      form.uf
+        .trim()
+        .toUpperCase();
+
+    if (passoAtual === 0) {
+      if (!nome) {
+        setErro(
+          form.tipoPessoa ===
+          "FISICA"
+            ? "Informe o nome completo do transportador."
+            : "Informe a razão social do transportador."
+        );
+
+        return false;
+      }
+
+      if (
+        form.tipoPessoa ===
+          "FISICA" &&
+        !validarCpf(cpfCnpj)
+      ) {
+        setErro(
+          "Informe um CPF válido."
+        );
+
+        return false;
+      }
+
+      if (
+        form.tipoPessoa ===
+          "JURIDICA" &&
+        !validarCnpj(cpfCnpj)
+      ) {
+        setErro(
+          "Informe um CNPJ válido."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    if (passoAtual === 1) {
+      if (
+        email &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+          email
+        )
+      ) {
+        setErro(
+          "Informe um e-mail válido."
+        );
+
+        return false;
+      }
+
+      if (
+        telefone &&
+        telefone.length !== 10 &&
+        telefone.length !== 11
+      ) {
+        setErro(
+          "Informe um telefone válido com DDD."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    if (
+      cep &&
+      cep.length !== 8
+    ) {
+      setErro(
+        "Informe um CEP válido com 8 números."
+      );
+
+      return false;
+    }
+
+    if (
+      codigoMunicipio &&
+      codigoMunicipio.length !== 7
+    ) {
+      setErro(
+        "Informe um código IBGE válido com 7 números."
+      );
+
+      return false;
+    }
+
+    if (
+      uf &&
+      uf.length !== 2
+    ) {
+      setErro(
+        "Informe uma UF válida com duas letras."
+      );
+
+      return false;
+    }
+
+    return true;
+  }
+
+  function handleProximoPasso() {
+    if (!validarPassoAtual()) {
+      return;
+    }
+
+    setPassoAtual((anterior) =>
+      Math.min(
+        anterior + 1,
+        ultimoPasso
+      )
+    );
+  }
+
+  function handlePassoAnterior() {
+    setErro("");
+    setPassoAtual((anterior) =>
+      Math.max(anterior - 1, 0)
+    );
+  }
 
   function atualizarCampo<
     Campo extends keyof FormTransportador,
@@ -722,11 +906,7 @@ export function TransportadorDialog({
         setAberto(valor);
 
         if (valor) {
-          setForm(
-            criarEstadoInicial()
-          );
-
-          setErro("");
+          reiniciarDialogo();
         }
       }}
     >
@@ -765,8 +945,8 @@ export function TransportadorDialog({
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <FormStepperDialogContent>
+        <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>
             {editando
               ? "Editar transportador"
@@ -780,22 +960,18 @@ export function TransportadorDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <FormStepperNav
+          passos={[...PASSOS_TRANSPORTADOR]}
+          passoAtual={passoAtual}
+        />
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          {/* Identificação */}
-
-          <SecaoFormulario
-            icone={
-              pessoaJuridica
-                ? Building2
-                : UserRound
-            }
-            titulo="Identificação"
-            descricao="Dados principais e registros do transportador."
-          >
-            <div className="grid gap-5 md:grid-cols-2">
+          <FormStepperBody>
+            {passoAtual === 0 && (
+              <div className="grid gap-5 md:grid-cols-2">
               <CampoSelect
                 id="tipoPessoaTransportador"
                 label="Tipo de pessoa"
@@ -939,15 +1115,9 @@ export function TransportadorDialog({
                 disabled={carregando}
               />
             </div>
-          </SecaoFormulario>
+            )}
 
-          {/* Contato */}
-
-          <SecaoFormulario
-            icone={Contact}
-            titulo="Contato"
-            descricao="Dados para comunicação com o transportador."
-          >
+            {passoAtual === 1 && (
             <div className="grid gap-5 md:grid-cols-2">
               <CampoTexto
                 id="emailTransportador"
@@ -985,15 +1155,10 @@ export function TransportadorDialog({
                 autoComplete="tel"
               />
             </div>
-          </SecaoFormulario>
+            )}
 
-          {/* Endereço */}
-
-          <SecaoFormulario
-            icone={MapPin}
-            titulo="Endereço"
-            descricao="Endereço fiscal utilizado nos documentos de transporte."
-          >
+            {passoAtual === 2 && (
+            <>
             <div className="grid gap-5 md:grid-cols-2">
               <CampoTexto
                 id="cepTransportador"
@@ -1080,12 +1245,9 @@ export function TransportadorDialog({
                 />
               </div>
             </div>
-          </SecaoFormulario>
-
-          {/* Situação */}
 
           {editando && (
-            <section className="rounded-xl border bg-muted/10 p-5">
+            <section className="mt-5 rounded-xl border bg-muted/10 p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Truck size={20} />
@@ -1122,14 +1284,14 @@ export function TransportadorDialog({
               </div>
             </section>
           )}
-
-          {/* Erro */}
+            </>
+            )}
 
           {erro && (
             <div
               role="alert"
               aria-live="polite"
-              className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              className="mt-5 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
               <AlertTriangle
                 size={18}
@@ -1139,8 +1301,9 @@ export function TransportadorDialog({
               <p>{erro}</p>
             </div>
           )}
+          </FormStepperBody>
 
-          <DialogFooter>
+          <FormStepperFooter>
             <Button
               type="button"
               variant="outline"
@@ -1153,70 +1316,61 @@ export function TransportadorDialog({
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-52"
-              disabled={carregando}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            {passoAtual > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={
+                  handlePassoAnterior
+                }
+                disabled={carregando}
+              >
+                Voltar
+              </Button>
+            )}
 
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+            {passoAtual < ultimoPasso ? (
+              <Button
+                type="button"
+                className="h-11 sm:min-w-40"
+                onClick={
+                  handleProximoPasso
+                }
+                disabled={carregando}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className="h-11 sm:min-w-52"
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
 
-                  {editando
-                    ? "Salvar alterações"
-                    : "Cadastrar transportador"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    {editando
+                      ? "Salvar alterações"
+                      : "Cadastrar transportador"}
+                  </>
+                )}
+              </Button>
+            )}
+          </FormStepperFooter>
         </form>
-      </DialogContent>
+      </FormStepperDialogContent>
     </Dialog>
-  );
-}
-
-type SecaoFormularioProps = {
-  icone: LucideIcon;
-  titulo: string;
-  descricao: string;
-  children: React.ReactNode;
-};
-
-function SecaoFormulario({
-  icone: Icone,
-  titulo,
-  descricao,
-  children,
-}: SecaoFormularioProps) {
-  return (
-    <section className="rounded-xl border bg-muted/10 p-5">
-      <div className="mb-5 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Icone size={20} />
-        </div>
-
-        <div>
-          <h3 className="font-semibold">
-            {titulo}
-          </h3>
-
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            {descricao}
-          </p>
-        </div>
-      </div>
-
-      {children}
-    </section>
   );
 }
 

@@ -9,27 +9,20 @@ import { prisma } from "@/lib/prisma";
 
 import { getContextoEmpresa } from "@/lib/empresa/get-contexto-empresa";
 
-import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
 import {
   ActivityTable,
   type ActivityRow,
 } from "@/components/dashboard/ui/activity-table";
 import { AlertBanner } from "@/components/dashboard/ui/alert-banner";
 import {
-  BarChart,
-  type BarChartItem,
-} from "@/components/dashboard/ui/bar-chart";
+  DonutChart,
+  type DonutChartItem,
+} from "@/components/dashboard/ui/donut-chart";
 import {
   type BadgeVariant,
 } from "@/components/dashboard/ui/badge";
+import { FiscalSummary } from "@/components/dashboard/ui/fiscal-summary";
 import { MetricCard } from "@/components/dashboard/ui/metric-card";
-import { PreviewCard } from "@/components/dashboard/ui/preview-card";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/dashboard/ui/card";
 
 export const dynamic =
   "force-dynamic";
@@ -39,21 +32,6 @@ type Props = {
     empresaId: string;
   }>;
 };
-
-const mesesAbrev = [
-  "Jan",
-  "Fev",
-  "Mar",
-  "Abr",
-  "Mai",
-  "Jun",
-  "Jul",
-  "Ago",
-  "Set",
-  "Out",
-  "Nov",
-  "Dez",
-];
 
 const statusLabels: Record<
   string,
@@ -81,6 +59,17 @@ const statusLabels: Record<
   },
 };
 
+const statusDonutColors: Record<
+  string,
+  string
+> = {
+  AUTORIZADA: "#10B981",
+  RASCUNHO: "#94A3B8",
+  VALIDANDO: "#F59E0B",
+  REJEITADA: "#EF4444",
+  CANCELADA: "#CBD5E1",
+};
+
 function formatarMoeda(
   valor: number
 ) {
@@ -93,35 +82,7 @@ function formatarMoeda(
   ).format(valor);
 }
 
-function formatarCnpj(
-  cnpj: string
-) {
-  const numeros =
-    cnpj.replace(/\D/g, "");
-
-  if (numeros.length !== 14) {
-    return cnpj;
-  }
-
-  return numeros.replace(
-    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
-    "$1.$2.$3/$4-$5"
-  );
-}
-
-function formatarCnpjMascara(
-  cnpj: string
-) {
-  const formatado =
-    formatarCnpj(cnpj);
-
-  return formatado.replace(
-    /\d(?=\d{4})/g,
-    "•"
-  );
-}
-
-function formatarDataHora(
+function formatarData(
   data: Date
 ) {
   return new Intl.DateTimeFormat(
@@ -129,10 +90,51 @@ function formatarDataHora(
     {
       day: "2-digit",
       month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
+      year: "numeric",
     }
   ).format(data);
+}
+
+function calcularVariacao(
+  atual: number,
+  anterior: number
+) {
+  if (anterior === 0) {
+    return atual > 0
+      ? {
+          value: "+100%",
+          trend: "up" as const,
+        }
+      : undefined;
+  }
+
+  const diferenca =
+    ((atual - anterior) /
+      anterior) *
+    100;
+
+  const arredondado = Math.round(
+    Math.abs(diferenca)
+  );
+
+  if (diferenca > 0) {
+    return {
+      value: `+${arredondado}%`,
+      trend: "up" as const,
+    };
+  }
+
+  if (diferenca < 0) {
+    return {
+      value: `-${arredondado}%`,
+      trend: "down" as const,
+    };
+  }
+
+  return {
+    value: "0%",
+    trend: "neutral" as const,
+  };
 }
 
 export default async function EmpresaDashboardPage({
@@ -147,6 +149,24 @@ export default async function EmpresaDashboardPage({
     );
 
   const agora = new Date();
+  const inicioMesAtual = new Date(
+    agora.getFullYear(),
+    agora.getMonth(),
+    1
+  );
+  const inicioMesAnterior = new Date(
+    agora.getFullYear(),
+    agora.getMonth() - 1,
+    1
+  );
+  const fimMesAnterior = new Date(
+    agora.getFullYear(),
+    agora.getMonth(),
+    0,
+    23,
+    59,
+    59
+  );
   const inicioPeriodo =
     new Date(
       agora.getFullYear(),
@@ -154,14 +174,26 @@ export default async function EmpresaDashboardPage({
       1
     );
 
+  const filtroNfe = {
+    empresaId,
+    tipoDocumento: "NFE" as const,
+  };
+
   const [
     totalClientes,
     totalProdutos,
     totalNfe,
     totalNfeAutorizadas,
     totalNfeRejeitadas,
+    totalNfeRascunho,
     notasRecentes,
     notasPeriodo,
+    faturamentoAutorizado,
+    faturamentoMesAtual,
+    faturamentoMesAnterior,
+    nfeMesAtual,
+    nfeMesAnterior,
+    statusAgrupados,
   ] = await Promise.all([
     prisma.cliente.count({
       where: {
@@ -178,37 +210,36 @@ export default async function EmpresaDashboardPage({
     }),
 
     prisma.notaFiscal.count({
-      where: {
-        empresaId,
-        tipoDocumento: "NFE",
-      },
+      where: filtroNfe,
     }),
 
     prisma.notaFiscal.count({
       where: {
-        empresaId,
-        tipoDocumento: "NFE",
+        ...filtroNfe,
         status: "AUTORIZADA",
       },
     }),
 
     prisma.notaFiscal.count({
       where: {
-        empresaId,
-        tipoDocumento: "NFE",
+        ...filtroNfe,
         status: "REJEITADA",
       },
     }),
 
-    prisma.notaFiscal.findMany({
+    prisma.notaFiscal.count({
       where: {
-        empresaId,
-        tipoDocumento: "NFE",
+        ...filtroNfe,
+        status: "RASCUNHO",
       },
+    }),
+
+    prisma.notaFiscal.findMany({
+      where: filtroNfe,
       orderBy: {
         dataEmissao: "desc",
       },
-      take: 5,
+      take: 6,
       select: {
         id: true,
         numero: true,
@@ -226,24 +257,98 @@ export default async function EmpresaDashboardPage({
 
     prisma.notaFiscal.findMany({
       where: {
-        empresaId,
-        tipoDocumento: "NFE",
+        ...filtroNfe,
         dataEmissao: {
           gte: inicioPeriodo,
         },
       },
       select: {
         dataEmissao: true,
+        status: true,
+        valorProdutos: true,
+      },
+    }),
+
+    prisma.notaFiscal.aggregate({
+      where: {
+        ...filtroNfe,
+        status: "AUTORIZADA",
+      },
+      _sum: {
+        valorProdutos: true,
+      },
+    }),
+
+    prisma.notaFiscal.aggregate({
+      where: {
+        ...filtroNfe,
+        status: "AUTORIZADA",
+        dataEmissao: {
+          gte: inicioMesAtual,
+        },
+      },
+      _sum: {
+        valorProdutos: true,
+      },
+    }),
+
+    prisma.notaFiscal.aggregate({
+      where: {
+        ...filtroNfe,
+        status: "AUTORIZADA",
+        dataEmissao: {
+          gte: inicioMesAnterior,
+          lte: fimMesAnterior,
+        },
+      },
+      _sum: {
+        valorProdutos: true,
+      },
+    }),
+
+    prisma.notaFiscal.count({
+      where: {
+        ...filtroNfe,
+        dataEmissao: {
+          gte: inicioMesAtual,
+        },
+      },
+    }),
+
+    prisma.notaFiscal.count({
+      where: {
+        ...filtroNfe,
+        dataEmissao: {
+          gte: inicioMesAnterior,
+          lte: fimMesAnterior,
+        },
+      },
+    }),
+
+    prisma.notaFiscal.groupBy({
+      by: ["status"],
+      where: filtroNfe,
+      _count: {
+        _all: true,
       },
     }),
   ]);
 
-  const empresaNome =
-    empresa.nomeFantasia?.trim() ||
-    empresa.razaoSocial;
-
   const baseUrl =
     `/empresa/${empresaId}`;
+
+  const totalFaturado = Number(
+    faturamentoAutorizado._sum
+      .valorProdutos ?? 0
+  );
+  const faturadoMesAtual = Number(
+    faturamentoMesAtual._sum
+      .valorProdutos ?? 0
+  );
+  const faturadoMesAnterior = Number(
+    faturamentoMesAnterior._sum
+      .valorProdutos ?? 0
+  );
 
   const taxaAutorizacao =
     totalNfe > 0
@@ -254,20 +359,11 @@ export default async function EmpresaDashboardPage({
         )
       : 0;
 
-  const atualizadoEm =
-    new Intl.DateTimeFormat(
-      "pt-BR",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    ).format(agora);
-
   const contagemMensal =
-    new Map<number, number>();
+    new Map<
+      number,
+      { quantidade: number; valor: number }
+    >();
 
   for (
     let i = 6;
@@ -278,27 +374,55 @@ export default async function EmpresaDashboardPage({
       (agora.getMonth() - i + 12) %
       12;
 
-    contagemMensal.set(mes, 0);
+    contagemMensal.set(mes, {
+      quantidade: 0,
+      valor: 0,
+    });
   }
 
   for (const nota of notasPeriodo) {
     const mes =
       nota.dataEmissao.getMonth();
 
-    contagemMensal.set(
-      mes,
-      (contagemMensal.get(mes) ??
-        0) + 1
-    );
+    const atual =
+      contagemMensal.get(mes) ?? {
+        quantidade: 0,
+        valor: 0,
+      };
+
+    contagemMensal.set(mes, {
+      quantidade:
+        atual.quantidade + 1,
+      valor:
+        atual.valor +
+        Number(nota.valorProdutos),
+    });
   }
 
-  const dadosGrafico: BarChartItem[] =
-    Array.from(
-      contagemMensal.entries()
-    ).map(([mes, valor]) => ({
-      label: mesesAbrev[mes],
-      value: valor,
-    }));
+  const serieQuantidade = Array.from(
+    contagemMensal.values()
+  ).map((item) => item.quantidade);
+
+  const serieFaturamento = Array.from(
+    contagemMensal.values()
+  ).map((item) => item.valor);
+
+  const donutItens: DonutChartItem[] =
+    statusAgrupados
+      .map((item) => ({
+        label:
+          statusLabels[item.status]
+            ?.label ?? item.status,
+        value: item._count._all,
+        color:
+          statusDonutColors[
+            item.status
+          ] ?? "#94A3B8",
+      }))
+      .filter((item) => item.value > 0)
+      .sort(
+        (a, b) => b.value - a.value
+      );
 
   const atividade: ActivityRow[] =
     notasRecentes.map((nota) => {
@@ -311,16 +435,14 @@ export default async function EmpresaDashboardPage({
             "neutral" as BadgeVariant,
         };
 
-      const destino =
-        nota.cliente.nome;
-
       return {
         id: nota.id,
         tipo: `NF-e ${nota.numero}/${nota.serie}`,
-        data: formatarDataHora(
+        data: formatarData(
           nota.dataEmissao
         ),
-        destino,
+        destino:
+          nota.cliente.nome,
         valor: formatarMoeda(
           Number(nota.valorProdutos)
         ),
@@ -331,15 +453,14 @@ export default async function EmpresaDashboardPage({
       };
     });
 
-  return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6">
-      <DashboardToolbar
-        atualizadoEm={atualizadoEm}
-        novaNfeHref={`${baseUrl}/nfe`}
-        clientesHref={`${baseUrl}/clientes`}
-        configuracoesHref={`${baseUrl}/configuracoes`}
-      />
+  const crescimentoFaturamento =
+    calcularVariacao(
+      faturadoMesAtual,
+      faturadoMesAnterior
+    );
 
+  return (
+    <div className="w-full space-y-6">
       {totalNfeRejeitadas > 0 && (
         <AlertBanner
           variant="danger"
@@ -358,107 +479,114 @@ export default async function EmpresaDashboardPage({
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
+          label="Faturamento autorizado"
+          value={formatarMoeda(
+            totalFaturado
+          )}
+          hint="vs mês anterior"
+          delta={calcularVariacao(
+            faturadoMesAtual,
+            faturadoMesAnterior
+          )}
+          icon={FileText}
+          href={`${baseUrl}/nfe`}
+          sparklineData={
+            serieFaturamento
+          }
+          sparklineColor="#3B82F6"
+        />
+
+        <MetricCard
+          label="NF-e do mês"
+          value={nfeMesAtual}
+          hint="emissões no período"
+          delta={calcularVariacao(
+            nfeMesAtual,
+            nfeMesAnterior
+          )}
+          icon={CircleCheck}
+          href={`${baseUrl}/nfe`}
+          sparklineData={
+            serieQuantidade
+          }
+          sparklineColor="#6366F1"
+        />
+
+        <MetricCard
           label="Clientes ativos"
           value={totalClientes}
-          hint="Cadastros disponíveis"
+          hint="cadastros disponíveis"
           icon={Users}
           href={`${baseUrl}/clientes`}
+          sparklineData={
+            serieQuantidade
+          }
+          sparklineColor="#10B981"
         />
 
         <MetricCard
           label="Produtos ativos"
           value={totalProdutos}
-          hint="Itens e serviços"
+          hint="itens e serviços"
           icon={Package}
           href={`${baseUrl}/produtos`}
-        />
-
-        <MetricCard
-          label="NF-e cadastradas"
-          value={totalNfe}
-          hint="Documentos no sistema"
-          icon={FileText}
-          href={`${baseUrl}/nfe`}
-        />
-
-        <MetricCard
-          label="NF-e autorizadas"
-          value={totalNfeAutorizadas}
-          hint="Documentos aprovados"
-          icon={CircleCheck}
-          href={`${baseUrl}/nfe`}
-          delta={
-            totalNfe > 0
-              ? {
-                  value: `${taxaAutorizacao}% do total`,
-                  trend: "up",
-                }
-              : undefined
+          sparklineData={
+            serieQuantidade
           }
+          sparklineColor="#8B5CF6"
         />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
-        <BarChart
-          title="Visão de emissões"
-          subtitle="NF-e emitidas nos últimos 7 meses"
-          data={dadosGrafico}
+        <ActivityTable
+          title="NF-e recentes"
+          rows={atividade}
+          viewAllHref={`${baseUrl}/nfe`}
         />
 
-        <div className="space-y-4">
-          <PreviewCard
-            titulo={empresaNome}
-            subtitulo="Empresa"
-            identificador={formatarCnpjMascara(
-              empresa.cnpj
-            )}
-            meta={
-              empresa.ativo
-                ? "Ativa"
-                : "Inativa"
-            }
-          />
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>
-                Meta de autorização
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent className="space-y-3 pt-0">
-              <div className="flex items-end justify-between">
-                <p className="text-2xl font-bold tracking-tight">
-                  {taxaAutorizacao}%
-                </p>
-
-                <span className="text-xs text-muted-foreground">
-                  alvo 95%
-                </span>
-              </div>
-
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{
-                    width: `${Math.min(taxaAutorizacao, 100)}%`,
-                  }}
-                />
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                {totalNfeAutorizadas} de{" "}
-                {totalNfe} documentos
-                autorizados
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <DonutChart
+          title="Distribuição de NF-e"
+          subtitle="Por status dos documentos"
+          items={donutItens}
+          centerLabel="Total NF-e"
+          centerValue={String(totalNfe)}
+        />
       </section>
 
-      <ActivityTable
-        rows={atividade}
-        viewAllHref={`${baseUrl}/nfe`}
+      <FiscalSummary
+        badge={
+          crescimentoFaturamento
+            ? `${crescimentoFaturamento.value} crescimento`
+            : undefined
+        }
+        items={[
+          {
+            label: "Faturamento do mês",
+            value: formatarMoeda(
+              faturadoMesAtual
+            ),
+            tone: "green",
+          },
+          {
+            label: "NF-e em rascunho",
+            value: String(
+              totalNfeRascunho
+            ),
+            tone: "red",
+          },
+          {
+            label: "NF-e autorizadas",
+            value: String(
+              totalNfeAutorizadas
+            ),
+            tone: "blue",
+          },
+          {
+            label: "Taxa de autorização",
+            value: `${taxaAutorizacao}%`,
+            tone: "purple",
+          },
+        ]}
       />
     </div>
   );

@@ -10,16 +10,20 @@ import {
   FileText,
   Headphones,
   LayoutDashboard,
+  LoaderCircle,
+  LogOut,
   Package,
-  Search,
   Settings,
-  Sparkles,
   Truck,
   UserRound,
   Users,
+  Zap,
 } from "lucide-react";
 
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+
+import { signOut } from "next-auth/react";
 
 import { cn } from "@/lib/utils";
 
@@ -36,7 +40,6 @@ type ItemMenu = {
   href: string;
   icon: typeof LayoutDashboard;
   ativo: boolean;
-  badge?: number;
 };
 
 type GrupoMenu = {
@@ -61,14 +64,15 @@ export function EmpresaSidebar({
   permissao,
 }: Props) {
   const pathname = usePathname();
+  const [saindo, setSaindo] =
+    useState(false);
 
   const baseUrl =
     `/empresa/${empresaId}`;
 
   const grupos: GrupoMenu[] = [
     {
-      titulo: "Workspace",
-
+      titulo: "Visão geral",
       itens: [
         {
           nome: "Dashboard",
@@ -78,10 +82,8 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
       titulo: "Cadastros",
-
       itens: [
         {
           nome: "Clientes",
@@ -103,10 +105,8 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
       titulo: "Documentos fiscais",
-
       itens: [
         {
           nome: "NF-e",
@@ -122,10 +122,8 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
       titulo: "Transportes",
-
       itens: [
         {
           nome: "Transportadores",
@@ -143,6 +141,17 @@ export function EmpresaSidebar({
           nome: "Motoristas",
           href: `${baseUrl}/motoristas`,
           icon: UserRound,
+          ativo: true,
+        },
+      ],
+    },
+    {
+      titulo: "Gestão",
+      itens: [
+        {
+          nome: "Configurações",
+          href: `${baseUrl}/configuracoes`,
+          icon: Settings,
           ativo: true,
         },
       ],
@@ -181,73 +190,64 @@ export function EmpresaSidebar({
       .charAt(0)
       .toUpperCase();
 
+  async function handleLogout() {
+    try {
+      setSaindo(true);
+
+      await signOut({
+        callbackUrl: "/entrar",
+      });
+    } catch (error) {
+      console.error(
+        "Erro ao encerrar sessão:",
+        error
+      );
+
+      setSaindo(false);
+    }
+  }
+
   return (
-    <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-border/60 bg-sidebar lg:flex">
-      <div className="px-5 pb-4 pt-5">
+    <aside
+      className="empresa-sidebar sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col bg-empresa-sidebar lg:flex"
+      style={{
+        backgroundColor: "#0a1628",
+        backgroundImage:
+          "linear-gradient(180deg, #0c1a30 0%, #0a1628 45%, #071018 100%)",
+      }}
+    >
+      <div className="px-5 pb-5 pt-6">
         <Link
           href="/painel"
-          className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-            <FileText size={18} />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500 text-white shadow-[0_8px_24px_rgb(37_99_235/0.45)]">
+            <Zap size={18} />
           </div>
 
           <div>
-            <p className="text-[15px] font-bold leading-none tracking-tight text-foreground">
+            <p className="text-[15px] font-bold leading-none tracking-tight text-white">
               Faturístico
             </p>
 
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Gestão fiscal
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Fiscal
             </p>
           </div>
         </Link>
-
-        <div className="glass-input mt-5 flex items-center gap-2.5 px-3 py-2.5">
-          <Sparkles
-            size={15}
-            className="shrink-0 text-primary"
-          />
-
-          <span className="text-sm text-muted-foreground">
-            Busca inteligente
-          </span>
-        </div>
-      </div>
-
-      <div className="px-4 pb-3">
-        <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
-          <Search
-            size={15}
-            className="shrink-0 text-muted-foreground"
-          />
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Empresa
-            </p>
-
-            <p
-              className="truncate text-sm font-semibold text-foreground"
-              title={empresaExibicao}
-            >
-              {empresaExibicao}
-            </p>
-          </div>
-        </div>
       </div>
 
       <nav
         aria-label="Navegação da empresa"
         className="flex-1 overflow-y-auto px-3 pb-4"
       >
-        <div className="space-y-6">
+        <div className="space-y-7">
           {grupos.map((grupo) => (
             <section
               key={grupo.titulo}
-              className="space-y-0.5"
+              className="space-y-1"
             >
-              <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 {grupo.titulo}
               </p>
 
@@ -266,12 +266,12 @@ export function EmpresaSidebar({
                       <div
                         key={item.nome}
                         aria-disabled="true"
-                        className="flex h-9 cursor-not-allowed items-center justify-between gap-3 rounded-lg px-3 text-sm text-muted-foreground/60"
+                        className="flex h-10 cursor-not-allowed items-center justify-between gap-3 rounded-xl px-3 text-sm text-slate-500"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <Icone
                             size={17}
-                            className="shrink-0"
+                            className="shrink-0 text-slate-600"
                           />
 
                           <span className="truncate">
@@ -279,7 +279,7 @@ export function EmpresaSidebar({
                           </span>
                         </div>
 
-                        <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide">
+                        <span className="shrink-0 rounded-md bg-white/8 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
                           Em breve
                         </span>
                       </div>
@@ -296,11 +296,11 @@ export function EmpresaSidebar({
                           : undefined
                       }
                       className={cn(
-                        "group flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                        "group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50",
                         selecionado
-                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                          ? "bg-[#1e3a5f] text-white shadow-[inset_0_0_0_1px_rgb(96_165_250/0.2)]"
+                          : "text-slate-400 hover:bg-[#132337] hover:text-slate-100"
                       )}
                     >
                       <Icone
@@ -308,23 +308,14 @@ export function EmpresaSidebar({
                         className={cn(
                           "shrink-0",
                           selecionado
-                            ? "text-sidebar-primary"
-                            : "text-muted-foreground group-hover:text-foreground"
+                            ? "text-blue-300"
+                            : "text-slate-500 group-hover:text-slate-300"
                         )}
                       />
 
                       <span className="truncate">
                         {item.nome}
                       </span>
-
-                      {item.badge !==
-                        undefined &&
-                        item.badge >
-                          0 && (
-                          <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
-                            {item.badge}
-                          </span>
-                        )}
                     </Link>
                   );
                 }
@@ -334,55 +325,75 @@ export function EmpresaSidebar({
         </div>
       </nav>
 
-      <div className="border-t border-border/60 p-4">
-        <div className="space-y-0.5">
-          <Link
-            href={`${baseUrl}/configuracoes`}
-            className="flex h-9 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
-          >
-            <Settings size={17} />
+      <div className="border-t border-white/10 bg-[#081220]/80 p-4">
+        <button
+          type="button"
+          className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-400 transition-colors hover:bg-[#132337] hover:text-slate-100"
+        >
+          <Headphones size={17} />
 
-            Configurações
-          </Link>
-
-          <button
-            type="button"
-            className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
-          >
-            <Headphones size={17} />
-
-            Suporte
-          </button>
-        </div>
+          Suporte
+        </button>
 
         <Link
           href="/empresas"
-          className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border/60 bg-background px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+          className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-medium text-slate-300 transition-colors hover:border-white/15 hover:bg-[#132337] hover:text-white"
         >
           <ArrowLeftRight size={15} />
 
           Trocar de empresa
         </Link>
 
-        <div className="mt-4 flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-            {inicial}
-          </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={saindo}
+          className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-medium text-slate-300 transition-colors hover:border-white/15 hover:bg-[#132337] hover:text-white disabled:opacity-60"
+        >
+          {saindo ? (
+            <LoaderCircle
+              size={15}
+              className="animate-spin"
+            />
+          ) : (
+            <LogOut size={15} />
+          )}
 
-          <div className="min-w-0 flex-1">
-            <p
-              className="truncate text-sm font-semibold text-foreground"
-              title={usuarioExibicao}
-            >
-              {usuarioExibicao}
-            </p>
+          {saindo ? "Saindo..." : "Sair"}
+        </button>
 
-            <p
-              className="truncate text-[11px] text-muted-foreground"
-              title={emailExibicao}
-            >
-              {emailExibicao}
-            </p>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-[#132337]/80 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Empresa ativa
+          </p>
+
+          <p
+            className="mt-1 truncate text-sm font-semibold text-white"
+            title={empresaExibicao}
+          >
+            {empresaExibicao}
+          </p>
+
+          <div className="mt-3 flex items-center gap-3 border-t border-white/10 pt-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500 text-sm font-semibold text-white ring-2 ring-blue-400/30">
+              {inicial}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p
+                className="truncate text-sm font-semibold text-white"
+                title={usuarioExibicao}
+              >
+                {usuarioExibicao}
+              </p>
+
+              <p
+                className="truncate text-[11px] text-slate-400"
+                title={emailExibicao}
+              >
+                {emailExibicao}
+              </p>
+            </div>
           </div>
         </div>
       </div>

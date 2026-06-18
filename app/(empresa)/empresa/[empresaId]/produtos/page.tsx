@@ -243,7 +243,7 @@ export default async function ProdutosPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8">
+    <div className="w-full space-y-8">
       {/* Cabeçalho */}
 
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">

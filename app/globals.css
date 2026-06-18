@@ -52,6 +52,11 @@
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
 
+  --color-empresa-sidebar: #0a1628;
+  --color-empresa-sidebar-deep: #081220;
+  --color-empresa-sidebar-active: #1e3a5f;
+  --color-empresa-sidebar-hover: #132337;
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -229,4 +234,25 @@
   .glass-panel {
     @apply border border-border/60 bg-white/80 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_8px_24px_rgb(0_0_0/0.04)] backdrop-blur-xl dark:bg-card/80;
   }
+}
+
+.empresa-shell {
+  --empresa-main: oklch(0.972 0.004 247);
+}
+
+.empresa-main {
+  background-color: var(--empresa-main);
+}
+
+.empresa-sidebar {
+  background-color: #0a1628 !important;
+  background-image: linear-gradient(
+    180deg,
+    #0c1a30 0%,
+    #0a1628 45%,
+    #071018 100%
+  ) !important;
+  color: #cbd5e1 !important;
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
 }

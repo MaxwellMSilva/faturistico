@@ -249,7 +249,7 @@ export default async function VeiculosPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8">
+    <div className="w-full space-y-8">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

@@ -22,6 +22,8 @@ export type ActivityRow = {
   tipo: string;
   data: string;
   destino: string;
+  categoria?: string;
+  categoriaVariant?: BadgeVariant;
   valor: string;
   status: string;
   statusVariant: BadgeVariant;
@@ -37,7 +39,7 @@ type ActivityTableProps = {
 };
 
 function ActivityTableRoot({
-  title = "Atividade recente",
+  title = "NF-e recentes",
   rows,
   viewAllHref,
   className,
@@ -46,31 +48,40 @@ function ActivityTableRoot({
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle>{title}</CardTitle>
+
+        {viewAllHref && (
+          <Link
+            href={viewAllHref}
+            className="text-xs font-medium text-primary transition-colors hover:text-primary/80"
+          >
+            Ver todas
+          </Link>
+        )}
       </CardHeader>
 
       <CardContent className="px-0 pb-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[720px]">
             <thead>
-              <tr className="border-y border-border/60 bg-muted/30">
+              <tr className="border-y border-border/60 bg-muted/20">
                 <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Tipo
-                </th>
-
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Data
                 </th>
 
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Destinatário
+                  Documento
                 </th>
 
-                <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Valor
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Cliente
+                </th>
+
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Status
                 </th>
 
                 <th className="px-6 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Status
+                  Valor
                 </th>
               </tr>
             </thead>
@@ -82,7 +93,7 @@ function ActivityTableRoot({
                     colSpan={5}
                     className="px-6 py-10 text-center text-sm text-muted-foreground"
                   >
-                    Nenhuma atividade registrada.
+                    Nenhuma NF-e registrada.
                   </td>
                 </tr>
               ) : (
@@ -95,31 +106,36 @@ function ActivityTableRoot({
                       key={row.id}
                       className="border-b border-border/40 transition-colors last:border-0 hover:bg-muted/20"
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {row.data}
+                      </td>
+
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                             <Icone size={14} />
                           </div>
 
-                          <span className="text-sm font-medium">
-                            {row.tipo}
-                          </span>
+                          {row.href ? (
+                            <Link
+                              href={row.href}
+                              className="text-sm font-medium text-foreground transition-colors hover:text-primary"
+                            >
+                              {row.tipo}
+                            </Link>
+                          ) : (
+                            <span className="text-sm font-medium">
+                              {row.tipo}
+                            </span>
+                          )}
                         </div>
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-muted-foreground">
-                        {row.data}
                       </td>
 
                       <td className="max-w-[180px] truncate px-4 py-4 text-sm">
                         {row.destino}
                       </td>
 
-                      <td className="px-4 py-4 text-right text-sm font-medium">
-                        {row.valor}
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 py-4">
                         <Badge
                           variant={
                             row.statusVariant
@@ -127,6 +143,10 @@ function ActivityTableRoot({
                         >
                           {row.status}
                         </Badge>
+                      </td>
+
+                      <td className="px-6 py-4 text-right text-sm font-semibold">
+                        {row.valor}
                       </td>
                     </tr>
                   );
@@ -149,7 +169,7 @@ function ActivityTableRoot({
               "inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/80"
             )}
           >
-            Ver todos
+            Ver todas
 
             <ArrowRight size={14} />
           </Link>

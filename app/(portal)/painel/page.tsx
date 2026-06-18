@@ -3,10 +3,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Building2,
-  FileText,
-  LockKeyhole,
-  ShieldCheck,
-  Users,
+  Plus,
 } from "lucide-react";
 
 import { redirect } from "next/navigation";
@@ -15,40 +12,41 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { Button } from "@/components/ui/button";
+
 export const dynamic =
   "force-dynamic";
 
-const opcoes = [
-  {
-    titulo: "Empresas",
+function formatarCnpj(
+  cnpj: string
+) {
+  const numeros =
+    cnpj.replace(/\D/g, "");
 
-    descricao:
-      "Consulte as empresas disponíveis e escolha o ambiente em que deseja trabalhar.",
+  if (numeros.length !== 14) {
+    return cnpj;
+  }
 
-    href: "/empresas",
+  return numeros.replace(
+    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+    "$1.$2.$3/$4-$5"
+  );
+}
 
-    icone: Building2,
+function obterSaudacao() {
+  const hora =
+    new Date().getHours();
 
-    acao: "Gerenciar empresas",
+  if (hora < 12) {
+    return "Bom dia";
+  }
 
-    restrita: false,
-  },
+  if (hora < 18) {
+    return "Boa tarde";
+  }
 
-  {
-    titulo: "Usuários",
-
-    descricao:
-      "Cadastre usuários e controle quais empresas cada pessoa poderá acessar.",
-
-    href: "/usuarios",
-
-    icone: Users,
-
-    acao: "Gerenciar usuários",
-
-    restrita: true,
-  },
-];
+  return "Boa noite";
+}
 
 export default async function PainelPage() {
   const session =
@@ -67,6 +65,7 @@ export default async function PainelPage() {
       },
 
       select: {
+        nome: true,
         role: true,
         ativo: true,
       },
@@ -83,188 +82,171 @@ export default async function PainelPage() {
     usuario.role === "OWNER" ||
     usuario.role === "ADMIN";
 
+  const vinculosEmpresas =
+    await prisma.usuarioEmpresa.findMany({
+      where: {
+        usuarioId:
+          session.user.id,
+
+        ativo: true,
+
+        empresa: {
+          ativo: true,
+        },
+      },
+
+      select: {
+        empresa: {
+          select: {
+            id: true,
+            razaoSocial: true,
+            nomeFantasia: true,
+            cnpj: true,
+            municipio: true,
+            uf: true,
+          },
+        },
+      },
+
+      orderBy: {
+        empresa: {
+          razaoSocial: "asc",
+        },
+      },
+
+      take: 6,
+    });
+
+  const empresas =
+    vinculosEmpresas.map(
+      (vinculo) =>
+        vinculo.empresa
+    );
+
+  const primeiroNome =
+    usuario.nome
+      .trim()
+      .split(" ")[0] ||
+    "Usuário";
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8">
-      {/* Apresentação */}
+    <div className="space-y-6">
+      <section className="dashboard-card p-5 sm:p-6">
+        <p className="text-sm text-muted-foreground">
+          {obterSaudacao()},{" "}
+          {primeiroNome}
+        </p>
 
-      <section className="dashboard-card overflow-hidden">
-        <div className="p-5 sm:p-8">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="max-w-2xl">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <FileText size={22} />
-              </div>
+        <h2 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
+          Escolha um ambiente para
+          começar
+        </h2>
 
-              <p className="text-sm font-medium text-primary">
-                Faturístico
-              </p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          Acesse diretamente o dashboard
+          de uma empresa ou abra a lista
+          completa para gerenciar
+          cadastros.
+        </p>
 
-              <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-                Painel geral
-              </h1>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button
+            className="h-10"
+            render={
+              <Link href="/empresas" />
+            }
+          >
+            <Building2 size={16} />
 
-              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                {podeGerenciarUsuarios
-                  ? "Gerencie suas empresas e organize os usuários que terão acesso à plataforma."
-                  : "Consulte as empresas vinculadas à sua conta e acesse o ambiente de trabalho."}
-              </p>
-            </div>
+            Ver empresas
+          </Button>
 
-            <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <ShieldCheck size={21} />
-              </div>
+          {podeGerenciarUsuarios && (
+            <Button
+              variant="outline"
+              className="h-10"
+              render={
+                <Link href="/empresas/nova" />
+              }
+            >
+              <Plus size={16} />
 
-              <div>
-                <p className="text-sm font-medium">
-                  Ambiente protegido
-                </p>
-
-                <p className="text-xs text-muted-foreground">
-                  Acesso separado por empresa
-                </p>
-              </div>
-            </div>
-          </div>
+              Nova empresa
+            </Button>
+          )}
         </div>
       </section>
 
-      {/* Acesso rápido */}
+      {empresas.length === 0 ? (
+        <section className="dashboard-card flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Building2 size={22} />
+          </div>
 
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Acesso rápido
-          </h2>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            Selecione uma opção para continuar.
+          <p className="font-medium">
+            Nenhuma empresa vinculada
           </p>
-        </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          {opcoes.map((opcao) => {
-            const Icone =
-              opcao.icone;
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            {podeGerenciarUsuarios
+              ? "Cadastre a primeira empresa para começar a operar no sistema."
+              : "Solicite ao administrador o acesso a uma empresa."}
+          </p>
+        </section>
+      ) : (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {empresas.map((empresa) => {
+            const nomeExibicao =
+              empresa.nomeFantasia?.trim() ||
+              empresa.razaoSocial;
 
-            const bloqueada =
-              opcao.restrita &&
-              !podeGerenciarUsuarios;
-
-            if (bloqueada) {
-              return (
-                <div
-                  key={opcao.href}
-                  aria-disabled="true"
-                  title="Você não possui permissão para gerenciar usuários"
-                  className="relative cursor-not-allowed overflow-hidden dashboard-card p-6 opacity-50"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                      <Icone size={24} />
-                    </div>
-
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-muted/30 text-muted-foreground">
-                      <LockKeyhole
-                        size={17}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xl font-semibold tracking-tight">
-                        {opcao.titulo}
-                      </h3>
-
-                      <span className="rounded-full border bg-muted/40 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Sem acesso
-                      </span>
-                    </div>
-
-                    <p className="mt-2 min-h-12 text-sm leading-6 text-muted-foreground">
-                      {opcao.descricao}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 border-t pt-4">
-                    <span className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <LockKeyhole
-                        size={15}
-                      />
-
-                      Acesso restrito
-                    </span>
-                  </div>
-                </div>
-              );
-            }
+            const local =
+              [
+                empresa.municipio,
+                empresa.uf,
+              ]
+                .filter(Boolean)
+                .join(" · ");
 
             return (
               <Link
-                key={opcao.href}
-                href={opcao.href}
-                className="group relative overflow-hidden dashboard-stat p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                key={empresa.id}
+                href={`/empresa/${empresa.id}/dashboard`}
+                className="group dashboard-stat p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                    <Icone size={24} />
-                  </div>
-
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground transition-all group-hover:translate-x-1 group-hover:border-primary/30 group-hover:text-primary">
-                    <ArrowRight size={18} />
-                  </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <Building2 size={22} />
                 </div>
 
-                <div className="mt-6">
-                  <h3 className="text-xl font-semibold tracking-tight">
-                    {opcao.titulo}
-                  </h3>
+                <h3 className="mt-4 line-clamp-2 font-semibold tracking-tight">
+                  {nomeExibicao}
+                </h3>
 
-                  <p className="mt-2 min-h-12 text-sm leading-6 text-muted-foreground">
-                    {opcao.descricao}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {formatarCnpj(
+                    empresa.cnpj
+                  )}
+                </p>
+
+                {local && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {local}
                   </p>
-                </div>
+                )}
 
-                <div className="mt-6 border-t pt-4">
-                  <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-                    {opcao.acao}
+                <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                  Abrir ambiente
 
-                    <ArrowRight
-                      size={16}
-                      className="transition-transform group-hover:translate-x-1"
-                    />
-                  </span>
-                </div>
+                  <ArrowRight
+                    size={16}
+                    className="transition-transform group-hover:translate-x-1"
+                  />
+                </span>
               </Link>
             );
           })}
-        </div>
-      </section>
-
-      {/* Orientação */}
-
-      <section className="dashboard-card bg-muted/20 p-5">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-primary shadow-sm">
-            <Building2 size={20} />
-          </div>
-
-          <div>
-            <h2 className="text-sm font-semibold">
-              Como começar
-            </h2>
-
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Escolha uma empresa disponível
-              e acesse o ambiente dela para
-              gerenciar clientes, produtos,
-              configurações fiscais e notas,
-              conforme suas permissões.
-            </p>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

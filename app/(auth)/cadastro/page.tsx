@@ -1,9 +1,14 @@
+import { AuthShell } from "@/components/auth/auth-shell";
 import { CadastroForm } from "@/components/auth/cadastro-form";
 
 export default function CadastroPage() {
   return (
-    <div className="mx-auto flex min-h-screen max-w-md items-center justify-center p-6">
+    <AuthShell
+      titulo="Criar conta"
+      subtitulo="Preencha os dados abaixo para criar a conta do proprietário."
+      variante="cadastro"
+    >
       <CadastroForm />
-    </div>
+    </AuthShell>
   );
 }
