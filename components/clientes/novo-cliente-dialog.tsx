@@ -9,14 +9,10 @@ import { useRouter } from "next/navigation";
 
 import {
   BadgeCheck,
-  Building2,
   LoaderCircle,
-  Mail,
-  MapPin,
   Plus,
   Save,
   Search,
-  UserRound,
 } from "lucide-react";
 
 import { createCliente } from "@/actions/clientes/create-cliente";
@@ -28,13 +24,17 @@ import { Input } from "@/components/ui/input";
 
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  FormStepperBody,
+  FormStepperDialogContent,
+  FormStepperFooter,
+  FormStepperNav,
+} from "@/components/ui/form-stepper";
 
 type Props = {
   empresaId: string;
@@ -192,6 +192,21 @@ function formatarTelefone(
     );
 }
 
+const PASSOS_CLIENTE = [
+  {
+    id: "identificacao",
+    titulo: "Identificação",
+  },
+  {
+    id: "contato",
+    titulo: "Contato",
+  },
+  {
+    id: "endereco",
+    titulo: "Endereço",
+  },
+] as const;
+
 export function NovoClienteDialog({
   empresaId,
 }: Props) {
@@ -222,6 +237,14 @@ export function NovoClienteDialog({
     useState<FormCliente>({
       ...estadoInicial,
     });
+
+  const [
+    passoAtual,
+    setPassoAtual,
+  ] = useState(0);
+
+  const ultimoPasso =
+    PASSOS_CLIENTE.length - 1;
 
   function limparMensagens() {
     setErro("");
@@ -278,6 +301,109 @@ export function NovoClienteDialog({
 
     setErro("");
     setMensagem("");
+    setPassoAtual(0);
+  }
+
+  function validarPassoAtual() {
+    const documento =
+      somenteNumeros(
+        form.cpfCnpj
+      );
+
+    const tamanhoEsperado =
+      form.tipoPessoa === "FISICA"
+        ? 11
+        : 14;
+
+    const cep =
+      somenteNumeros(form.cep);
+
+    const codigoMunicipio =
+      somenteNumeros(
+        form.codigoMunicipio
+      );
+
+    if (passoAtual === 0) {
+      if (!form.nome.trim()) {
+        setErro(
+          form.tipoPessoa === "FISICA"
+            ? "Informe o nome completo do cliente."
+            : "Informe a razão social do cliente."
+        );
+
+        return false;
+      }
+
+      if (
+        documento.length !==
+        tamanhoEsperado
+      ) {
+        setErro(
+          form.tipoPessoa === "FISICA"
+            ? "Informe um CPF válido com 11 números."
+            : "Informe um CNPJ válido com 14 números."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    if (passoAtual === 2) {
+      if (
+        cep &&
+        cep.length !== 8
+      ) {
+        setErro(
+          "Informe um CEP válido com 8 números."
+        );
+
+        return false;
+      }
+
+      if (
+        form.municipio.trim() ||
+        form.uf.trim() ||
+        codigoMunicipio
+      ) {
+        if (
+          !form.municipio.trim() ||
+          form.uf.trim().length !== 2 ||
+          codigoMunicipio.length !== 7
+        ) {
+          setErro(
+            "Pesquise e selecione uma cidade válida na lista do IBGE."
+          );
+
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    return true;
+  }
+
+  function handleProximoPasso() {
+    if (!validarPassoAtual()) {
+      return;
+    }
+
+    setPassoAtual((anterior) =>
+      Math.min(
+        anterior + 1,
+        ultimoPasso
+      )
+    );
+  }
+
+  function handlePassoAnterior() {
+    limparMensagens();
+    setPassoAtual((anterior) =>
+      Math.max(anterior - 1, 0)
+    );
   }
 
   async function buscarCnpj() {
@@ -595,8 +721,8 @@ export function NovoClienteDialog({
         Novo cliente
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <FormStepperDialogContent>
+        <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>
             Novo cliente
           </DialogTitle>
@@ -607,34 +733,17 @@ export function NovoClienteDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <FormStepperNav
+          passos={[...PASSOS_CLIENTE]}
+          passoAtual={passoAtual}
+        />
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          {/* Identificação */}
-
-          <section className="rounded-xl border bg-muted/10 p-5">
-            <div className="mb-5 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                {pessoaJuridica ? (
-                  <Building2 size={20} />
-                ) : (
-                  <UserRound size={20} />
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-semibold">
-                  Identificação
-                </h3>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Dados cadastrais e fiscais
-                  do cliente.
-                </p>
-              </div>
-            </div>
-
+          <FormStepperBody>
+            {passoAtual === 0 && (
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
                 <label
@@ -843,28 +952,9 @@ export function NovoClienteDialog({
                 />
               </div>
             </div>
-          </section>
+            )}
 
-          {/* Contato */}
-
-          <section className="rounded-xl border bg-muted/10 p-5">
-            <div className="mb-5 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Mail size={20} />
-              </div>
-
-              <div>
-                <h3 className="font-semibold">
-                  Contato
-                </h3>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  E-mail e telefone do
-                  cliente.
-                </p>
-              </div>
-            </div>
-
+            {passoAtual === 1 && (
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
                 <label
@@ -918,28 +1008,9 @@ export function NovoClienteDialog({
                 />
               </div>
             </div>
-          </section>
+            )}
 
-          {/* Endereço */}
-
-          <section className="rounded-xl border bg-muted/10 p-5">
-            <div className="mb-5 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <MapPin size={20} />
-              </div>
-
-              <div>
-                <h3 className="font-semibold">
-                  Endereço
-                </h3>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Endereço utilizado nos
-                  documentos fiscais.
-                </p>
-              </div>
-            </div>
-
+            {passoAtual === 2 && (
             <div className="grid gap-5 md:grid-cols-6">
               <div className="space-y-2 md:col-span-2">
                 <label
@@ -1077,13 +1148,11 @@ export function NovoClienteDialog({
                 disabled={bloqueado}
               />
             </div>
-          </section>
-
-          {/* Mensagens */}
+            )}
 
           <div
             aria-live="polite"
-            className="space-y-3"
+            className="mt-5 space-y-3"
           >
             {mensagem && (
               <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
@@ -1105,8 +1174,9 @@ export function NovoClienteDialog({
               </div>
             )}
           </div>
+          </FormStepperBody>
 
-          <DialogFooter>
+          <FormStepperFooter>
             <Button
               type="button"
               variant="outline"
@@ -1119,31 +1189,58 @@ export function NovoClienteDialog({
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-44"
-              disabled={bloqueado}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            {passoAtual > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={
+                  handlePassoAnterior
+                }
+                disabled={bloqueado}
+              >
+                Voltar
+              </Button>
+            )}
 
-                  Cadastrando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+            {passoAtual < ultimoPasso ? (
+              <Button
+                type="button"
+                className="h-11 sm:min-w-40"
+                onClick={
+                  handleProximoPasso
+                }
+                disabled={bloqueado}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className="h-11 sm:min-w-44"
+                disabled={bloqueado}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
 
-                  Cadastrar cliente
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+                    Cadastrando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    Cadastrar cliente
+                  </>
+                )}
+              </Button>
+            )}
+          </FormStepperFooter>
         </form>
-      </DialogContent>
+      </FormStepperDialogContent>
     </Dialog>
   );
 }

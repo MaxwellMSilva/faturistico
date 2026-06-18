@@ -8,13 +8,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import {
-  BadgeDollarSign,
-  Boxes,
-  FileCheck2,
-  Landmark,
   LoaderCircle,
-  PackagePlus,
-  Percent,
   Plus,
   Save,
 } from "lucide-react";
@@ -30,13 +24,17 @@ import { Input } from "@/components/ui/input";
 
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  FormStepperBody,
+  FormStepperDialogContent,
+  FormStepperFooter,
+  FormStepperNav,
+} from "@/components/ui/form-stepper";
 
 type Props = {
   empresaId: string;
@@ -123,6 +121,48 @@ function numeroDecimal(
   return Number(texto);
 }
 
+const PASSOS_PRODUTO_COMPLETO = [
+  {
+    id: "basico",
+    titulo: "Dados básicos",
+  },
+  {
+    id: "classificacao",
+    titulo: "Classificação",
+  },
+  {
+    id: "icms",
+    titulo: "ICMS",
+  },
+  {
+    id: "pis-cofins",
+    titulo: "PIS/COFINS",
+  },
+  {
+    id: "ipi",
+    titulo: "IPI",
+  },
+  {
+    id: "ibs-cbs",
+    titulo: "IBS/CBS",
+  },
+] as const;
+
+const PASSOS_SERVICO = [
+  {
+    id: "basico",
+    titulo: "Dados básicos",
+  },
+] as const;
+
+function obterPassosProduto(
+  tipo: TipoProduto
+) {
+  return tipo === "PRODUTO"
+    ? PASSOS_PRODUTO_COMPLETO
+    : PASSOS_SERVICO;
+}
+
 export function NovoProdutoDialog({
   empresaId,
 }: Props) {
@@ -143,6 +183,18 @@ export function NovoProdutoDialog({
     useState<FormProduto>({
       ...estadoInicial,
     });
+
+  const [
+    passoAtual,
+    setPassoAtual,
+  ] = useState(0);
+
+  const passos = obterPassosProduto(
+    form.tipo
+  );
+
+  const ultimoPasso =
+    passos.length - 1;
 
   function atualizarCampo(
     campo: keyof FormProduto,
@@ -166,6 +218,7 @@ export function NovoProdutoDialog({
       tipo,
     }));
 
+    setPassoAtual(0);
     setErro("");
   }
 
@@ -175,6 +228,136 @@ export function NovoProdutoDialog({
     });
 
     setErro("");
+    setPassoAtual(0);
+  }
+
+  function validarPassoAtual() {
+    const codigo =
+      form.codigo.trim();
+
+    const descricao =
+      form.descricao.trim();
+
+    const unidade =
+      form.unidade
+        .trim()
+        .toUpperCase();
+
+    const valorUnitario =
+      numeroDecimal(
+        form.valorUnitario
+      );
+
+    const ncm =
+      somenteNumeros(form.ncm);
+
+    const cest =
+      somenteNumeros(form.cest);
+
+    const cfop =
+      somenteNumeros(
+        form.cfopPadrao
+      );
+
+    const passoId =
+      passos[passoAtual]?.id;
+
+    if (passoId === "basico") {
+      if (!codigo) {
+        setErro(
+          "Informe o código do produto."
+        );
+
+        return false;
+      }
+
+      if (!descricao) {
+        setErro(
+          "Informe a descrição do produto."
+        );
+
+        return false;
+      }
+
+      if (!unidade) {
+        setErro(
+          "Informe a unidade do produto."
+        );
+
+        return false;
+      }
+
+      if (
+        !Number.isFinite(
+          valorUnitario
+        ) ||
+        valorUnitario < 0
+      ) {
+        setErro(
+          "Informe um valor unitário válido."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    if (passoId === "classificacao") {
+      if (ncm.length !== 8) {
+        setErro(
+          "O NCM deve possuir 8 números."
+        );
+
+        return false;
+      }
+
+      if (
+        cest &&
+        cest.length !== 7
+      ) {
+        setErro(
+          "O CEST deve possuir 7 números."
+        );
+
+        return false;
+      }
+
+      if (
+        cfop &&
+        cfop.length !== 4
+      ) {
+        setErro(
+          "O CFOP deve possuir 4 números."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    return true;
+  }
+
+  function handleProximoPasso() {
+    if (!validarPassoAtual()) {
+      return;
+    }
+
+    setPassoAtual((anterior) =>
+      Math.min(
+        anterior + 1,
+        ultimoPasso
+      )
+    );
+  }
+
+  function handlePassoAnterior() {
+    setErro("");
+    setPassoAtual((anterior) =>
+      Math.max(anterior - 1, 0)
+    );
   }
 
   async function handleSubmit(
@@ -457,8 +640,8 @@ export function NovoProdutoDialog({
         Novo produto
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <FormStepperDialogContent>
+        <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>
             Novo produto
           </DialogTitle>
@@ -470,30 +653,18 @@ export function NovoProdutoDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <FormStepperNav
+          passos={[...passos]}
+          passoAtual={passoAtual}
+        />
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          {/* Dados básicos */}
-
-          <section className="rounded-xl border bg-muted/10 p-5">
-            <div className="mb-5 flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <PackagePlus size={20} />
-              </div>
-
-              <div>
-                <h3 className="font-semibold">
-                  Dados básicos
-                </h3>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Identificação, unidade e
-                  valor do cadastro.
-                </p>
-              </div>
-            </div>
-
+          <FormStepperBody>
+            {passos[passoAtual]?.id ===
+              "basico" && (
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
                 <label
@@ -638,40 +809,21 @@ export function NovoProdutoDialog({
                 </div>
               </div>
             </div>
-          </section>
+            )}
 
-          {!produtoFiscal && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-              Os campos fiscais de mercadoria
-              não são exibidos para serviços.
-              O módulo de NFS-e será tratado
-              separadamente.
-            </div>
-          )}
+            {!produtoFiscal &&
+              passos[passoAtual]?.id ===
+                "basico" && (
+              <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+                Os campos fiscais de mercadoria
+                não são exibidos para serviços.
+                O módulo de NFS-e será tratado
+                separadamente.
+              </div>
+            )}
 
-          {produtoFiscal && (
-            <>
-              {/* Classificação fiscal */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <div className="mb-5 flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <FileCheck2 size={20} />
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold">
-                      Classificação fiscal
-                    </h3>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Códigos fiscais,
-                      classificação e origem
-                      da mercadoria.
-                    </p>
-                  </div>
-                </div>
-
+            {passos[passoAtual]?.id ===
+              "classificacao" && (
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
                     <label
@@ -865,29 +1017,10 @@ export function NovoProdutoDialog({
                     </select>
                   </div>
                 </div>
-              </section>
+            )}
 
-              {/* ICMS */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <div className="mb-5 flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Landmark size={20} />
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold">
-                      ICMS
-                    </h3>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Use CST para Regime
-                      Normal ou CSOSN para
-                      Simples Nacional.
-                    </p>
-                  </div>
-                </div>
-
+            {passos[passoAtual]?.id ===
+              "icms" && (
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
                     <label
@@ -1021,29 +1154,10 @@ export function NovoProdutoDialog({
                     />
                   </div>
                 </div>
-              </section>
+            )}
 
-              {/* PIS e COFINS */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <div className="mb-5 flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Percent size={20} />
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold">
-                      PIS e COFINS
-                    </h3>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Códigos de situação
-                      tributária e respectivas
-                      alíquotas.
-                    </p>
-                  </div>
-                </div>
-
+            {passos[passoAtual]?.id ===
+              "pis-cofins" && (
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="space-y-2">
                     <label
@@ -1134,30 +1248,10 @@ export function NovoProdutoDialog({
                     disabled={carregando}
                   />
                 </div>
-              </section>
+            )}
 
-              {/* IPI */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
-                <div className="mb-5 flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <BadgeDollarSign
-                      size={20}
-                    />
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold">
-                      IPI
-                    </h3>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Preencha somente quando
-                      houver incidência de IPI.
-                    </p>
-                  </div>
-                </div>
-
+            {passos[passoAtual]?.id ===
+              "ipi" && (
                 <div className="grid gap-5 md:grid-cols-3">
                   <div className="space-y-2">
                     <label
@@ -1233,11 +1327,10 @@ export function NovoProdutoDialog({
                     disabled={carregando}
                   />
                 </div>
-              </section>
+            )}
 
-              {/* IBS e CBS */}
-
-              <section className="rounded-xl border bg-muted/10 p-5">
+            {passos[passoAtual]?.id ===
+              "ibs-cbs" && (
                 <ProdutoIbsCbsFields
                   form={{
                     cstIbsCbs:
@@ -1268,23 +1361,20 @@ export function NovoProdutoDialog({
                   }
                   disabled={carregando}
                 />
-              </section>
-            </>
-          )}
-
-          {/* Mensagem de erro */}
+            )}
 
           {erro && (
             <div
               role="alert"
               aria-live="polite"
-              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
               {erro}
             </div>
           )}
+          </FormStepperBody>
 
-          <DialogFooter>
+          <FormStepperFooter>
             <Button
               type="button"
               variant="outline"
@@ -1297,31 +1387,58 @@ export function NovoProdutoDialog({
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-44"
-              disabled={carregando}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            {passoAtual > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={
+                  handlePassoAnterior
+                }
+                disabled={carregando}
+              >
+                Voltar
+              </Button>
+            )}
 
-                  Cadastrando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+            {passoAtual < ultimoPasso ? (
+              <Button
+                type="button"
+                className="h-11 sm:min-w-40"
+                onClick={
+                  handleProximoPasso
+                }
+                disabled={carregando}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className="h-11 sm:min-w-44"
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
 
-                  Cadastrar produto
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+                    Cadastrando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    Cadastrar produto
+                  </>
+                )}
+              </Button>
+            )}
+          </FormStepperFooter>
         </form>
-      </DialogContent>
+      </FormStepperDialogContent>
     </Dialog>
   );
 }

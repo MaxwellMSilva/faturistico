@@ -50,7 +50,7 @@ export default async function ConfiguracoesPage({
     Boolean(certificado);
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8">
+    <div className="w-full space-y-8">
       {/* Cabeçalho */}
 
       <div className="flex items-start gap-4">

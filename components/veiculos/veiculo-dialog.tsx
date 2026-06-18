@@ -9,15 +9,11 @@ import { useRouter } from "next/navigation";
 
 import {
   AlertTriangle,
-  CarFront,
   Gauge,
   LoaderCircle,
   Pencil,
   Plus,
   Save,
-  Scale,
-  Truck,
-  type LucideIcon,
 } from "lucide-react";
 
 import { createVeiculo } from "@/actions/veiculos/create-veiculo";
@@ -28,13 +24,17 @@ import { Input } from "@/components/ui/input";
 
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  FormStepperBody,
+  FormStepperDialogContent,
+  FormStepperFooter,
+  FormStepperNav,
+} from "@/components/ui/form-stepper";
 
 type TipoVeiculo =
   | "CAVALO_MECANICO"
@@ -249,6 +249,21 @@ function valorParaCampo(
   );
 }
 
+const PASSOS_VEICULO = [
+  {
+    id: "identificacao",
+    titulo: "Identificação",
+  },
+  {
+    id: "capacidades",
+    titulo: "Capacidades",
+  },
+  {
+    id: "vinculo",
+    titulo: "Vínculo",
+  },
+] as const;
+
 export function VeiculoDialog({
   empresaId,
   transportadores,
@@ -339,6 +354,207 @@ export function VeiculoDialog({
     useState<FormVeiculo>(
       criarEstadoInicial
     );
+
+  const [
+    passoAtual,
+    setPassoAtual,
+  ] = useState(0);
+
+  const ultimoPasso =
+    PASSOS_VEICULO.length - 1;
+
+  function reiniciarDialogo() {
+    setForm(criarEstadoInicial());
+    setErro("");
+    setPassoAtual(0);
+  }
+
+  function validarPassoAtual() {
+    const placa =
+      form.placa
+        .trim()
+        .toUpperCase();
+
+    const renavam =
+      somenteNumeros(
+        form.renavam
+      );
+
+    const ufLicenciamento =
+      form.ufLicenciamento
+        .trim()
+        .toUpperCase();
+
+    const anoFabricacao =
+      form.anoFabricacao.trim()
+        ? Number(
+            form.anoFabricacao
+          )
+        : null;
+
+    const anoModelo =
+      form.anoModelo.trim()
+        ? Number(form.anoModelo)
+        : null;
+
+    const taraKg = converterDecimal(
+      form.taraKg
+    );
+
+    const capacidadeKg =
+      converterDecimal(
+        form.capacidadeKg
+      );
+
+    const capacidadeM3 =
+      converterDecimal(
+        form.capacidadeM3
+      );
+
+    if (passoAtual === 0) {
+      if (!placaValida(placa)) {
+        setErro(
+          "Informe uma placa brasileira válida."
+        );
+
+        return false;
+      }
+
+      if (
+        renavam &&
+        renavam.length !== 11
+      ) {
+        setErro(
+          "Informe um RENAVAM válido com 11 números."
+        );
+
+        return false;
+      }
+
+      if (
+        ufLicenciamento &&
+        ufLicenciamento.length !== 2
+      ) {
+        setErro(
+          "Informe uma UF de licenciamento válida."
+        );
+
+        return false;
+      }
+
+      const anoAtual =
+        new Date().getFullYear();
+
+      if (
+        anoFabricacao !== null &&
+        (!Number.isInteger(
+          anoFabricacao
+        ) ||
+          anoFabricacao < 1900 ||
+          anoFabricacao >
+            anoAtual + 1)
+      ) {
+        setErro(
+          "Informe um ano de fabricação válido."
+        );
+
+        return false;
+      }
+
+      if (
+        anoModelo !== null &&
+        (!Number.isInteger(
+          anoModelo
+        ) ||
+          anoModelo < 1900 ||
+          anoModelo >
+            anoAtual + 1)
+      ) {
+        setErro(
+          "Informe um ano do modelo válido."
+        );
+
+        return false;
+      }
+
+      if (
+        anoFabricacao &&
+        anoModelo &&
+        anoModelo < anoFabricacao
+      ) {
+        setErro(
+          "O ano do modelo não pode ser menor que o ano de fabricação."
+        );
+
+        return false;
+      }
+
+      return true;
+    }
+
+    if (passoAtual === 1) {
+      const valoresCapacidade = [
+        {
+          valor: taraKg,
+          mensagem:
+            "Informe uma tara válida.",
+        },
+        {
+          valor: capacidadeKg,
+          mensagem:
+            "Informe uma capacidade em quilogramas válida.",
+        },
+        {
+          valor: capacidadeM3,
+          mensagem:
+            "Informe uma capacidade em metros cúbicos válida.",
+        },
+      ];
+
+      for (
+        const campo of
+        valoresCapacidade
+      ) {
+        if (
+          campo.valor !== null &&
+          (!Number.isFinite(
+            campo.valor
+          ) ||
+            campo.valor < 0)
+        ) {
+          setErro(
+            campo.mensagem
+          );
+
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    return true;
+  }
+
+  function handleProximoPasso() {
+    if (!validarPassoAtual()) {
+      return;
+    }
+
+    setPassoAtual((anterior) =>
+      Math.min(
+        anterior + 1,
+        ultimoPasso
+      )
+    );
+  }
+
+  function handlePassoAnterior() {
+    setErro("");
+    setPassoAtual((anterior) =>
+      Math.max(anterior - 1, 0)
+    );
+  }
 
   function atualizarCampo<
     Campo extends keyof FormVeiculo,
@@ -600,11 +816,7 @@ export function VeiculoDialog({
         setAberto(valor);
 
         if (valor) {
-          setForm(
-            criarEstadoInicial()
-          );
-
-          setErro("");
+          reiniciarDialogo();
         }
       }}
     >
@@ -645,8 +857,8 @@ export function VeiculoDialog({
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
+      <FormStepperDialogContent>
+        <DialogHeader className="shrink-0 px-6 pt-6">
           <DialogTitle>
             {editando
               ? "Editar veículo"
@@ -660,15 +872,17 @@ export function VeiculoDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <FormStepperNav
+          passos={[...PASSOS_VEICULO]}
+          passoAtual={passoAtual}
+        />
+
         <form
           onSubmit={handleSubmit}
-          className="space-y-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <SecaoFormulario
-            icone={CarFront}
-            titulo="Identificação"
-            descricao="Dados principais de identificação do veículo."
-          >
+          <FormStepperBody>
+            {passoAtual === 0 && (
             <div className="grid gap-5 md:grid-cols-2">
               <CampoTexto
                 id="placaVeiculo"
@@ -808,13 +1022,9 @@ export function VeiculoDialog({
                 disabled={carregando}
               />
             </div>
-          </SecaoFormulario>
+            )}
 
-          <SecaoFormulario
-            icone={Scale}
-            titulo="Pesos e capacidades"
-            descricao="Informe a tara e as capacidades de carga do veículo."
-          >
+            {passoAtual === 1 && (
             <div className="grid gap-5 md:grid-cols-3">
               <CampoDecimal
                 id="taraVeiculo"
@@ -865,13 +1075,10 @@ export function VeiculoDialog({
                 disabled={carregando}
               />
             </div>
-          </SecaoFormulario>
+            )}
 
-          <SecaoFormulario
-            icone={Truck}
-            titulo="Transportador"
-            descricao="Vincule o veículo a um transportador cadastrado."
-          >
+            {passoAtual === 2 && (
+            <>
             <CampoSelect
               id="transportadorVeiculo"
               label="Transportador responsável"
@@ -919,10 +1126,9 @@ export function VeiculoDialog({
                 vínculo.
               </p>
             )}
-          </SecaoFormulario>
 
           {editando && (
-            <section className="rounded-xl border bg-muted/10 p-5">
+            <section className="mt-5 rounded-xl border bg-muted/10 p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Gauge size={20} />
@@ -960,12 +1166,14 @@ export function VeiculoDialog({
               </div>
             </section>
           )}
+            </>
+            )}
 
           {erro && (
             <div
               role="alert"
               aria-live="polite"
-              className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              className="mt-5 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             >
               <AlertTriangle
                 size={18}
@@ -975,8 +1183,9 @@ export function VeiculoDialog({
               <p>{erro}</p>
             </div>
           )}
+          </FormStepperBody>
 
-          <DialogFooter>
+          <FormStepperFooter>
             <Button
               type="button"
               variant="outline"
@@ -989,70 +1198,61 @@ export function VeiculoDialog({
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-48"
-              disabled={carregando}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            {passoAtual > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11"
+                onClick={
+                  handlePassoAnterior
+                }
+                disabled={carregando}
+              >
+                Voltar
+              </Button>
+            )}
 
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+            {passoAtual < ultimoPasso ? (
+              <Button
+                type="button"
+                className="h-11 sm:min-w-40"
+                onClick={
+                  handleProximoPasso
+                }
+                disabled={carregando}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                className="h-11 sm:min-w-48"
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
 
-                  {editando
-                    ? "Salvar alterações"
-                    : "Cadastrar veículo"}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    {editando
+                      ? "Salvar alterações"
+                      : "Cadastrar veículo"}
+                  </>
+                )}
+              </Button>
+            )}
+          </FormStepperFooter>
         </form>
-      </DialogContent>
+      </FormStepperDialogContent>
     </Dialog>
-  );
-}
-
-type SecaoFormularioProps = {
-  icone: LucideIcon;
-  titulo: string;
-  descricao: string;
-  children: React.ReactNode;
-};
-
-function SecaoFormulario({
-  icone: Icone,
-  titulo,
-  descricao,
-  children,
-}: SecaoFormularioProps) {
-  return (
-    <section className="rounded-xl border bg-muted/10 p-5">
-      <div className="mb-5 flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Icone size={20} />
-        </div>
-
-        <div>
-          <h3 className="font-semibold">
-            {titulo}
-          </h3>
-
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            {descricao}
-          </p>
-        </div>
-      </div>
-
-      {children}
-    </section>
   );
 }
 

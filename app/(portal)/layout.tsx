@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { PortalHeader } from "@/components/portal/portal-header";
+import { PortalSidebar } from "@/components/portal/portal-sidebar";
 
 export const dynamic =
   "force-dynamic";
@@ -51,15 +52,30 @@ export default async function PortalLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <PortalHeader
-        nome={usuario.nome}
+    <div className="empresa-shell flex h-screen overflow-hidden">
+      <PortalSidebar
+        usuarioNome={usuario.nome}
+        usuarioEmail={
+          session.user.email ??
+          undefined
+        }
         role={usuario.role}
       />
 
-      <main className="mx-auto w-full max-w-[1400px] p-5 sm:p-6">
-        {children}
-      </main>
+      <div className="empresa-main flex min-w-0 flex-1 flex-col">
+        <PortalHeader
+          usuarioNome={usuario.nome}
+          usuarioEmail={
+            session.user.email ??
+            undefined
+          }
+          role={usuario.role}
+        />
+
+        <main className="w-full flex-1 overflow-y-auto p-5 sm:p-6">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
