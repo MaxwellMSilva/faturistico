@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Building2,
+  Check,
   CheckCircle2,
   ClipboardList,
   FileText,
@@ -19,8 +20,10 @@ import {
   MessageSquareText,
   Plus,
   Save,
+  Search,
   Settings,
   UserRound,
+  X,
 } from "lucide-react";
 
 import { createRascunhoNfe } from "@/actions/nfe/create-rascunho-nfe";
@@ -88,6 +91,30 @@ function formatarDocumento(
   return documento;
 }
 
+function normalizarPesquisa(
+  valor: string
+) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function obterRotuloCliente(
+  cliente: Cliente
+) {
+  return `${cliente.nome} — ${formatarDocumento(
+    cliente.cpfCnpj
+  )}`;
+}
+
+function obterRotuloNatureza(
+  natureza: Natureza
+) {
+  return `${natureza.descricao} — CFOP ${natureza.cfop}`;
+}
+
 export function NovaNfeDialog({
   empresaId,
   clientes,
@@ -115,6 +142,26 @@ export function NovaNfeDialog({
   ] = useState("");
 
   const [
+    buscaCliente,
+    setBuscaCliente,
+  ] = useState("");
+
+  const [
+    buscaNatureza,
+    setBuscaNatureza,
+  ] = useState("");
+
+  const [
+    listaClientesAberta,
+    setListaClientesAberta,
+  ] = useState(false);
+
+  const [
+    listaNaturezasAberta,
+    setListaNaturezasAberta,
+  ] = useState(false);
+
+  const [
     informacoesComplementares,
     setInformacoesComplementares,
   ] = useState("");
@@ -129,6 +176,13 @@ export function NovaNfeDialog({
   function limparFormulario() {
     setClienteId("");
     setNaturezaOperacaoId("");
+
+    setBuscaCliente("");
+    setBuscaNatureza("");
+
+    setListaClientesAberta(false);
+    setListaNaturezasAberta(false);
+
     setInformacoesComplementares("");
     setErro("");
   }
@@ -160,6 +214,102 @@ export function NovaNfeDialog({
         natureza.id ===
         naturezaOperacaoId
     );
+
+  const termoCliente =
+    normalizarPesquisa(
+      buscaCliente
+    );
+
+  const termoNatureza =
+    normalizarPesquisa(
+      buscaNatureza
+    );
+
+  const clientesFiltrados =
+    termoCliente.length >= 3
+      ? clientes
+          .filter((cliente) => {
+            const nome =
+              normalizarPesquisa(
+                cliente.nome
+              );
+
+            const documento =
+              somenteNumeros(
+                cliente.cpfCnpj
+              );
+
+            const termoNumerico =
+              somenteNumeros(
+                termoCliente
+              );
+
+            return (
+              nome.includes(
+                termoCliente
+              ) ||
+              documento.includes(
+                termoCliente
+              ) ||
+              Boolean(
+                termoNumerico &&
+                  documento.includes(
+                    termoNumerico
+                  )
+              )
+            );
+          })
+          .slice(0, 8)
+      : [];
+
+  const naturezasFiltradas =
+    termoNatureza.length >= 3
+      ? naturezas
+          .filter((natureza) => {
+            const descricao =
+              normalizarPesquisa(
+                natureza.descricao
+              );
+
+            const cfop =
+              somenteNumeros(
+                natureza.cfop
+              );
+
+            const termoNumerico =
+              somenteNumeros(
+                termoNatureza
+              );
+
+            return (
+              descricao.includes(
+                termoNatureza
+              ) ||
+              cfop.includes(
+                termoNatureza
+              ) ||
+              Boolean(
+                termoNumerico &&
+                  cfop.includes(
+                    termoNumerico
+                  )
+              )
+            );
+          })
+          .slice(0, 8)
+      : [];
+
+  const exibirClientes =
+    listaClientesAberta &&
+    termoCliente.length >= 3 &&
+    temClientes &&
+    !carregando;
+
+  const exibirNaturezas =
+    listaNaturezasAberta &&
+    termoNatureza.length >= 3 &&
+    temNaturezas &&
+    !carregando;
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -466,46 +616,176 @@ export function NovaNfeDialog({
                   Cliente destinatário
                 </label>
 
-                <select
-                  id="clienteNovaNfe"
-                  value={clienteId}
-                  onChange={(event) => {
-                    setClienteId(
-                      event.target.value
-                    );
+                <div className="relative">
+                  <Search
+                    size={17}
+                    className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+                  />
 
-                    limparMensagens();
-                  }}
-                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                  disabled={
-                    carregando ||
-                    !temClientes
-                  }
-                  required
-                >
-                  <option value="">
-                    Selecione o cliente
-                  </option>
+                  <input
+                    id="clienteNovaNfe"
+                    type="text"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={
+                      exibirClientes
+                    }
+                    aria-controls="lista-clientes-nova-nfe"
+                    autoComplete="off"
+                    placeholder="Digite nome, CPF ou CNPJ..."
+                    value={buscaCliente}
+                    onFocus={() => {
+                      if (
+                        termoCliente.length >=
+                        3
+                      ) {
+                        setListaClientesAberta(
+                          true
+                        );
+                      }
+                    }}
+                    onBlur={() => {
+                      window.setTimeout(
+                        () =>
+                          setListaClientesAberta(
+                            false
+                          ),
+                        120
+                      );
+                    }}
+                    onChange={(event) => {
+                      const valor =
+                        event.target.value;
 
-                  {clientes.map(
-                    (cliente) => (
-                      <option
-                        key={cliente.id}
-                        value={cliente.id}
-                      >
-                        {cliente.nome} —{" "}
-                        {formatarDocumento(
-                          cliente.cpfCnpj
-                        )}
-                      </option>
-                    )
+                      setBuscaCliente(
+                        valor
+                      );
+
+                      setClienteId("");
+
+                      setListaClientesAberta(
+                        normalizarPesquisa(
+                          valor
+                        ).length >= 3
+                      );
+
+                      limparMensagens();
+                    }}
+                    className="h-11 w-full rounded-md border bg-background pl-10 pr-10 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={
+                      carregando ||
+                      !temClientes
+                    }
+                  />
+
+                  {buscaCliente && (
+                    <button
+                      type="button"
+                      aria-label="Limpar cliente"
+                      className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onMouseDown={(event) =>
+                        event.preventDefault()
+                      }
+                      onClick={() => {
+                        setBuscaCliente("");
+                        setClienteId("");
+                        setListaClientesAberta(
+                          false
+                        );
+                        limparMensagens();
+                      }}
+                      disabled={carregando}
+                    >
+                      <X size={15} />
+                    </button>
                   )}
-                </select>
+
+                  {exibirClientes && (
+                    <div
+                      id="lista-clientes-nova-nfe"
+                      role="listbox"
+                      className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg"
+                    >
+                      {clientesFiltrados.length >
+                      0 ? (
+                        clientesFiltrados.map(
+                          (cliente) => {
+                            const selecionado =
+                              cliente.id ===
+                              clienteId;
+
+                            return (
+                              <button
+                                key={
+                                  cliente.id
+                                }
+                                type="button"
+                                role="option"
+                                aria-selected={
+                                  selecionado
+                                }
+                                className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
+                                onMouseDown={(
+                                  event
+                                ) =>
+                                  event.preventDefault()
+                                }
+                                onClick={() => {
+                                  setClienteId(
+                                    cliente.id
+                                  );
+
+                                  setBuscaCliente(
+                                    obterRotuloCliente(
+                                      cliente
+                                    )
+                                  );
+
+                                  setListaClientesAberta(
+                                    false
+                                  );
+
+                                  limparMensagens();
+                                }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-medium">
+                                    {
+                                      cliente.nome
+                                    }
+                                  </span>
+
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                    {formatarDocumento(
+                                      cliente.cpfCnpj
+                                    )}
+                                  </span>
+                                </span>
+
+                                {selecionado && (
+                                  <Check
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-primary"
+                                  />
+                                )}
+                              </button>
+                            );
+                          }
+                        )
+                      ) : (
+                        <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                          Nenhum cliente
+                          encontrado.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <p className="text-xs text-muted-foreground">
-                  O endereço e os dados
-                  fiscais serão obtidos do
-                  cadastro do cliente.
+                  Digite pelo menos 3
+                  caracteres. Pesquise por
+                  nome, CPF ou CNPJ.
                 </p>
               </div>
 
@@ -517,53 +797,181 @@ export function NovaNfeDialog({
                   Natureza de operação
                 </label>
 
-                <select
-                  id="naturezaNovaNfe"
-                  value={
-                    naturezaOperacaoId
-                  }
-                  onChange={(event) => {
-                    setNaturezaOperacaoId(
-                      event.target.value
-                    );
+                <div className="relative">
+                  <Search
+                    size={17}
+                    className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+                  />
 
-                    limparMensagens();
-                  }}
-                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                  disabled={
-                    carregando ||
-                    !temNaturezas
-                  }
-                  required
-                >
-                  <option value="">
-                    Selecione a natureza
-                  </option>
+                  <input
+                    id="naturezaNovaNfe"
+                    type="text"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={
+                      exibirNaturezas
+                    }
+                    aria-controls="lista-naturezas-nova-nfe"
+                    autoComplete="off"
+                    placeholder="Digite descrição ou CFOP..."
+                    value={buscaNatureza}
+                    onFocus={() => {
+                      if (
+                        termoNatureza.length >=
+                        3
+                      ) {
+                        setListaNaturezasAberta(
+                          true
+                        );
+                      }
+                    }}
+                    onBlur={() => {
+                      window.setTimeout(
+                        () =>
+                          setListaNaturezasAberta(
+                            false
+                          ),
+                        120
+                      );
+                    }}
+                    onChange={(event) => {
+                      const valor =
+                        event.target.value;
 
-                  {naturezas.map(
-                    (natureza) => (
-                      <option
-                        key={
-                          natureza.id
-                        }
-                        value={
-                          natureza.id
-                        }
-                      >
-                        {
-                          natureza.descricao
-                        }{" "}
-                        — CFOP{" "}
-                        {natureza.cfop}
-                      </option>
-                    )
+                      setBuscaNatureza(
+                        valor
+                      );
+
+                      setNaturezaOperacaoId(
+                        ""
+                      );
+
+                      setListaNaturezasAberta(
+                        normalizarPesquisa(
+                          valor
+                        ).length >= 3
+                      );
+
+                      limparMensagens();
+                    }}
+                    className="h-11 w-full rounded-md border bg-background pl-10 pr-10 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={
+                      carregando ||
+                      !temNaturezas
+                    }
+                  />
+
+                  {buscaNatureza && (
+                    <button
+                      type="button"
+                      aria-label="Limpar natureza de operação"
+                      className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onMouseDown={(event) =>
+                        event.preventDefault()
+                      }
+                      onClick={() => {
+                        setBuscaNatureza("");
+                        setNaturezaOperacaoId(
+                          ""
+                        );
+                        setListaNaturezasAberta(
+                          false
+                        );
+                        limparMensagens();
+                      }}
+                      disabled={carregando}
+                    >
+                      <X size={15} />
+                    </button>
                   )}
-                </select>
+
+                  {exibirNaturezas && (
+                    <div
+                      id="lista-naturezas-nova-nfe"
+                      role="listbox"
+                      className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg"
+                    >
+                      {naturezasFiltradas.length >
+                      0 ? (
+                        naturezasFiltradas.map(
+                          (natureza) => {
+                            const selecionada =
+                              natureza.id ===
+                              naturezaOperacaoId;
+
+                            return (
+                              <button
+                                key={
+                                  natureza.id
+                                }
+                                type="button"
+                                role="option"
+                                aria-selected={
+                                  selecionada
+                                }
+                                className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
+                                onMouseDown={(
+                                  event
+                                ) =>
+                                  event.preventDefault()
+                                }
+                                onClick={() => {
+                                  setNaturezaOperacaoId(
+                                    natureza.id
+                                  );
+
+                                  setBuscaNatureza(
+                                    obterRotuloNatureza(
+                                      natureza
+                                    )
+                                  );
+
+                                  setListaNaturezasAberta(
+                                    false
+                                  );
+
+                                  limparMensagens();
+                                }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-medium">
+                                    {
+                                      natureza.descricao
+                                    }
+                                  </span>
+
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                    CFOP{" "}
+                                    {
+                                      natureza.cfop
+                                    }
+                                  </span>
+                                </span>
+
+                                {selecionada && (
+                                  <Check
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-primary"
+                                  />
+                                )}
+                              </button>
+                            );
+                          }
+                        )
+                      ) : (
+                        <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                          Nenhuma natureza
+                          encontrada.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <p className="text-xs text-muted-foreground">
-                  A natureza define a
-                  finalidade e o CFOP padrão
-                  da operação.
+                  Digite pelo menos 3
+                  caracteres. Pesquise pela
+                  descrição ou pelo CFOP.
                 </p>
               </div>
             </div>
@@ -668,44 +1076,56 @@ export function NovaNfeDialog({
             </div>
           )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={() =>
-                setAberto(false)
-              }
-              disabled={carregando}
-            >
-              Cancelar
-            </Button>
+          <DialogFooter className="border-t pt-5 sm:items-center sm:justify-between">
+            <div className="hidden sm:block">
+              <p className="text-xs text-muted-foreground">
+                Revise o destinatário e a
+                operação antes de criar o
+                rascunho.
+              </p>
+            </div>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-44"
-              disabled={
-                carregando ||
-                !configuracaoCompleta
-              }
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 rounded-xl px-4 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                onClick={() =>
+                  setAberto(false)
+                }
+                disabled={carregando}
+              >
+                <X size={17} />
 
-                  Criando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+                Cancelar
+              </Button>
 
-                  Criar rascunho
-                </>
-              )}
-            </Button>
+              <Button
+                type="submit"
+                className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-48"
+                disabled={
+                  carregando ||
+                  !configuracaoCompleta
+                }
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
+
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    Criar rascunho
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

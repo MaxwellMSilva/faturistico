@@ -14,6 +14,7 @@ import {
   Package,
   Pencil,
   Save,
+  X,
 } from "lucide-react";
 
 import { updateItemNfe } from "@/actions/nfe/update-item-nfe";
@@ -539,41 +540,52 @@ export function NfeItemEditDialog({
             </div>
           )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={() =>
-                setAberto(false)
-              }
-              disabled={carregando}
-            >
-              Cancelar
-            </Button>
+          <DialogFooter className="border-t pt-5 sm:items-center sm:justify-between">
+            <div className="hidden sm:block">
+              <p className="text-xs text-muted-foreground">
+                Revise os valores antes de
+                salvar as alterações do item.
+              </p>
+            </div>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-44"
-              disabled={carregando}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 rounded-xl px-4 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                onClick={() =>
+                  setAberto(false)
+                }
+                disabled={carregando}
+              >
+                <X size={17} />
 
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+                Cancelar
+              </Button>
 
-                  Salvar alterações
-                </>
-              )}
-            </Button>
+              <Button
+                type="submit"
+                className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-48"
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
+
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    Salvar alterações
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

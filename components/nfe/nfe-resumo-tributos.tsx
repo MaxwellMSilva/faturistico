@@ -76,10 +76,10 @@ export function NfeResumoTributos({
     normalizarValor(valorIpi);
 
   /*
-   * O valorIbs já representa a soma do
-   * IBS estadual e municipal.
+   * O valorIbs já representa a soma
+   * do IBS estadual e municipal.
    *
-   * Por isso, não somamos novamente
+   * Portanto, não somamos novamente
    * valorIbsUf e valorIbsMun.
    */
 
@@ -88,92 +88,110 @@ export function NfeResumoTributos({
     normalizarValor(valorCbs);
 
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+    <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
       {/* Cabeçalho */}
 
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <ReceiptText size={20} />
+      <div className="p-5 sm:p-6">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <ReceiptText
+                size={21}
+              />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold">
+                Resumo tributário
+              </h2>
+
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Valores calculados a partir
+                da tributação aplicada aos
+                itens da NF-e.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-lg font-semibold">
-              Resumo tributário
-            </h2>
+          <div className="w-full rounded-xl border bg-muted/10 px-4 py-3 sm:w-auto sm:min-w-52 sm:text-right">
+            <p className="text-xs font-medium text-muted-foreground">
+              Tributos do modelo atual
+            </p>
 
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Valores calculados a partir
-              da tributação aplicada aos
-              itens da NF-e.
+            <p className="mt-1 text-xl font-bold tracking-tight">
+              {formatarMoeda(
+                totalTributosAtuais
+              )}
             </p>
           </div>
         </div>
-
-        <div className="rounded-xl border bg-muted/10 px-4 py-3">
-          <p className="text-xs text-muted-foreground">
-            Tributos do modelo atual
-          </p>
-
-          <p className="mt-1 text-lg font-bold">
-            {formatarMoeda(
-              totalTributosAtuais
-            )}
-          </p>
-        </div>
       </div>
 
-      <div className="space-y-6">
-        {/* ICMS, PIS, COFINS e IPI */}
+      <div className="space-y-7 border-t bg-muted/[0.02] p-5 sm:p-6">
+        {/* Tributos atuais */}
 
         <TributoGrupo
           icone={Landmark}
-          titulo="ICMS, PIS, COFINS e IPI"
-          descricao="Tributos atualmente calculados nos itens do documento."
+          sigla="ATUAL"
+          titulo="Tributos do modelo atual"
+          descricao="ICMS, PIS, COFINS e IPI calculados nos itens do documento."
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <CardTributo
-              titulo="Base de ICMS"
-              valor={valorBaseIcms}
+              sigla="BC ICMS"
+              titulo="Base de cálculo do ICMS"
+              descricao="Valor utilizado como base para calcular o ICMS."
+              valor={
+                valorBaseIcms
+              }
               destaque="base"
             />
 
             <CardTributo
-              titulo="ICMS"
+              sigla="ICMS"
+              titulo="Imposto sobre Circulação de Mercadorias e Serviços"
+              descricao="Tributo estadual aplicado à circulação de mercadorias."
               valor={valorIcms}
             />
 
             <CardTributo
-              titulo="PIS"
+              sigla="PIS"
+              titulo="Programa de Integração Social"
+              descricao="Contribuição federal incidente sobre a receita."
               valor={valorPis}
             />
 
             <CardTributo
-              titulo="COFINS"
+              sigla="COFINS"
+              titulo="Contribuição para o Financiamento da Seguridade Social"
+              descricao="Contribuição federal destinada à seguridade social."
               valor={valorCofins}
             />
 
             <CardTributo
-              titulo="IPI"
+              sigla="IPI"
+              titulo="Imposto sobre Produtos Industrializados"
+              descricao="Tributo federal aplicado a produtos industrializados."
               valor={valorIpi}
             />
           </div>
         </TributoGrupo>
 
-        {/* IBS e CBS */}
+        {/* Reforma tributária */}
 
-        <div className="border-t pt-6">
+        <div className="border-t pt-7">
           <TributoGrupo
             icone={Scale}
+            sigla="REFORMA"
             titulo="IBS e CBS"
-            descricao="Valores relacionados à nova tributação sobre o consumo."
+            descricao="Tributos relacionados ao novo modelo de tributação sobre o consumo."
             complemento={
-              <div className="rounded-lg border bg-muted/10 px-3 py-2 text-right">
-                <p className="text-xs text-muted-foreground">
+              <div className="w-full rounded-xl border bg-background px-4 py-3 sm:w-auto sm:min-w-48 sm:text-right">
+                <p className="text-xs font-medium text-muted-foreground">
                   Total IBS + CBS
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 text-lg font-bold text-primary">
                   {formatarMoeda(
                     totalIbsCbs
                   )}
@@ -183,7 +201,9 @@ export function NfeResumoTributos({
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <CardTributo
-                titulo="Base IBS/CBS"
+                sigla="BC IBS/CBS"
+                titulo="Base de cálculo do IBS e da CBS"
+                descricao="Valor utilizado para calcular os novos tributos."
                 valor={
                   valorBaseIbsCbs
                 }
@@ -191,23 +211,31 @@ export function NfeResumoTributos({
               />
 
               <CardTributo
+                sigla="IBS UF"
                 titulo="IBS estadual"
+                descricao="Parcela do IBS destinada ao estado."
                 valor={valorIbsUf}
               />
 
               <CardTributo
+                sigla="IBS MUN"
                 titulo="IBS municipal"
+                descricao="Parcela do IBS destinada ao município."
                 valor={valorIbsMun}
               />
 
               <CardTributo
-                titulo="Total do IBS"
+                sigla="IBS"
+                titulo="Imposto sobre Bens e Serviços"
+                descricao="Total do IBS estadual e municipal."
                 valor={valorIbs}
                 destaque="total"
               />
 
               <CardTributo
-                titulo="CBS"
+                sigla="CBS"
+                titulo="Contribuição sobre Bens e Serviços"
+                descricao="Contribuição federal sobre bens e serviços."
                 valor={valorCbs}
               />
             </div>
@@ -217,20 +245,23 @@ export function NfeResumoTributos({
 
       {/* Observação */}
 
-      <div className="mt-6 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-        <Percent
-          size={18}
-          className="mt-0.5 shrink-0 text-primary"
-        />
+      <div className="border-t p-5 sm:p-6">
+        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <Percent
+            size={18}
+            className="mt-0.5 shrink-0 text-primary"
+          />
 
-        <p className="text-xs leading-5 text-muted-foreground">
-          Os valores exibidos são
-          consolidados a partir dos itens.
-          Alterações em quantidade, preço,
-          desconto ou classificação fiscal
-          provocam o recálculo automático
-          dos tributos.
-        </p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Os valores exibidos são
+            consolidados a partir dos itens
+            da NF-e. Alterações em
+            quantidade, preço, desconto ou
+            classificação fiscal provocam
+            o recálculo automático dos
+            tributos.
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -239,6 +270,7 @@ export function NfeResumoTributos({
 type TributoGrupoProps = {
   icone: LucideIcon;
 
+  sigla: string;
   titulo: string;
   descricao: string;
 
@@ -249,25 +281,32 @@ type TributoGrupoProps = {
 
 function TributoGrupo({
   icone: Icone,
+  sigla,
   titulo,
   descricao,
   complemento,
   children,
 }: TributoGrupoProps) {
   return (
-    <section className="space-y-4">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+    <section className="space-y-5">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Icone size={17} />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Icone size={19} />
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold">
-              {titulo}
-            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold">
+                {titulo}
+              </h3>
 
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              <span className="rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-bold tracking-wide text-primary">
+                {sigla}
+              </span>
+            </div>
+
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
               {descricao}
             </p>
           </div>
@@ -282,7 +321,10 @@ function TributoGrupo({
 }
 
 type CardTributoProps = {
+  sigla: string;
   titulo: string;
+  descricao: string;
+
   valor: number;
 
   destaque?:
@@ -291,7 +333,9 @@ type CardTributoProps = {
 };
 
 function CardTributo({
+  sigla,
   titulo,
+  descricao,
   valor,
   destaque,
 }: CardTributoProps) {
@@ -299,38 +343,65 @@ function CardTributo({
     normalizarValor(valor);
 
   return (
-    <div
+    <article
       className={[
-        "rounded-xl border p-4 transition-colors",
+        "flex min-h-48 flex-col rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-sm",
         destaque === "total"
           ? "border-primary/30 bg-primary/5"
           : destaque === "base"
-            ? "bg-muted/10"
+            ? "bg-muted/20"
             : "bg-background",
       ].join(" ")}
     >
-      <p className="text-xs text-muted-foreground">
-        {titulo}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <span
+          className={[
+            "inline-flex rounded-md border px-2 py-1 text-[10px] font-bold tracking-wide",
+            destaque === "total"
+              ? "border-primary/30 bg-primary/10 text-primary"
+              : "bg-muted/40 text-muted-foreground",
+          ].join(" ")}
+        >
+          {sigla}
+        </span>
 
-      <p
-        className={[
-          "mt-1",
-          destaque === "total"
-            ? "font-bold text-primary"
-            : "font-semibold",
-        ].join(" ")}
-      >
-        {formatarMoeda(
-          valorNormalizado
+        {destaque === "total" && (
+          <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
+            Total
+          </span>
         )}
-      </p>
+      </div>
 
-      {valorNormalizado === 0 && (
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Sem valor calculado
+      <div className="mt-4">
+        <p className="text-sm font-semibold leading-5">
+          {titulo}
         </p>
-      )}
-    </div>
+
+        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+          {descricao}
+        </p>
+      </div>
+
+      <div className="mt-auto border-t pt-4">
+        <p
+          className={[
+            "text-lg font-bold tracking-tight",
+            destaque === "total"
+              ? "text-primary"
+              : "text-foreground",
+          ].join(" ")}
+        >
+          {formatarMoeda(
+            valorNormalizado
+          )}
+        </p>
+
+        {valorNormalizado === 0 && (
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Sem valor calculado
+          </p>
+        )}
+      </div>
+    </article>
   );
 }

@@ -12,13 +12,16 @@ import {
   AlertTriangle,
   Boxes,
   CarFront,
+  Check,
   LoaderCircle,
   LockKeyhole,
   PackageCheck,
   Save,
   Scale,
+  Search,
   Truck,
   UserRound,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -148,45 +151,61 @@ type Props = {
 const modalidadesFrete: Array<{
   value: ModalidadeFrete;
   codigo: string;
-  label: string;
+  sigla: string;
+  titulo: string;
+  descricao: string;
 }> = [
   {
     value: "POR_CONTA_EMITENTE",
     codigo: "0",
-    label:
-      "Contratação do frete por conta do emitente",
+    sigla: "CIF",
+    titulo: "Por conta do emitente",
+    descricao:
+      "O emitente contrata e assume o frete.",
   },
   {
     value:
       "POR_CONTA_DESTINATARIO",
     codigo: "1",
-    label:
-      "Contratação do frete por conta do destinatário",
+    sigla: "FOB",
+    titulo: "Por conta do destinatário",
+    descricao:
+      "O destinatário contrata e assume o frete.",
   },
   {
     value: "POR_CONTA_TERCEIROS",
     codigo: "2",
-    label:
-      "Contratação do frete por conta de terceiros",
+    sigla: "TERCEIROS",
+    titulo: "Por conta de terceiros",
+    descricao:
+      "O transporte é contratado por outra pessoa ou empresa.",
   },
   {
     value:
       "TRANSPORTE_PROPRIO_EMITENTE",
     codigo: "3",
-    label:
-      "Transporte próprio por conta do emitente",
+    sigla: "PRÓPRIO",
+    titulo: "Transporte próprio do emitente",
+    descricao:
+      "O emitente realiza o transporte com veículo próprio.",
   },
   {
     value:
       "TRANSPORTE_PROPRIO_DESTINATARIO",
     codigo: "4",
-    label:
-      "Transporte próprio por conta do destinatário",
+    sigla: "PRÓPRIO",
+    titulo:
+      "Transporte próprio do destinatário",
+    descricao:
+      "O destinatário realiza o transporte com veículo próprio.",
   },
   {
     value: "SEM_TRANSPORTE",
     codigo: "9",
-    label: "Sem ocorrência de transporte",
+    sigla: "SEM FRETE",
+    titulo: "Sem ocorrência de transporte",
+    descricao:
+      "A operação não possui transporte.",
   },
 ];
 
@@ -239,20 +258,91 @@ function formatarPlaca(
   )}-${placa.slice(3)}`;
 }
 
+function normalizarPesquisa(
+  valor: string
+) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function obterRotuloTransportador(
+  transportador: Transportador
+) {
+  return `${transportador.nome} — ${formatarDocumento(
+    transportador.cpfCnpj
+  )}`;
+}
+
+function obterRotuloVeiculo(
+  veiculo: Veiculo
+) {
+  return [
+    formatarPlaca(veiculo.placa),
+    veiculo.marcaModelo,
+  ]
+    .filter(Boolean)
+    .join(" — ");
+}
+
+function obterRotuloMotorista(
+  motorista: Motorista
+) {
+  return [
+    motorista.nome,
+    motorista.categoriaCnh
+      ? `CNH ${motorista.categoriaCnh}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" — ");
+}
+
 function valorParaCampo(
   valor?: number | null
 ) {
   if (
     valor === null ||
-    valor === undefined
+    valor === undefined ||
+    !Number.isFinite(valor)
   ) {
     return "";
   }
 
-  return String(valor).replace(
-    ".",
-    ","
-  );
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }
+  ).format(valor);
+}
+
+function formatarPeso(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      15
+    );
+
+  if (!numeros) {
+    return "";
+  }
+
+  const valorNumerico =
+    Number(numeros) / 1000;
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }
+  ).format(valorNumerico);
 }
 
 function converterDecimal(
@@ -376,6 +466,75 @@ export function NfeTransporteForm({
     );
 
   const [
+    buscaTransportador,
+    setBuscaTransportador,
+  ] = useState(() => {
+    const selecionado =
+      transportadores.find(
+        (transportador) =>
+          transportador.id ===
+          transporte?.transportadorId
+      );
+
+    return selecionado
+      ? obterRotuloTransportador(
+          selecionado
+        )
+      : "";
+  });
+
+  const [
+    buscaVeiculo,
+    setBuscaVeiculo,
+  ] = useState(() => {
+    const selecionado =
+      veiculos.find(
+        (veiculo) =>
+          veiculo.id ===
+          transporte?.veiculoId
+      );
+
+    return selecionado
+      ? obterRotuloVeiculo(
+          selecionado
+        )
+      : "";
+  });
+
+  const [
+    buscaMotorista,
+    setBuscaMotorista,
+  ] = useState(() => {
+    const selecionado =
+      motoristas.find(
+        (motorista) =>
+          motorista.id ===
+          transporte?.motoristaId
+      );
+
+    return selecionado
+      ? obterRotuloMotorista(
+          selecionado
+        )
+      : "";
+  });
+
+  const [
+    listaTransportadoresAberta,
+    setListaTransportadoresAberta,
+  ] = useState(false);
+
+  const [
+    listaVeiculosAberta,
+    setListaVeiculosAberta,
+  ] = useState(false);
+
+  const [
+    listaMotoristasAberta,
+    setListaMotoristasAberta,
+  ] = useState(false);
+
+  const [
     carregando,
     setCarregando,
   ] = useState(false);
@@ -395,6 +554,13 @@ export function NfeTransporteForm({
   const semTransporte =
     form.modalidadeFrete ===
     "SEM_TRANSPORTE";
+
+  const modalidadeSelecionada =
+    modalidadesFrete.find(
+      (modalidade) =>
+        modalidade.value ===
+        form.modalidadeFrete
+    );
 
   const transportadoresDisponiveis =
     transportadores.filter(
@@ -444,6 +610,220 @@ export function NfeTransporteForm({
       }
     );
 
+  const termoTransportador =
+    normalizarPesquisa(
+      buscaTransportador
+    );
+
+  const termoVeiculo =
+    normalizarPesquisa(
+      buscaVeiculo
+    );
+
+  const termoMotorista =
+    normalizarPesquisa(
+      buscaMotorista
+    );
+
+  const transportadoresFiltrados =
+    termoTransportador.length >= 3
+      ? transportadoresDisponiveis
+          .filter(
+            (transportador) => {
+              const nome =
+                normalizarPesquisa(
+                  transportador.nome
+                );
+
+              const fantasia =
+                normalizarPesquisa(
+                  transportador
+                    .nomeFantasia ?? ""
+                );
+
+              const documento =
+                somenteNumeros(
+                  transportador.cpfCnpj
+                );
+
+              const rntrc =
+                somenteNumeros(
+                  transportador.rntrc
+                );
+
+              const termoNumerico =
+                somenteNumeros(
+                  termoTransportador
+                );
+
+              return (
+                nome.includes(
+                  termoTransportador
+                ) ||
+                fantasia.includes(
+                  termoTransportador
+                ) ||
+                documento.includes(
+                  termoTransportador
+                ) ||
+                rntrc.includes(
+                  termoTransportador
+                ) ||
+                Boolean(
+                  termoNumerico &&
+                    (
+                      documento.includes(
+                        termoNumerico
+                      ) ||
+                      rntrc.includes(
+                        termoNumerico
+                      )
+                    )
+                )
+              );
+            }
+          )
+          .slice(0, 8)
+      : [];
+
+  const veiculosFiltrados =
+    termoVeiculo.length >= 3
+      ? veiculosDisponiveis
+          .filter((veiculo) => {
+            const placa =
+              normalizarPesquisa(
+                formatarPlaca(
+                  veiculo.placa
+                )
+              );
+
+            const placaNumerica =
+              somenteNumeros(
+                veiculo.placa
+              );
+
+            const marcaModelo =
+              normalizarPesquisa(
+                veiculo.marcaModelo ??
+                  ""
+              );
+
+            const renavam =
+              somenteNumeros(
+                veiculo.renavam
+              );
+
+            const uf =
+              normalizarPesquisa(
+                veiculo
+                  .ufLicenciamento ??
+                  ""
+              );
+
+            const tipo =
+              normalizarPesquisa(
+                veiculo.tipo
+              );
+
+            const termoNumerico =
+              somenteNumeros(
+                termoVeiculo
+              );
+
+            return (
+              placa.includes(
+                termoVeiculo
+              ) ||
+              marcaModelo.includes(
+                termoVeiculo
+              ) ||
+              uf.includes(
+                termoVeiculo
+              ) ||
+              tipo.includes(
+                termoVeiculo
+              ) ||
+              placaNumerica.includes(
+                termoVeiculo
+              ) ||
+              renavam.includes(
+                termoVeiculo
+              ) ||
+              Boolean(
+                termoNumerico &&
+                  (
+                    placaNumerica.includes(
+                      termoNumerico
+                    ) ||
+                    renavam.includes(
+                      termoNumerico
+                    )
+                  )
+              )
+            );
+          })
+          .slice(0, 8)
+      : [];
+
+  const motoristasFiltrados =
+    termoMotorista.length >= 3
+      ? motoristasDisponiveis
+          .filter((motorista) => {
+            const nome =
+              normalizarPesquisa(
+                motorista.nome
+              );
+
+            const cpf =
+              somenteNumeros(
+                motorista.cpf
+              );
+
+            const cnh =
+              somenteNumeros(
+                motorista.numeroCnh
+              );
+
+            const categoria =
+              normalizarPesquisa(
+                motorista
+                  .categoriaCnh ?? ""
+              );
+
+            const termoNumerico =
+              somenteNumeros(
+                termoMotorista
+              );
+
+            return (
+              nome.includes(
+                termoMotorista
+              ) ||
+              categoria.includes(
+                termoMotorista
+              ) ||
+              cpf.includes(
+                termoMotorista
+              ) ||
+              cnh.includes(
+                termoMotorista
+              ) ||
+              Boolean(
+                termoNumerico &&
+                  (
+                    cpf.includes(
+                      termoNumerico
+                    ) ||
+                    cnh.includes(
+                      termoNumerico
+                    )
+                  )
+              )
+            );
+          })
+          .slice(0, 8)
+      : [];
+
   function limparMensagens() {
     setErro("");
     setMensagem("");
@@ -466,57 +846,82 @@ export function NfeTransporteForm({
   function selecionarTransportador(
     transportadorId: string
   ) {
-    setForm((anterior) => {
-      const veiculoAtual =
-        veiculos.find(
-          (veiculo) =>
-            veiculo.id ===
-            anterior.veiculoId
-        );
+    const transportador =
+      transportadores.find(
+        (item) =>
+          item.id ===
+          transportadorId
+      );
 
-      const motoristaAtual =
-        motoristas.find(
-          (motorista) =>
-            motorista.id ===
-            anterior.motoristaId
-        );
+    const veiculoAtual =
+      veiculos.find(
+        (veiculo) =>
+          veiculo.id ===
+          form.veiculoId
+      );
 
-      const limparVeiculo =
-        Boolean(
-          transportadorId &&
-            veiculoAtual
-              ?.transportadorId &&
-            veiculoAtual
-              .transportadorId !==
-              transportadorId
-        );
+    const motoristaAtual =
+      motoristas.find(
+        (motorista) =>
+          motorista.id ===
+          form.motoristaId
+      );
 
-      const limparMotorista =
-        Boolean(
-          transportadorId &&
-            motoristaAtual
-              ?.transportadorId &&
-            motoristaAtual
-              .transportadorId !==
-              transportadorId
-        );
+    const limparVeiculo =
+      Boolean(
+        transportadorId &&
+          veiculoAtual
+            ?.transportadorId &&
+          veiculoAtual
+            .transportadorId !==
+            transportadorId
+      );
 
-      return {
-        ...anterior,
+    const limparMotorista =
+      Boolean(
+        transportadorId &&
+          motoristaAtual
+            ?.transportadorId &&
+          motoristaAtual
+            .transportadorId !==
+            transportadorId
+      );
 
-        transportadorId,
+    setForm((anterior) => ({
+      ...anterior,
 
-        veiculoId:
-          limparVeiculo
-            ? ""
-            : anterior.veiculoId,
+      transportadorId,
 
-        motoristaId:
-          limparMotorista
-            ? ""
-            : anterior.motoristaId,
-      };
-    });
+      veiculoId:
+        limparVeiculo
+          ? ""
+          : anterior.veiculoId,
+
+      motoristaId:
+        limparMotorista
+          ? ""
+          : anterior.motoristaId,
+    }));
+
+    setBuscaTransportador(
+      transportador
+        ? obterRotuloTransportador(
+            transportador
+          )
+        : ""
+    );
+
+    if (limparVeiculo) {
+      setBuscaVeiculo("");
+    }
+
+    if (limparMotorista) {
+      setBuscaMotorista("");
+    }
+
+    setListaTransportadoresAberta(
+      false
+    );
 
     limparMensagens();
   }
@@ -530,43 +935,72 @@ export function NfeTransporteForm({
           item.id === veiculoId
       );
 
-    setForm((anterior) => {
-      const novoTransportadorId =
-        veiculo
-          ?.transportadorId ||
-        anterior.transportadorId;
+    const novoTransportadorId =
+      veiculo
+        ?.transportadorId ||
+      form.transportadorId;
 
-      const motoristaAtual =
-        motoristas.find(
-          (motorista) =>
-            motorista.id ===
-            anterior.motoristaId
-        );
+    const transportador =
+      transportadores.find(
+        (item) =>
+          item.id ===
+          novoTransportadorId
+      );
 
-      const motoristaIncompativel =
-        Boolean(
-          novoTransportadorId &&
-            motoristaAtual
-              ?.transportadorId &&
-            motoristaAtual
-              .transportadorId !==
-              novoTransportadorId
-        );
+    const motoristaAtual =
+      motoristas.find(
+        (motorista) =>
+          motorista.id ===
+          form.motoristaId
+      );
 
-      return {
-        ...anterior,
+    const motoristaIncompativel =
+      Boolean(
+        novoTransportadorId &&
+          motoristaAtual
+            ?.transportadorId &&
+          motoristaAtual
+            .transportadorId !==
+            novoTransportadorId
+      );
 
-        veiculoId,
+    setForm((anterior) => ({
+      ...anterior,
 
-        transportadorId:
-          novoTransportadorId,
+      veiculoId,
 
-        motoristaId:
-          motoristaIncompativel
-            ? ""
-            : anterior.motoristaId,
-      };
-    });
+      transportadorId:
+        novoTransportadorId,
+
+      motoristaId:
+        motoristaIncompativel
+          ? ""
+          : anterior.motoristaId,
+    }));
+
+    setBuscaVeiculo(
+      veiculo
+        ? obterRotuloVeiculo(
+            veiculo
+          )
+        : ""
+    );
+
+    if (transportador) {
+      setBuscaTransportador(
+        obterRotuloTransportador(
+          transportador
+        )
+      );
+    }
+
+    if (motoristaIncompativel) {
+      setBuscaMotorista("");
+    }
+
+    setListaVeiculosAberta(
+      false
+    );
 
     limparMensagens();
   }
@@ -577,47 +1011,75 @@ export function NfeTransporteForm({
     const motorista =
       motoristas.find(
         (item) =>
-          item.id ===
-          motoristaId
+          item.id === motoristaId
       );
 
-    setForm((anterior) => {
-      const novoTransportadorId =
-        motorista
-          ?.transportadorId ||
-        anterior.transportadorId;
+    const novoTransportadorId =
+      motorista
+        ?.transportadorId ||
+      form.transportadorId;
 
-      const veiculoAtual =
-        veiculos.find(
-          (veiculo) =>
-            veiculo.id ===
-            anterior.veiculoId
-        );
+    const transportador =
+      transportadores.find(
+        (item) =>
+          item.id ===
+          novoTransportadorId
+      );
 
-      const veiculoIncompativel =
-        Boolean(
-          novoTransportadorId &&
-            veiculoAtual
-              ?.transportadorId &&
-            veiculoAtual
-              .transportadorId !==
-              novoTransportadorId
-        );
+    const veiculoAtual =
+      veiculos.find(
+        (veiculo) =>
+          veiculo.id ===
+          form.veiculoId
+      );
 
-      return {
-        ...anterior,
+    const veiculoIncompativel =
+      Boolean(
+        novoTransportadorId &&
+          veiculoAtual
+            ?.transportadorId &&
+          veiculoAtual
+            .transportadorId !==
+            novoTransportadorId
+      );
 
-        motoristaId,
+    setForm((anterior) => ({
+      ...anterior,
 
-        transportadorId:
-          novoTransportadorId,
+      motoristaId,
 
-        veiculoId:
-          veiculoIncompativel
-            ? ""
-            : anterior.veiculoId,
-      };
-    });
+      transportadorId:
+        novoTransportadorId,
+
+      veiculoId:
+        veiculoIncompativel
+          ? ""
+          : anterior.veiculoId,
+    }));
+
+    setBuscaMotorista(
+      motorista
+        ? obterRotuloMotorista(
+            motorista
+          )
+        : ""
+    );
+
+    if (transportador) {
+      setBuscaTransportador(
+        obterRotuloTransportador(
+          transportador
+        )
+      );
+    }
+
+    if (veiculoIncompativel) {
+      setBuscaVeiculo("");
+    }
+
+    setListaMotoristasAberta(
+      false
+    );
 
     limparMensagens();
   }
@@ -840,6 +1302,22 @@ export function NfeTransporteForm({
           pesoLiquido: "",
           pesoBruto: "",
         }));
+
+        setBuscaTransportador("");
+        setBuscaVeiculo("");
+        setBuscaMotorista("");
+
+        setListaTransportadoresAberta(
+          false
+        );
+
+        setListaVeiculosAberta(
+          false
+        );
+
+        setListaMotoristasAberta(
+          false
+        );
       }
 
       setMensagem(
@@ -925,12 +1403,37 @@ export function NfeTransporteForm({
                     modalidade.value
                   }
                 >
-                  {modalidade.codigo} —{" "}
-                  {modalidade.label}
+                  {modalidade.sigla} —{" "}
+                  {modalidade.codigo} ·{" "}
+                  {modalidade.titulo}
                 </option>
               )
             )}
           </CampoSelect>
+
+          {modalidadeSelecionada && (
+            <div className="mt-4 flex items-start gap-3 rounded-xl border bg-background px-4 py-3">
+              <span className="shrink-0 rounded-md border border-primary/20 bg-primary/5 px-2 py-1 text-[10px] font-bold tracking-wide text-primary">
+                {
+                  modalidadeSelecionada.sigla
+                }
+              </span>
+
+              <div>
+                <p className="text-sm font-medium">
+                  {
+                    modalidadeSelecionada.titulo
+                  }
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {
+                    modalidadeSelecionada.descricao
+                  }
+                </p>
+              </div>
+            </div>
+          )}
         </SecaoFormulario>
 
         {semTransporte ? (
@@ -961,114 +1464,225 @@ export function NfeTransporteForm({
               descricao="Os campos são opcionais e utilizam os cadastros da empresa."
             >
               <div className="grid gap-5 lg:grid-cols-3">
-                <CampoSelect
+                <CampoPesquisa
                   id={`transportador-${notaFiscalId}`}
                   label="Transportador"
+                  placeholder="Nome, CPF/CNPJ ou RNTRC..."
                   value={
+                    buscaTransportador
+                  }
+                  selecionadoId={
                     form.transportadorId
                   }
-                  onChange={
+                  aberto={
+                    listaTransportadoresAberta
+                  }
+                  setAberto={
+                    setListaTransportadoresAberta
+                  }
+                  resultados={transportadoresFiltrados.map(
+                    (transportador) => ({
+                      id:
+                        transportador.id,
+
+                      titulo:
+                        transportador.nome,
+
+                      detalhes: [
+                        formatarDocumento(
+                          transportador.cpfCnpj
+                        ),
+
+                        transportador.rntrc
+                          ? `RNTRC ${transportador.rntrc}`
+                          : "",
+
+                        !transportador.ativo
+                          ? "Inativo"
+                          : "",
+                      ].filter(Boolean),
+                    })
+                  )}
+                  onChange={(valor) => {
+                    setBuscaTransportador(
+                      valor
+                    );
+
+                    setForm(
+                      (anterior) => ({
+                        ...anterior,
+                        transportadorId:
+                          "",
+                      })
+                    );
+
+                    setListaTransportadoresAberta(
+                      normalizarPesquisa(
+                        valor
+                      ).length >= 3
+                    );
+
+                    limparMensagens();
+                  }}
+                  onSelect={
                     selecionarTransportador
                   }
-                  disabled={bloqueado}
-                >
-                  <option value="">
-                    Sem transportador selecionado
-                  </option>
-
-                  {transportadoresDisponiveis.map(
-                    (transportador) => (
-                      <option
-                        key={
-                          transportador.id
-                        }
-                        value={
-                          transportador.id
-                        }
-                      >
-                        {transportador.nome} —{" "}
-                        {formatarDocumento(
-                          transportador.cpfCnpj
-                        )}
-                        {!transportador.ativo
-                          ? " — Inativo"
-                          : ""}
-                      </option>
+                  onClear={() =>
+                    selecionarTransportador(
+                      ""
                     )
-                  )}
-                </CampoSelect>
+                  }
+                  disabled={bloqueado}
+                  ajuda="Digite pelo menos 3 caracteres. Pesquise por nome, CPF/CNPJ ou RNTRC."
+                  mensagemVazia="Nenhum transportador encontrado."
+                />
 
-                <CampoSelect
+                <CampoPesquisa
                   id={`veiculo-${notaFiscalId}`}
                   label="Veículo"
-                  value={
+                  placeholder="Placa, modelo ou RENAVAM..."
+                  value={buscaVeiculo}
+                  selecionadoId={
                     form.veiculoId
                   }
-                  onChange={
+                  aberto={
+                    listaVeiculosAberta
+                  }
+                  setAberto={
+                    setListaVeiculosAberta
+                  }
+                  resultados={veiculosFiltrados.map(
+                    (veiculo) => ({
+                      id: veiculo.id,
+
+                      titulo:
+                        formatarPlaca(
+                          veiculo.placa
+                        ),
+
+                      detalhes: [
+                        veiculo.marcaModelo ??
+                          "",
+
+                        veiculo.renavam
+                          ? `RENAVAM ${veiculo.renavam}`
+                          : "",
+
+                        veiculo.ufLicenciamento
+                          ? `UF ${veiculo.ufLicenciamento}`
+                          : "",
+
+                        !veiculo.ativo
+                          ? "Inativo"
+                          : "",
+                      ].filter(Boolean),
+                    })
+                  )}
+                  onChange={(valor) => {
+                    setBuscaVeiculo(
+                      valor
+                    );
+
+                    setForm(
+                      (anterior) => ({
+                        ...anterior,
+                        veiculoId: "",
+                      })
+                    );
+
+                    setListaVeiculosAberta(
+                      normalizarPesquisa(
+                        valor
+                      ).length >= 3
+                    );
+
+                    limparMensagens();
+                  }}
+                  onSelect={
                     selecionarVeiculo
                   }
+                  onClear={() =>
+                    selecionarVeiculo("")
+                  }
                   disabled={bloqueado}
-                >
-                  <option value="">
-                    Sem veículo selecionado
-                  </option>
+                  ajuda="Digite pelo menos 3 caracteres. Pesquise por placa, modelo ou RENAVAM."
+                  mensagemVazia="Nenhum veículo encontrado."
+                />
 
-                  {veiculosDisponiveis.map(
-                    (veiculo) => (
-                      <option
-                        key={veiculo.id}
-                        value={veiculo.id}
-                      >
-                        {formatarPlaca(
-                          veiculo.placa
-                        )}
-                        {veiculo.marcaModelo
-                          ? ` — ${veiculo.marcaModelo}`
-                          : ""}
-                        {!veiculo.ativo
-                          ? " — Inativo"
-                          : ""}
-                      </option>
-                    )
-                  )}
-                </CampoSelect>
-
-                <CampoSelect
+                <CampoPesquisa
                   id={`motorista-${notaFiscalId}`}
                   label="Motorista"
-                  value={
+                  placeholder="Nome, CPF ou CNH..."
+                  value={buscaMotorista}
+                  selecionadoId={
                     form.motoristaId
                   }
-                  onChange={
+                  aberto={
+                    listaMotoristasAberta
+                  }
+                  setAberto={
+                    setListaMotoristasAberta
+                  }
+                  resultados={motoristasFiltrados.map(
+                    (motorista) => ({
+                      id:
+                        motorista.id,
+
+                      titulo:
+                        motorista.nome,
+
+                      detalhes: [
+                        formatarDocumento(
+                          motorista.cpf
+                        ),
+
+                        motorista.numeroCnh
+                          ? `CNH ${motorista.numeroCnh}`
+                          : "",
+
+                        motorista.categoriaCnh
+                          ? `Categoria ${motorista.categoriaCnh}`
+                          : "",
+
+                        !motorista.ativo
+                          ? "Inativo"
+                          : "",
+                      ].filter(Boolean),
+                    })
+                  )}
+                  onChange={(valor) => {
+                    setBuscaMotorista(
+                      valor
+                    );
+
+                    setForm(
+                      (anterior) => ({
+                        ...anterior,
+                        motoristaId:
+                          "",
+                      })
+                    );
+
+                    setListaMotoristasAberta(
+                      normalizarPesquisa(
+                        valor
+                      ).length >= 3
+                    );
+
+                    limparMensagens();
+                  }}
+                  onSelect={
                     selecionarMotorista
                   }
-                  disabled={bloqueado}
-                >
-                  <option value="">
-                    Sem motorista selecionado
-                  </option>
-
-                  {motoristasDisponiveis.map(
-                    (motorista) => (
-                      <option
-                        key={
-                          motorista.id
-                        }
-                        value={
-                          motorista.id
-                        }
-                      >
-                        {motorista.nome}
-                        {motorista.categoriaCnh
-                          ? ` — CNH ${motorista.categoriaCnh}`
-                          : ""}
-                        {!motorista.ativo
-                          ? " — Inativo"
-                          : ""}
-                      </option>
+                  onClear={() =>
+                    selecionarMotorista(
+                      ""
                     )
-                  )}
-                </CampoSelect>
+                  }
+                  disabled={bloqueado}
+                  ajuda="Digite pelo menos 3 caracteres. Pesquise por nome, CPF ou CNH."
+                  mensagemVazia="Nenhum motorista encontrado."
+                />
               </div>
             </SecaoFormulario>
 
@@ -1091,7 +1705,7 @@ export function NfeTransporteForm({
                       "quantidadeVolumes",
                       somenteNumeros(
                         valor
-                      )
+                      ).slice(0, 9)
                     )
                   }
                   disabled={bloqueado}
@@ -1219,10 +1833,16 @@ export function NfeTransporteForm({
       </div>
 
       {podeEditar && (
-        <div className="mt-6 flex justify-end border-t pt-5">
+        <div className="mt-6 flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Revise a modalidade, os
+            responsáveis, os volumes e os
+            pesos antes de salvar.
+          </p>
+
           <Button
             type="submit"
-            className="h-11 min-w-48"
+            className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-52"
             disabled={carregando}
           >
             {carregando ? (
@@ -1281,6 +1901,221 @@ function SecaoFormulario({
 
       {children}
     </section>
+  );
+}
+
+type ResultadoPesquisa = {
+  id: string;
+  titulo: string;
+  detalhes: string[];
+};
+
+type CampoPesquisaProps = {
+  id: string;
+  label: string;
+  placeholder: string;
+  value: string;
+  selecionadoId: string;
+  aberto: boolean;
+
+  setAberto: (
+    aberto: boolean
+  ) => void;
+
+  resultados:
+    ResultadoPesquisa[];
+
+  onChange: (
+    valor: string
+  ) => void;
+
+  onSelect: (
+    id: string
+  ) => void;
+
+  onClear: () => void;
+
+  ajuda: string;
+  mensagemVazia: string;
+
+  disabled?: boolean;
+};
+
+function CampoPesquisa({
+  id,
+  label,
+  placeholder,
+  value,
+  selecionadoId,
+  aberto,
+  setAberto,
+  resultados,
+  onChange,
+  onSelect,
+  onClear,
+  ajuda,
+  mensagemVazia,
+  disabled = false,
+}: CampoPesquisaProps) {
+  const termoValido =
+    normalizarPesquisa(
+      value
+    ).length >= 3;
+
+  const exibirLista =
+    aberto &&
+    termoValido &&
+    !disabled;
+
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={id}
+        className="text-sm font-medium"
+      >
+        {label}
+      </label>
+
+      <div className="relative">
+        <Search
+          size={17}
+          className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+        />
+
+        <Input
+          id={id}
+          type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={
+            exibirLista
+          }
+          aria-controls={`${id}-lista`}
+          autoComplete="off"
+          className="h-11 pl-10 pr-10"
+          placeholder={placeholder}
+          value={value}
+          onFocus={() => {
+            if (termoValido) {
+              setAberto(true);
+            }
+          }}
+          onBlur={() => {
+            window.setTimeout(
+              () =>
+                setAberto(false),
+              120
+            );
+          }}
+          onChange={(event) =>
+            onChange(
+              event.target.value
+            )
+          }
+          disabled={disabled}
+        />
+
+        {value && !disabled && (
+          <button
+            type="button"
+            aria-label={`Limpar ${label.toLowerCase()}`}
+            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onMouseDown={(event) =>
+              event.preventDefault()
+            }
+            onClick={onClear}
+          >
+            <X size={15} />
+          </button>
+        )}
+
+        {exibirLista && (
+          <div
+            id={`${id}-lista`}
+            role="listbox"
+            className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg"
+          >
+            {resultados.length > 0 ? (
+              resultados.map(
+                (resultado) => {
+                  const selecionado =
+                    resultado.id ===
+                    selecionadoId;
+
+                  return (
+                    <button
+                      key={
+                        resultado.id
+                      }
+                      type="button"
+                      role="option"
+                      aria-selected={
+                        selecionado
+                      }
+                      className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
+                      onMouseDown={(
+                        event
+                      ) =>
+                        event.preventDefault()
+                      }
+                      onClick={() =>
+                        onSelect(
+                          resultado.id
+                        )
+                      }
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {
+                            resultado.titulo
+                          }
+                        </span>
+
+                        {resultado
+                          .detalhes.length >
+                          0 && (
+                          <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            {resultado.detalhes.map(
+                              (
+                                detalhe,
+                                indice
+                              ) => (
+                                <span
+                                  key={`${resultado.id}-${indice}`}
+                                >
+                                  {
+                                    detalhe
+                                  }
+                                </span>
+                              )
+                            )}
+                          </span>
+                        )}
+                      </span>
+
+                      {selecionado && (
+                        <Check
+                          size={16}
+                          className="mt-0.5 shrink-0 text-primary"
+                        />
+                      )}
+                    </button>
+                  );
+                }
+              )
+            ) : (
+              <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                {mensagemVazia}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs leading-5 text-muted-foreground">
+        {ajuda}
+      </p>
+    </div>
   );
 }
 
@@ -1418,11 +2253,16 @@ function CampoDecimal({
           id={id}
           className="h-11 pr-12"
           placeholder="0,000"
-          inputMode="decimal"
+          inputMode="numeric"
           value={value}
+          onFocus={(event) =>
+            event.currentTarget.select()
+          }
           onChange={(event) =>
             onChange(
-              event.target.value
+              formatarPeso(
+                event.target.value
+              )
             )
           }
           disabled={disabled}

@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   CalendarDays,
+  Check,
   ClipboardList,
   FileText,
   LoaderCircle,
@@ -21,8 +22,10 @@ import {
   PackagePlus,
   Plus,
   ReceiptText,
+  Search,
   Trash2,
   UserRound,
+  X,
 } from "lucide-react";
 
 import { addItemNfe } from "@/actions/nfe/add-item-nfe";
@@ -311,6 +314,49 @@ function converterNumero(
   return Number(texto);
 }
 
+function formatarValorMonetario(
+  valor: string
+) {
+  const numeros =
+    somenteNumeros(valor).slice(
+      0,
+      15
+    );
+
+  if (!numeros) {
+    return "0,00";
+  }
+
+  const valorNumerico =
+    Number(numeros) / 100;
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  ).format(valorNumerico);
+}
+
+function formatarValorMonetarioNumero(
+  valor: number
+) {
+  if (
+    !Number.isFinite(valor)
+  ) {
+    return "0,00";
+  }
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  ).format(valor);
+}
+
 function formatarNumeroNota(
   numero: number
 ) {
@@ -318,6 +364,22 @@ function formatarNumeroNota(
     9,
     "0"
   );
+}
+
+function normalizarPesquisa(
+  valor: string
+) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function obterRotuloProduto(
+  produto: Produto
+) {
+  return `${produto.codigo} — ${produto.descricao}`;
 }
 
 export function NfeRascunhoForm({
@@ -334,6 +396,16 @@ export function NfeRascunhoForm({
   ] = useState("");
 
   const [
+    buscaProduto,
+    setBuscaProduto,
+  ] = useState("");
+
+  const [
+    listaProdutosAberta,
+    setListaProdutosAberta,
+  ] = useState(false);
+
+  const [
     quantidade,
     setQuantidade,
   ] = useState("1");
@@ -341,12 +413,12 @@ export function NfeRascunhoForm({
   const [
     valorUnitario,
     setValorUnitario,
-  ] = useState("");
+  ] = useState("0,00");
 
   const [
     valorDesconto,
     setValorDesconto,
-  ] = useState("0");
+  ] = useState("0,00");
 
   const [
     carregando,
@@ -368,11 +440,134 @@ export function NfeRascunhoForm({
         produtoId
     );
 
+  const quantidadeCalculada =
+    converterNumero(
+      quantidade
+    );
+
+  const valorUnitarioCalculado =
+    converterNumero(
+      valorUnitario
+    );
+
+  const valorDescontoCalculado =
+    converterNumero(
+      valorDesconto
+    );
+
+  const quantidadePreview =
+    Number.isFinite(
+      quantidadeCalculada
+    ) &&
+    quantidadeCalculada > 0
+      ? quantidadeCalculada
+      : 0;
+
+  const valorUnitarioPreview =
+    Number.isFinite(
+      valorUnitarioCalculado
+    ) &&
+    valorUnitarioCalculado >= 0
+      ? valorUnitarioCalculado
+      : 0;
+
+  const valorDescontoPreview =
+    Number.isFinite(
+      valorDescontoCalculado
+    ) &&
+    valorDescontoCalculado >= 0
+      ? valorDescontoCalculado
+      : 0;
+
+  const valorBrutoPreview =
+    quantidadePreview *
+    valorUnitarioPreview;
+
+  const valorTotalItemPreview =
+    Math.max(
+      valorBrutoPreview -
+        valorDescontoPreview,
+      0
+    );
+
+  const termoProduto =
+    normalizarPesquisa(
+      buscaProduto
+    );
+
+  const produtosFiltrados =
+    termoProduto.length >= 3
+      ? produtos
+          .filter((produto) => {
+            const codigo =
+              normalizarPesquisa(
+                produto.codigo
+              );
+
+            const descricao =
+              normalizarPesquisa(
+                produto.descricao
+              );
+
+            const ncm =
+              somenteNumeros(
+                produto.ncm
+              );
+
+            const cfop =
+              somenteNumeros(
+                produto.cfopPadrao
+              );
+
+            const termoNumerico =
+              somenteNumeros(
+                termoProduto
+              );
+
+            return (
+              codigo.includes(
+                termoProduto
+              ) ||
+              descricao.includes(
+                termoProduto
+              ) ||
+              ncm.includes(
+                termoProduto
+              ) ||
+              cfop.includes(
+                termoProduto
+              ) ||
+              Boolean(
+                termoNumerico &&
+                  (
+                    ncm.includes(
+                      termoNumerico
+                    ) ||
+                    cfop.includes(
+                      termoNumerico
+                    ) ||
+                    codigo.includes(
+                      termoNumerico
+                    )
+                  )
+              )
+            );
+          })
+          .slice(0, 8)
+      : [];
+
+  const exibirProdutos =
+    listaProdutosAberta &&
+    termoProduto.length >= 3 &&
+    produtos.length > 0 &&
+    !carregando;
+
   function selecionarProduto(
     id: string
   ) {
     setProdutoId(id);
     setErroAdicionar("");
+    setListaProdutosAberta(false);
 
     const produto =
       produtos.find(
@@ -380,12 +575,20 @@ export function NfeRascunhoForm({
           item.id === id
       );
 
+    setBuscaProduto(
+      produto
+        ? obterRotuloProduto(
+            produto
+          )
+        : ""
+    );
+
     setValorUnitario(
       produto
-        ? String(
+        ? formatarValorMonetarioNumero(
             produto.valorUnitario
-          ).replace(".", ",")
-        : ""
+          )
+        : "0,00"
     );
   }
 
@@ -505,9 +708,11 @@ export function NfeRascunhoForm({
       }
 
       setProdutoId("");
+      setBuscaProduto("");
+      setListaProdutosAberta(false);
       setQuantidade("1");
-      setValorUnitario("");
-      setValorDesconto("0");
+      setValorUnitario("0,00");
+      setValorDesconto("0,00");
 
       router.refresh();
     } catch (error) {
@@ -696,50 +901,207 @@ export function NfeRascunhoForm({
                     Produto
                   </label>
 
-                  <select
-                    id="produtoNfe"
-                    value={
-                      produtoId
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      selecionarProduto(
-                        event.target
-                          .value
-                      )
-                    }
-                    className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                    disabled={
-                      carregando
-                    }
-                    required
-                  >
-                    <option value="">
-                      Selecione o produto
-                    </option>
+                  <div className="relative">
+                    <Search
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
+                    />
 
-                    {produtos.map(
-                      (produto) => (
-                        <option
-                          key={
-                            produto.id
-                          }
-                          value={
-                            produto.id
-                          }
-                        >
-                          {
-                            produto.codigo
-                          }{" "}
-                          —{" "}
-                          {
-                            produto.descricao
-                          }
-                        </option>
-                      )
+                    <input
+                      id="produtoNfe"
+                      type="text"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={
+                        exibirProdutos
+                      }
+                      aria-controls="lista-produtos-nfe"
+                      autoComplete="off"
+                      placeholder="Digite código, descrição, NCM ou CFOP..."
+                      value={buscaProduto}
+                      onFocus={() => {
+                        if (
+                          termoProduto.length >=
+                          3
+                        ) {
+                          setListaProdutosAberta(
+                            true
+                          );
+                        }
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(
+                          () =>
+                            setListaProdutosAberta(
+                              false
+                            ),
+                          120
+                        );
+                      }}
+                      onChange={(event) => {
+                        const valor =
+                          event.target.value;
+
+                        setBuscaProduto(
+                          valor
+                        );
+
+                        setProdutoId("");
+                        setValorUnitario(
+                          "0,00"
+                        );
+
+                        setListaProdutosAberta(
+                          normalizarPesquisa(
+                            valor
+                          ).length >= 3
+                        );
+
+                        setErroAdicionar(
+                          ""
+                        );
+                      }}
+                      className="h-11 w-full rounded-md border bg-background pl-10 pr-10 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={
+                        carregando
+                      }
+                    />
+
+                    {buscaProduto && (
+                      <button
+                        type="button"
+                        aria-label="Limpar produto"
+                        className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        onMouseDown={(event) =>
+                          event.preventDefault()
+                        }
+                        onClick={() => {
+                          setBuscaProduto("");
+                          setProdutoId("");
+                          setValorUnitario(
+                            "0,00"
+                          );
+                          setListaProdutosAberta(
+                            false
+                          );
+                          setErroAdicionar(
+                            ""
+                          );
+                        }}
+                        disabled={
+                          carregando
+                        }
+                      >
+                        <X size={15} />
+                      </button>
                     )}
-                  </select>
+
+                    {exibirProdutos && (
+                      <div
+                        id="lista-produtos-nfe"
+                        role="listbox"
+                        className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg"
+                      >
+                        {produtosFiltrados.length >
+                        0 ? (
+                          produtosFiltrados.map(
+                            (produto) => {
+                              const selecionado =
+                                produto.id ===
+                                produtoId;
+
+                              return (
+                                <button
+                                  key={
+                                    produto.id
+                                  }
+                                  type="button"
+                                  role="option"
+                                  aria-selected={
+                                    selecionado
+                                  }
+                                  className="flex w-full items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
+                                  onMouseDown={(
+                                    event
+                                  ) =>
+                                    event.preventDefault()
+                                  }
+                                  onClick={() =>
+                                    selecionarProduto(
+                                      produto.id
+                                    )
+                                  }
+                                >
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium">
+                                      {
+                                        produto.codigo
+                                      }{" "}
+                                      —{" "}
+                                      {
+                                        produto.descricao
+                                      }
+                                    </span>
+
+                                    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                      <span>
+                                        {
+                                          produto.unidade
+                                        }
+                                      </span>
+
+                                      {produto.ncm && (
+                                        <span>
+                                          NCM{" "}
+                                          {
+                                            produto.ncm
+                                          }
+                                        </span>
+                                      )}
+
+                                      {produto.cfopPadrao && (
+                                        <span>
+                                          CFOP{" "}
+                                          {
+                                            produto.cfopPadrao
+                                          }
+                                        </span>
+                                      )}
+
+                                      <span>
+                                        {formatarMoeda(
+                                          produto.valorUnitario
+                                        )}
+                                      </span>
+                                    </span>
+                                  </span>
+
+                                  {selecionado && (
+                                    <Check
+                                      size={16}
+                                      className="mt-0.5 shrink-0 text-primary"
+                                    />
+                                  )}
+                                </button>
+                              );
+                            }
+                          )
+                        ) : (
+                          <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                            Nenhum produto
+                            encontrado.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Digite pelo menos 3
+                    caracteres. Pesquise por
+                    código, descrição, NCM
+                    ou CFOP.
+                  </p>
                 </div>
 
                 <CampoDecimal
@@ -776,7 +1138,9 @@ export function NfeRascunhoForm({
                     valor
                   ) => {
                     setValorUnitario(
-                      valor
+                      formatarValorMonetario(
+                        valor
+                      )
                     );
 
                     setErroAdicionar(
@@ -800,7 +1164,9 @@ export function NfeRascunhoForm({
                     valor
                   ) => {
                     setValorDesconto(
-                      valor
+                      formatarValorMonetario(
+                        valor
+                      )
                     );
 
                     setErroAdicionar(
@@ -815,41 +1181,65 @@ export function NfeRascunhoForm({
               </div>
 
               {produtoSelecionado && (
-                <div className="mt-5 grid gap-3 rounded-xl border bg-muted/10 p-4 sm:grid-cols-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Produto selecionado
-                    </p>
+                <div className="mt-5 overflow-hidden rounded-xl border bg-muted/10">
+                  <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        Produto selecionado
+                      </p>
 
-                    <p className="mt-1 text-sm font-medium">
-                      {
-                        produtoSelecionado.descricao
-                      }
-                    </p>
-                  </div>
+                      <p className="mt-1 truncate text-sm font-medium">
+                        {
+                          produtoSelecionado.descricao
+                        }
+                      </p>
+                    </div>
 
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Unidade
-                    </p>
-
-                    <p className="mt-1 text-sm font-medium">
+                    <span className="w-fit rounded-full bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
                       {
                         produtoSelecionado.unidade
                       }
-                    </p>
+                    </span>
                   </div>
 
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Valor cadastrado
-                    </p>
+                  <div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-5">
+                    <ResumoValorItem
+                      titulo="Quantidade"
+                      valor={`${formatarQuantidade(
+                        quantidadePreview
+                      )} ${
+                        produtoSelecionado.unidade
+                      }`}
+                    />
 
-                    <p className="mt-1 text-sm font-medium">
-                      {formatarMoeda(
-                        produtoSelecionado.valorUnitario
+                    <ResumoValorItem
+                      titulo="Valor unitário"
+                      valor={formatarMoeda(
+                        valorUnitarioPreview
                       )}
-                    </p>
+                    />
+
+                    <ResumoValorItem
+                      titulo="Subtotal"
+                      valor={formatarMoeda(
+                        valorBrutoPreview
+                      )}
+                    />
+
+                    <ResumoValorItem
+                      titulo="Desconto"
+                      valor={formatarMoeda(
+                        valorDescontoPreview
+                      )}
+                    />
+
+                    <ResumoValorItem
+                      titulo="Total do item"
+                      valor={formatarMoeda(
+                        valorTotalItemPreview
+                      )}
+                      destaque
+                    />
                   </div>
                 </div>
               )}
@@ -1610,8 +2000,11 @@ function CampoMoeda({
           id={id}
           className="h-11 pl-10"
           placeholder="0,00"
-          inputMode="decimal"
+          inputMode="numeric"
           value={value}
+          onFocus={(event) =>
+            event.currentTarget.select()
+          }
           onChange={(event) =>
             onChange(
               event.target.value
@@ -1621,6 +2014,37 @@ function CampoMoeda({
           required={required}
         />
       </div>
+    </div>
+  );
+}
+
+type ResumoValorItemProps = {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+};
+
+function ResumoValorItem({
+  titulo,
+  valor,
+  destaque = false,
+}: ResumoValorItemProps) {
+  return (
+    <div className="bg-card px-4 py-3">
+      <p className="text-xs text-muted-foreground">
+        {titulo}
+      </p>
+
+      <p
+        className={[
+          "mt-1 text-sm",
+          destaque
+            ? "font-bold text-primary"
+            : "font-medium",
+        ].join(" ")}
+      >
+        {valor}
+      </p>
     </div>
   );
 }

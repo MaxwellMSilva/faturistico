@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   BadgeCheck,
   CalendarDays,
   Contact,
@@ -18,6 +20,7 @@ import {
   Plus,
   Save,
   Truck,
+  X,
 } from "lucide-react";
 
 import { createMotorista } from "@/actions/motoristas/create-motorista";
@@ -522,6 +525,16 @@ export function MotoristaDialog({
   ) {
     event.preventDefault();
 
+    /*
+     * Impede o salvamento antecipado caso
+     * o formulário seja enviado antes
+     * do último passo.
+     */
+    if (passoAtual < ultimoPasso) {
+      handleProximoPasso();
+      return;
+    }
+
     setErro("");
 
     const nome =
@@ -1022,69 +1035,105 @@ export function MotoristaDialog({
           </FormStepperBody>
 
           <FormStepperFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={() =>
-                setAberto(false)
-              }
-              disabled={carregando}
-            >
-              Cancelar
-            </Button>
+            <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-muted-foreground">
+                  {passoAtual + 1}
+                </div>
 
-            {passoAtual > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11"
-                onClick={
-                  handlePassoAnterior
-                }
-                disabled={carregando}
-              >
-                Voltar
-              </Button>
-            )}
+                <div>
+                  <p className="text-sm font-medium">
+                    {
+                      PASSOS_MOTORISTA[
+                        passoAtual
+                      ].titulo
+                    }
+                  </p>
 
-            {passoAtual < ultimoPasso ? (
-              <Button
-                type="button"
-                className="h-11 sm:min-w-40"
-                onClick={
-                  handleProximoPasso
-                }
-                disabled={carregando}
-              >
-                Próximo
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                className="h-11 sm:min-w-48"
-                disabled={carregando}
-              >
-                {carregando ? (
-                  <>
-                    <LoaderCircle
-                      size={17}
-                      className="animate-spin"
-                    />
+                  <p className="text-xs text-muted-foreground">
+                    Etapa {passoAtual + 1} de{" "}
+                    {
+                      PASSOS_MOTORISTA.length
+                    }
+                  </p>
+                </div>
+              </div>
 
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save size={17} />
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 rounded-xl px-4 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() =>
+                    setAberto(false)
+                  }
+                  disabled={carregando}
+                >
+                  <X size={17} />
 
-                    {editando
-                      ? "Salvar alterações"
-                      : "Cadastrar motorista"}
-                  </>
+                  Cancelar
+                </Button>
+
+                {passoAtual > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 rounded-xl px-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                    onClick={
+                      handlePassoAnterior
+                    }
+                    disabled={carregando}
+                  >
+                    <ArrowLeft size={17} />
+
+                    Voltar
+                  </Button>
                 )}
-              </Button>
-            )}
+
+                {passoAtual < ultimoPasso ? (
+                  <Button
+                    type="button"
+                    className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-40"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+
+                      handleProximoPasso();
+                    }}
+                    disabled={carregando}
+                  >
+                    Continuar
+
+                    <ArrowRight size={17} />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-48"
+                    disabled={carregando}
+                  >
+                    {carregando ? (
+                      <>
+                        <LoaderCircle
+                          size={17}
+                          className="animate-spin"
+                        />
+
+                        Salvando...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={17} />
+
+                        {editando
+                          ? "Salvar alterações"
+                          : "Cadastrar motorista"}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
           </FormStepperFooter>
         </form>
       </FormStepperDialogContent>

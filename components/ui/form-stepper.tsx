@@ -11,13 +11,13 @@ import { cn } from "@/lib/utils";
 
 import { DialogContent } from "@/components/ui/dialog";
 
-export type FormStepperPasso = {
+type FormStepperPasso = {
   id: string;
   titulo: string;
 };
 
 type FormStepperNavProps = {
-  passos: FormStepperPasso[];
+  passos: readonly FormStepperPasso[];
   passoAtual: number;
 };
 
@@ -48,67 +48,81 @@ export function FormStepperNav({
   return (
     <nav
       aria-label="Etapas do formulário"
-      className="shrink-0 border-b bg-muted/20 px-6 py-4"
+      className="shrink-0 border-b bg-muted/20"
     >
-      <ol className="flex flex-wrap items-center gap-2 sm:gap-3">
-        {passos.map((passo, indice) => {
-          const ativo =
-            indice === passoAtual;
+      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ol className="mx-auto flex w-max min-w-full items-center justify-center px-6 py-4">
+          {passos.map(
+            (passo, indice) => {
+              const ativo =
+                indice === passoAtual;
 
-          const concluido =
-            indice < passoAtual;
+              const concluido =
+                indice < passoAtual;
 
-          return (
-            <li
-              key={passo.id}
-              className="flex min-w-0 items-center gap-2 sm:gap-3"
-            >
-              {indice > 0 && (
-                <span
-                  aria-hidden
-                  className="hidden h-px w-4 bg-border sm:block sm:w-8"
-                />
-              )}
-
-              <div
-                className={cn(
-                  "flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:text-sm",
-                  ativo &&
-                    "border-primary bg-primary/10 text-primary",
-                  concluido &&
-                    "border-emerald-200 bg-emerald-50 text-emerald-700",
-                  !ativo &&
-                    !concluido &&
-                    "border-border bg-background text-muted-foreground"
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold sm:h-6 sm:w-6 sm:text-xs",
-                    ativo &&
-                      "bg-primary text-primary-foreground",
-                    concluido &&
-                      "bg-emerald-500 text-white",
-                    !ativo &&
-                      !concluido &&
-                      "bg-muted text-muted-foreground"
-                  )}
+              return (
+                <li
+                  key={passo.id}
+                  className="flex shrink-0 items-center"
                 >
-                  {concluido ? (
-                    <Check size={12} />
-                  ) : (
-                    indice + 1
-                  )}
-                </span>
+                  <div
+                    aria-current={
+                      ativo
+                        ? "step"
+                        : undefined
+                    }
+                    className={[
+                      "flex h-10 shrink-0 items-center gap-2 rounded-xl border px-3 text-sm font-medium transition-all",
+                      ativo
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : concluido
+                          ? "border-primary/25 bg-primary/5 text-foreground"
+                          : "border-border bg-background text-muted-foreground",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+                        ativo
+                          ? "bg-primary text-primary-foreground"
+                          : concluido
+                            ? "bg-primary/15 text-primary"
+                            : "bg-muted text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {concluido ? (
+                        <Check
+                          size={14}
+                          strokeWidth={2.5}
+                        />
+                      ) : (
+                        indice + 1
+                      )}
+                    </span>
 
-                <span className="truncate">
-                  {passo.titulo}
-                </span>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+                    <span className="whitespace-nowrap">
+                      {passo.titulo}
+                    </span>
+                  </div>
+
+                  {indice <
+                    passos.length - 1 && (
+                    <div
+                      aria-hidden="true"
+                      className={[
+                        "mx-2 h-px w-5 shrink-0 sm:w-7 lg:w-8",
+                        concluido
+                          ? "bg-primary"
+                          : "bg-border",
+                      ].join(" ")}
+                    />
+                  )}
+                </li>
+              );
+            }
+          )}
+        </ol>
+      </div>
     </nav>
   );
 }

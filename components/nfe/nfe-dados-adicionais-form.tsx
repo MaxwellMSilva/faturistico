@@ -41,10 +41,40 @@ type Props = {
 function valorParaCampo(
   valor: number
 ) {
-  return String(valor).replace(
-    ".",
-    ","
-  );
+  if (!Number.isFinite(valor)) {
+    return "0,00";
+  }
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  ).format(valor);
+}
+
+function formatarValorMonetario(
+  valor: string
+) {
+  const numeros = valor
+    .replace(/\D/g, "")
+    .slice(0, 15);
+
+  if (!numeros) {
+    return "0,00";
+  }
+
+  const valorNumerico =
+    Number(numeros) / 100;
+
+  return new Intl.NumberFormat(
+    "pt-BR",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }
+  ).format(valorNumerico);
 }
 
 function converterNumero(
@@ -394,10 +424,17 @@ export function NfeDadosAdicionaisForm({
       {/* Ações */}
 
       {podeEditar && (
-        <div className="mt-6 flex justify-end border-t pt-5">
+        <div className="mt-6 flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">
+              Revise os valores e as
+              informações antes de salvar.
+            </p>
+          </div>
+
           <Button
             type="submit"
-            className="h-11 min-w-52"
+            className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-56"
             disabled={carregando}
           >
             {carregando ? (
@@ -471,11 +508,16 @@ function CampoMoeda({
           id={id}
           className="h-11 pl-10"
           placeholder="0,00"
-          inputMode="decimal"
+          inputMode="numeric"
           value={value}
+          onFocus={(event) =>
+            event.currentTarget.select()
+          }
           onChange={(event) =>
             onChange(
-              event.target.value
+              formatarValorMonetario(
+                event.target.value
+              )
             )
           }
           disabled={disabled}

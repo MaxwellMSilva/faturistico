@@ -14,6 +14,7 @@ import {
   Plus,
   Save,
   Settings2,
+  X,
 } from "lucide-react";
 
 import { createNaturezaOperacao } from "@/actions/naturezas-operacao/create-natureza-operacao";
@@ -537,43 +538,55 @@ export function NaturezaOperacaoDialog({
             </div>
           )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11"
-              onClick={() =>
-                setAberto(false)
-              }
-              disabled={carregando}
-            >
-              Cancelar
-            </Button>
+          <DialogFooter className="border-t pt-5 sm:items-center sm:justify-between">
+            <div className="hidden sm:block">
+              <p className="text-xs text-muted-foreground">
+                {editando
+                  ? "Revise as informações antes de salvar."
+                  : "Preencha os dados para cadastrar a natureza."}
+              </p>
+            </div>
 
-            <Button
-              type="submit"
-              className="h-11 sm:min-w-44"
-              disabled={carregando}
-            >
-              {carregando ? (
-                <>
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
+            <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 rounded-xl px-4 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                onClick={() =>
+                  setAberto(false)
+                }
+                disabled={carregando}
+              >
+                <X size={17} />
 
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save size={17} />
+                Cancelar
+              </Button>
 
-                  {editando
-                    ? "Salvar alterações"
-                    : "Cadastrar natureza"}
-                </>
-              )}
-            </Button>
+              <Button
+                type="submit"
+                className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-48"
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <>
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
+
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={17} />
+
+                    {editando
+                      ? "Salvar alterações"
+                      : "Cadastrar natureza"}
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>
