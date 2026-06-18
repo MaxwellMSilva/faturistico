@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import {
+  type ComponentProps,
   type FormEvent,
   useState,
 } from "react";
@@ -43,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { NfeDadosAdicionaisForm } from "@/components/nfe/nfe-dados-adicionais-form";
+import { NfeTransporteForm } from "@/components/nfe/nfe-transporte-form";
 import { NfeResumoTributos } from "@/components/nfe/nfe-resumo-tributos";
 import { ValidarNfeButton } from "@/components/nfe/validar-nfe-button";
 import { NfeItemEditDialog } from "@/components/nfe/nfe-item-edit-dialog";
@@ -162,10 +164,20 @@ type Nota = {
   itens: Item[];
 };
 
+type DadosTransporte = Omit<
+  ComponentProps<
+    typeof NfeTransporteForm
+  >,
+  "empresaId"
+>;
+
 type Props = {
   empresaId: string;
   nota: Nota;
   produtos: Produto[];
+
+  dadosTransporte:
+    DadosTransporte;
 };
 
 const statusLabel: Record<
@@ -258,7 +270,8 @@ function formatarQuantidade(
 function formatarData(
   valor: string
 ) {
-  const data = new Date(valor);
+  const data =
+    new Date(valor);
 
   if (
     Number.isNaN(
@@ -280,7 +293,8 @@ function formatarData(
 function converterNumero(
   valor: string
 ) {
-  const texto = valor.trim();
+  const texto =
+    valor.trim();
 
   if (!texto) {
     return 0;
@@ -310,14 +324,19 @@ export function NfeRascunhoForm({
   empresaId,
   nota,
   produtos,
+  dadosTransporte,
 }: Props) {
   const router = useRouter();
 
-  const [produtoId, setProdutoId] =
-    useState("");
+  const [
+    produtoId,
+    setProdutoId,
+  ] = useState("");
 
-  const [quantidade, setQuantidade] =
-    useState("1");
+  const [
+    quantidade,
+    setQuantidade,
+  ] = useState("1");
 
   const [
     valorUnitario,
@@ -345,7 +364,8 @@ export function NfeRascunhoForm({
   const produtoSelecionado =
     produtos.find(
       (produto) =>
-        produto.id === produtoId
+        produto.id ===
+        produtoId
     );
 
   function selecionarProduto(
@@ -356,7 +376,8 @@ export function NfeRascunhoForm({
 
     const produto =
       produtos.find(
-        (item) => item.id === id
+        (item) =>
+          item.id === id
       );
 
     setValorUnitario(
@@ -369,7 +390,8 @@ export function NfeRascunhoForm({
   }
 
   async function handleAdicionar(
-    event: FormEvent<HTMLFormElement>
+    event:
+      FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
@@ -384,7 +406,9 @@ export function NfeRascunhoForm({
     }
 
     const quantidadeNumero =
-      converterNumero(quantidade);
+      converterNumero(
+        quantidade
+      );
 
     const valorUnitarioNumero =
       converterNumero(
@@ -556,7 +580,9 @@ export function NfeRascunhoForm({
             <InformacaoCabecalho
               icone={UserRound}
               titulo="Cliente"
-              valor={nota.cliente.nome}
+              valor={
+                nota.cliente.nome
+              }
               complemento={formatarDocumento(
                 nota.cliente.cpfCnpj
               )}
@@ -602,12 +628,16 @@ export function NfeRascunhoForm({
 
       {podeEditar && (
         <form
-          onSubmit={handleAdicionar}
+          onSubmit={
+            handleAdicionar
+          }
           className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
         >
           <div className="mb-6 flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <PackagePlus size={20} />
+              <PackagePlus
+                size={20}
+              />
             </div>
 
             <div>
@@ -641,7 +671,9 @@ export function NfeRascunhoForm({
               </p>
 
               <Button
-                nativeButton={false}
+                nativeButton={
+                  false
+                }
                 render={
                   <Link
                     href={`/empresa/${empresaId}/produtos`}
@@ -666,14 +698,21 @@ export function NfeRascunhoForm({
 
                   <select
                     id="produtoNfe"
-                    value={produtoId}
-                    onChange={(event) =>
+                    value={
+                      produtoId
+                    }
+                    onChange={(
+                      event
+                    ) =>
                       selecionarProduto(
-                        event.target.value
+                        event.target
+                          .value
                       )
                     }
                     className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                    disabled={carregando}
+                    disabled={
+                      carregando
+                    }
                     required
                   >
                     <option value="">
@@ -683,11 +722,20 @@ export function NfeRascunhoForm({
                     {produtos.map(
                       (produto) => (
                         <option
-                          key={produto.id}
-                          value={produto.id}
+                          key={
+                            produto.id
+                          }
+                          value={
+                            produto.id
+                          }
                         >
-                          {produto.codigo} —{" "}
-                          {produto.descricao}
+                          {
+                            produto.codigo
+                          }{" "}
+                          —{" "}
+                          {
+                            produto.descricao
+                          }
                         </option>
                       )
                     )}
@@ -697,12 +745,23 @@ export function NfeRascunhoForm({
                 <CampoDecimal
                   id="quantidadeItem"
                   label="Quantidade"
-                  value={quantidade}
-                  onChange={(valor) => {
-                    setQuantidade(valor);
-                    setErroAdicionar("");
+                  value={
+                    quantidade
+                  }
+                  onChange={(
+                    valor
+                  ) => {
+                    setQuantidade(
+                      valor
+                    );
+
+                    setErroAdicionar(
+                      ""
+                    );
                   }}
-                  disabled={carregando}
+                  disabled={
+                    carregando
+                  }
                   className="lg:col-span-2"
                   required
                 />
@@ -710,15 +769,23 @@ export function NfeRascunhoForm({
                 <CampoMoeda
                   id="valorUnitarioItem"
                   label="Valor unitário"
-                  value={valorUnitario}
-                  onChange={(valor) => {
+                  value={
+                    valorUnitario
+                  }
+                  onChange={(
+                    valor
+                  ) => {
                     setValorUnitario(
                       valor
                     );
 
-                    setErroAdicionar("");
+                    setErroAdicionar(
+                      ""
+                    );
                   }}
-                  disabled={carregando}
+                  disabled={
+                    carregando
+                  }
                   className="lg:col-span-2"
                   required
                 />
@@ -726,12 +793,23 @@ export function NfeRascunhoForm({
                 <CampoMoeda
                   id="descontoItem"
                   label="Desconto"
-                  value={valorDesconto}
-                  onChange={(valor) => {
-                    setValorDesconto(valor);
-                    setErroAdicionar("");
+                  value={
+                    valorDesconto
+                  }
+                  onChange={(
+                    valor
+                  ) => {
+                    setValorDesconto(
+                      valor
+                    );
+
+                    setErroAdicionar(
+                      ""
+                    );
                   }}
-                  disabled={carregando}
+                  disabled={
+                    carregando
+                  }
                   className="lg:col-span-2"
                 />
               </div>
@@ -786,7 +864,9 @@ export function NfeRascunhoForm({
                     className="mt-0.5 shrink-0"
                   />
 
-                  <p>{erroAdicionar}</p>
+                  <p>
+                    {erroAdicionar}
+                  </p>
                 </div>
               )}
 
@@ -794,7 +874,9 @@ export function NfeRascunhoForm({
                 <Button
                   type="submit"
                   className="h-11 min-w-44"
-                  disabled={carregando}
+                  disabled={
+                    carregando
+                  }
                 >
                   {carregando ? (
                     <>
@@ -807,7 +889,9 @@ export function NfeRascunhoForm({
                     </>
                   ) : (
                     <>
-                      <Plus size={17} />
+                      <Plus
+                        size={17}
+                      />
 
                       Adicionar item
                     </>
@@ -824,7 +908,9 @@ export function NfeRascunhoForm({
       <section className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <ReceiptText size={20} />
+            <ReceiptText
+              size={20}
+            />
           </div>
 
           <div>
@@ -864,22 +950,30 @@ export function NfeRascunhoForm({
               {nota.itens.map(
                 (item) => (
                   <article
-                    key={item.id}
+                    key={
+                      item.id
+                    }
                     className="rounded-2xl border bg-card p-5 shadow-sm"
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <Package size={21} />
+                        <Package
+                          size={21}
+                        />
                       </div>
 
                       <div className="min-w-0">
                         <h3 className="truncate font-semibold">
-                          {item.descricao}
+                          {
+                            item.descricao
+                          }
                         </h3>
 
                         <p className="mt-1 text-sm text-muted-foreground">
                           Código{" "}
-                          {item.codigoProduto}
+                          {
+                            item.codigoProduto
+                          }
                         </p>
                       </div>
                     </div>
@@ -934,12 +1028,15 @@ export function NfeRascunhoForm({
                     {podeEditar && (
                       <div className="mt-5 flex justify-end gap-2 border-t pt-4">
                         <NfeItemEditDialog
-                          empresaId={empresaId}
+                          empresaId={
+                            empresaId
+                          }
                           notaFiscalId={
                             nota.id
                           }
                           item={{
-                            id: item.id,
+                            id:
+                              item.id,
 
                             codigoProduto:
                               item.codigoProduto,
@@ -971,7 +1068,9 @@ export function NfeRascunhoForm({
                           notaFiscalId={
                             nota.id
                           }
-                          itemId={item.id}
+                          itemId={
+                            item.id
+                          }
                           descricao={
                             item.descricao
                           }
@@ -1028,7 +1127,9 @@ export function NfeRascunhoForm({
                     {nota.itens.map(
                       (item) => (
                         <tr
-                          key={item.id}
+                          key={
+                            item.id
+                          }
                           className="border-t transition-colors hover:bg-muted/20"
                         >
                           <td className="px-5 py-4">
@@ -1061,11 +1162,13 @@ export function NfeRascunhoForm({
                           </td>
 
                           <td className="px-5 py-4 text-sm">
-                            {item.ncm || "-"}
+                            {item.ncm ||
+                              "-"}
                           </td>
 
                           <td className="px-5 py-4 text-sm">
-                            {item.cfop || "-"}
+                            {item.cfop ||
+                              "-"}
                           </td>
 
                           <td className="px-5 py-4 text-right text-sm">
@@ -1160,14 +1263,50 @@ export function NfeRascunhoForm({
       {/* Dados adicionais */}
 
       <NfeDadosAdicionaisForm
-        empresaId={empresaId}
-        notaFiscalId={nota.id}
-        valorFrete={nota.valorFrete}
-        valorOutros={nota.valorOutros}
+        empresaId={
+          empresaId
+        }
+        notaFiscalId={
+          nota.id
+        }
+        valorFrete={
+          nota.valorFrete
+        }
+        valorOutros={
+          nota.valorOutros
+        }
         informacoesComplementares={
           nota.informacoesComplementares
         }
-        podeEditar={podeEditar}
+        podeEditar={
+          podeEditar
+        }
+      />
+
+      {/* Transporte */}
+
+      <NfeTransporteForm
+        empresaId={
+          empresaId
+        }
+        notaFiscalId={
+          dadosTransporte.notaFiscalId
+        }
+        podeEditar={
+          dadosTransporte.podeEditar
+        }
+        transporte={
+          dadosTransporte.transporte
+        }
+        transportadores={
+          dadosTransporte.transportadores
+        }
+        veiculos={
+          dadosTransporte.veiculos
+        }
+        motoristas={
+          dadosTransporte.motoristas
+        }
       />
 
       {/* Tributos */}
@@ -1176,12 +1315,18 @@ export function NfeRascunhoForm({
         valorBaseIcms={
           nota.valorBaseIcms
         }
-        valorIcms={nota.valorIcms}
-        valorPis={nota.valorPis}
+        valorIcms={
+          nota.valorIcms
+        }
+        valorPis={
+          nota.valorPis
+        }
         valorCofins={
           nota.valorCofins
         }
-        valorIpi={nota.valorIpi}
+        valorIpi={
+          nota.valorIpi
+        }
         valorBaseIbsCbs={
           nota.valorBaseIbsCbs
         }
@@ -1191,8 +1336,12 @@ export function NfeRascunhoForm({
         valorIbsMun={
           nota.valorIbsMun
         }
-        valorIbs={nota.valorIbs}
-        valorCbs={nota.valorCbs}
+        valorIbs={
+          nota.valorIbs
+        }
+        valorCbs={
+          nota.valorCbs
+        }
       />
 
       {/* Totais */}
@@ -1200,7 +1349,9 @@ export function NfeRascunhoForm({
       <section className="ml-auto w-full max-w-lg rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
         <div className="mb-5 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <ReceiptText size={20} />
+            <ReceiptText
+              size={20}
+            />
           </div>
 
           <div>
@@ -1218,7 +1369,9 @@ export function NfeRascunhoForm({
         <div className="space-y-3">
           <LinhaTotal
             titulo="Produtos"
-            valor={nota.valorProdutos}
+            valor={
+              nota.valorProdutos
+            }
           />
 
           <LinhaTotal
@@ -1231,21 +1384,29 @@ export function NfeRascunhoForm({
 
           <LinhaTotal
             titulo="Frete"
-            valor={nota.valorFrete}
+            valor={
+              nota.valorFrete
+            }
           />
 
           <LinhaTotal
             titulo="Outras despesas"
-            valor={nota.valorOutros}
+            valor={
+              nota.valorOutros
+            }
           />
 
           <LinhaTotal
             titulo="IPI"
-            valor={nota.valorIpi}
+            valor={
+              nota.valorIpi
+            }
           />
 
           <div className="flex items-center justify-between border-t pt-4 text-lg font-bold">
-            <span>Total da NF-e</span>
+            <span>
+              Total da NF-e
+            </span>
 
             <span className="text-primary">
               {formatarMoeda(
@@ -1267,14 +1428,18 @@ export function NfeRascunhoForm({
 
             <p className="mt-1 text-sm text-muted-foreground">
               Verifique os dados fiscais
-              antes de preparar o documento
-              para transmissão.
+              antes de preparar o
+              documento para transmissão.
             </p>
           </div>
 
           <ValidarNfeButton
-            empresaId={empresaId}
-            notaFiscalId={nota.id}
+            empresaId={
+              empresaId
+            }
+            notaFiscalId={
+              nota.id
+            }
             disabled={
               nota.itens.length === 0
             }
@@ -1332,12 +1497,16 @@ function StatusBadge({
     <span
       className={[
         "inline-flex w-fit shrink-0 rounded-full px-3 py-1.5 text-xs font-medium",
-        statusClasses[status] ??
+
+        statusClasses[
+          status
+        ] ??
           "bg-muted text-muted-foreground",
       ].join(" ")}
     >
-      {statusLabel[status] ??
-        status}
+      {statusLabel[
+        status
+      ] ?? status}
     </span>
   );
 }
@@ -1476,6 +1645,7 @@ function LinhaInformacao({
       <dd
         className={[
           "text-right",
+
           destaque
             ? "font-semibold"
             : "font-medium",
@@ -1505,10 +1675,14 @@ function LinhaTotal({
       </span>
 
       <span className="font-medium">
-        {negativo && valor > 0
+        {negativo &&
+        valor > 0
           ? "- "
           : ""}
-        {formatarMoeda(valor)}
+
+        {formatarMoeda(
+          valor
+        )}
       </span>
     </div>
   );
@@ -1530,16 +1704,20 @@ function RemoverItemButton({
 }: RemoverItemButtonProps) {
   const router = useRouter();
 
-  const [aberto, setAberto] =
-    useState(false);
+  const [
+    aberto,
+    setAberto,
+  ] = useState(false);
 
   const [
     carregando,
     setCarregando,
   ] = useState(false);
 
-  const [erro, setErro] =
-    useState("");
+  const [
+    erro,
+    setErro,
+  ] = useState("");
 
   async function removerItem() {
     setErro("");
@@ -1582,7 +1760,9 @@ function RemoverItemButton({
   return (
     <AlertDialog
       open={aberto}
-      onOpenChange={(valor) => {
+      onOpenChange={(
+        valor
+      ) => {
         if (carregando) {
           return;
         }
@@ -1612,7 +1792,9 @@ function RemoverItemButton({
       <AlertDialogContent>
         <AlertDialogHeader>
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
-            <AlertTriangle size={23} />
+            <AlertTriangle
+              size={23}
+            />
           </div>
 
           <AlertDialogTitle>
@@ -1653,18 +1835,24 @@ function RemoverItemButton({
 
         <AlertDialogFooter>
           <AlertDialogCancel
-            disabled={carregando}
+            disabled={
+              carregando
+            }
           >
             Cancelar
           </AlertDialogCancel>
 
           <AlertDialogAction
-            onClick={(event) => {
+            onClick={(
+              event
+            ) => {
               event.preventDefault();
 
               void removerItem();
             }}
-            disabled={carregando}
+            disabled={
+              carregando
+            }
             className="bg-destructive text-white hover:bg-destructive/90"
           >
             {carregando ? (
@@ -1678,7 +1866,9 @@ function RemoverItemButton({
               </>
             ) : (
               <>
-                <Trash2 size={16} />
+                <Trash2
+                  size={16}
+                />
 
                 Confirmar remoção
               </>

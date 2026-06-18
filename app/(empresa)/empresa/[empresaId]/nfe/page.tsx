@@ -1,6 +1,10 @@
 import Link from "next/link";
 
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import {
   ArrowRight,
   CircleCheck,
   CircleX,
@@ -15,9 +19,12 @@ import { getNotasFiscais } from "@/actions/nfe/get-notas-fiscais";
 import { getDadosNovaNfe } from "@/actions/nfe/get-dados-nova-nfe";
 
 import { NovaNfeDialog } from "@/components/nfe/nova-nfe-dialog";
+import { NfeDeleteButton } from "@/components/nfe/nfe-delete-button";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -159,6 +166,15 @@ export default async function NfePage({
   const { busca = "" } =
     await searchParams;
 
+  const contexto =
+    await validarPrivilegioEmpresa(
+      empresaId,
+      PrivilegioEmpresa.NFE_VISUALIZAR,
+      {
+        exigirEmpresaAtiva: false,
+      }
+    );
+
   const [
     notasRaw,
     dadosNovaNfe,
@@ -171,6 +187,67 @@ export default async function NfePage({
       empresaId
     ),
   ]);
+
+  function possuiPrivilegio(
+    privilegio:
+      PrivilegioEmpresa
+  ) {
+    if (
+      contexto.somenteLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "OWNER"
+    ) {
+      return true;
+    }
+
+    const acesso =
+      contexto.acesso;
+
+    if (
+      !acesso ||
+      !acesso.ativo
+    ) {
+      return false;
+    }
+
+    if (
+      contexto.usuario.role ===
+      "ADMIN"
+    ) {
+      return (
+        acesso.permissao ===
+        "ADMIN"
+      );
+    }
+
+    if (
+      acesso.permissao ===
+      "PERSONALIZADO"
+    ) {
+      return acesso.privilegios.some(
+        (item) =>
+          item.privilegio ===
+          privilegio
+      );
+    }
+
+    return false;
+  }
+
+  const podeCriar =
+    possuiPrivilegio(
+      PrivilegioEmpresa.NFE_CRIAR
+    );
+
+  const podeExcluirRascunho =
+    possuiPrivilegio(
+      PrivilegioEmpresa.NFE_EXCLUIR_RASCUNHO
+    );
 
   const termoTexto =
     busca
@@ -266,19 +343,29 @@ export default async function NfePage({
           </div>
         </div>
 
-        <NovaNfeDialog
-          empresaId={empresaId}
-          clientes={
-            dadosNovaNfe.clientes
-          }
-          naturezas={
-            dadosNovaNfe.naturezas
-          }
-          serieNfe={
-            dadosNovaNfe.serieNfe
-          }
-        />
+        {podeCriar && (
+          <NovaNfeDialog
+            empresaId={empresaId}
+            clientes={
+              dadosNovaNfe.clientes
+            }
+            naturezas={
+              dadosNovaNfe.naturezas
+            }
+            serieNfe={
+              dadosNovaNfe.serieNfe
+            }
+          />
+        )}
       </div>
+
+      {contexto.somenteLeitura && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
+          Esta empresa está inativa. As
+          NF-e estão disponíveis somente
+          para consulta.
+        </div>
+      )}
 
       {/* Indicadores */}
 
@@ -419,6 +506,11 @@ export default async function NfePage({
                   nota.serie
                 );
 
+              const podeExcluirNota =
+                nota.status ===
+                  "RASCUNHO" &&
+                podeExcluirRascunho;
+
               return (
                 <article
                   key={nota.id}
@@ -522,21 +614,43 @@ export default async function NfePage({
                     </div>
                   </dl>
 
-                  <Button
-                    nativeButton={false}
-                    render={
-                      <Link
-                        href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                  <div className="mt-5 flex flex-col gap-2">
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                        />
+                      }
+                      className="h-11 w-full"
+                    >
+                      <FileSearch
+                        size={17}
                       />
-                    }
-                    className="mt-5 h-11 w-full"
-                  >
-                    <FileSearch
-                      size={17}
-                    />
 
-                    Abrir NF-e
-                  </Button>
+                      Abrir NF-e
+                    </Button>
+
+                    {podeExcluirNota && (
+                      <NfeDeleteButton
+                        empresaId={
+                          empresaId
+                        }
+                        notaFiscalId={
+                          nota.id
+                        }
+                        numero={
+                          nota.numero
+                        }
+                        serie={
+                          nota.serie
+                        }
+                        clienteNome={
+                          nota.clienteNome
+                        }
+                      />
+                    )}
+                  </div>
                 </article>
               );
             })}
@@ -546,7 +660,7 @@ export default async function NfePage({
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+              <table className="w-full min-w-[1180px]">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="px-5 py-4 text-left text-sm font-medium">
@@ -586,6 +700,11 @@ export default async function NfePage({
                         nota.numero,
                         nota.serie
                       );
+
+                    const podeExcluirNota =
+                      nota.status ===
+                        "RASCUNHO" &&
+                      podeExcluirRascunho;
 
                     return (
                       <tr
@@ -661,7 +780,7 @@ export default async function NfePage({
                         </td>
 
                         <td className="px-5 py-4">
-                          <div className="flex justify-end">
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -684,6 +803,26 @@ export default async function NfePage({
                                 size={15}
                               />
                             </Button>
+
+                            {podeExcluirNota && (
+                              <NfeDeleteButton
+                                empresaId={
+                                  empresaId
+                                }
+                                notaFiscalId={
+                                  nota.id
+                                }
+                                numero={
+                                  nota.numero
+                                }
+                                serie={
+                                  nota.serie
+                                }
+                                clienteNome={
+                                  nota.clienteNome
+                                }
+                              />
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -763,6 +902,7 @@ function StatusBadge({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
         statusClasses[
           status
         ] ??
