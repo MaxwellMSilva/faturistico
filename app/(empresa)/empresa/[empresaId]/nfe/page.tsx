@@ -1,11 +1,11 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
 import {
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   CircleX,
   Clock3,
@@ -15,8 +15,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { getNotasFiscais } from "@/actions/nfe/get-notas-fiscais";
 import { getDadosNovaNfe } from "@/actions/nfe/get-dados-nova-nfe";
+import { getNotasFiscais } from "@/actions/nfe/get-notas-fiscais";
 
 import { NovaNfeDialog } from "@/components/nfe/nova-nfe-dialog";
 import { NfeDeleteButton } from "@/components/nfe/nfe-delete-button";
@@ -26,8 +26,7 @@ import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -36,8 +35,11 @@ type Props = {
 
   searchParams: Promise<{
     busca?: string;
+    pagina?: string;
   }>;
 };
+
+const NFES_POR_PAGINA = 10;
 
 const statusLabel: Record<
   string,
@@ -69,6 +71,21 @@ const statusClasses: Record<
   CANCELADA:
     "bg-zinc-500/10 text-zinc-700 dark:text-zinc-400",
 };
+
+function normalizarPagina(
+  valor?: string
+) {
+  const pagina = Number(valor);
+
+  if (
+    !Number.isInteger(pagina) ||
+    pagina < 1
+  ) {
+    return 1;
+  }
+
+  return pagina;
+}
 
 function somenteNumeros(
   valor?: string | null
@@ -163,15 +180,18 @@ export default async function NfePage({
   const { empresaId } =
     await params;
 
-  const { busca = "" } =
-    await searchParams;
+  const {
+    busca = "",
+    pagina = "1",
+  } = await searchParams;
 
   const contexto =
     await validarPrivilegioEmpresa(
       empresaId,
       PrivilegioEmpresa.NFE_VISUALIZAR,
       {
-        exigirEmpresaAtiva: false,
+        exigirEmpresaAtiva:
+          false,
       }
     );
 
@@ -249,6 +269,10 @@ export default async function NfePage({
       PrivilegioEmpresa.NFE_EXCLUIR_RASCUNHO
     );
 
+  /*
+   * Busca
+   */
+
   const termoTexto =
     busca
       .trim()
@@ -257,46 +281,149 @@ export default async function NfePage({
   const termoNumerico =
     somenteNumeros(busca);
 
-  const notas = termoTexto
-    ? notasRaw.filter(
-        (nota) => {
-          const encontrouTexto = [
-            nota.clienteNome,
-            nota.status,
-            statusLabel[
-              nota.status
-            ],
-            String(nota.numero),
-            String(nota.serie),
-          ].some((valor) =>
-            String(valor ?? "")
-              .toLowerCase()
-              .includes(termoTexto)
-          );
-
-          const encontrouNumero =
-            Boolean(
-              termoNumerico
-            ) &&
-            [
-              String(nota.numero),
-              String(nota.serie),
-              nota.clienteDocumento,
+  const notasFiltradas =
+    termoTexto
+      ? notasRaw.filter(
+          (nota) => {
+            const encontrouTexto = [
+              nota.clienteNome,
+              nota.status,
+              statusLabel[
+                nota.status
+              ],
+              String(
+                nota.numero
+              ),
+              String(
+                nota.serie
+              ),
             ].some((valor) =>
-              somenteNumeros(
-                valor
-              ).includes(
-                termoNumerico
+              String(
+                valor ?? ""
               )
+                .toLowerCase()
+                .includes(
+                  termoTexto
+                )
             );
 
-          return (
-            encontrouTexto ||
-            encontrouNumero
-          );
-        }
+            const encontrouNumero =
+              Boolean(
+                termoNumerico
+              ) &&
+              [
+                String(
+                  nota.numero
+                ),
+                String(
+                  nota.serie
+                ),
+                nota.clienteDocumento,
+              ].some((valor) =>
+                somenteNumeros(
+                  valor
+                ).includes(
+                  termoNumerico
+                )
+              );
+
+            return (
+              encontrouTexto ||
+              encontrouNumero
+            );
+          }
+        )
+      : notasRaw;
+
+  /*
+   * Paginação
+   */
+
+  const totalFiltrado =
+    notasFiltradas.length;
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFiltrado /
+          NFES_POR_PAGINA
       )
-    : notasRaw;
+    );
+
+  const paginaSolicitada =
+    normalizarPagina(
+      pagina
+    );
+
+  const paginaAtual =
+    Math.min(
+      paginaSolicitada,
+      totalPaginas
+    );
+
+  const indiceInicial =
+    (paginaAtual - 1) *
+    NFES_POR_PAGINA;
+
+  const indiceFinal =
+    Math.min(
+      indiceInicial +
+        NFES_POR_PAGINA,
+      totalFiltrado
+    );
+
+  const notas =
+    notasFiltradas.slice(
+      indiceInicial,
+      indiceFinal
+    );
+
+  const primeiroRegistro =
+    totalFiltrado === 0
+      ? 0
+      : indiceInicial + 1;
+
+  const ultimoRegistro =
+    indiceFinal;
+
+  /*
+   * Páginas numéricas
+   *
+   * Exibe no máximo cinco páginas.
+   */
+
+  const primeiraPaginaVisivel =
+    Math.max(
+      1,
+      Math.min(
+        paginaAtual - 2,
+        totalPaginas - 4
+      )
+    );
+
+  const ultimaPaginaVisivel =
+    Math.min(
+      totalPaginas,
+      primeiraPaginaVisivel + 4
+    );
+
+  const paginasVisiveis =
+    Array.from(
+      {
+        length:
+          ultimaPaginaVisivel -
+          primeiraPaginaVisivel +
+          1,
+      },
+      (_, indice) =>
+        primeiraPaginaVisivel +
+        indice
+    );
+
+  /*
+   * Indicadores
+   */
 
   const totalRascunhos =
     notasRaw.filter(
@@ -319,6 +446,44 @@ export default async function NfePage({
         "REJEITADA"
     ).length;
 
+  const rotaBase =
+    `/empresa/${empresaId}/nfe`;
+
+  function criarHref({
+    incluirBusca = true,
+    novaPagina = 1,
+  }: {
+    incluirBusca?: boolean;
+    novaPagina?: number;
+  }) {
+    const parametros =
+      new URLSearchParams();
+
+    if (
+      incluirBusca &&
+      busca.trim()
+    ) {
+      parametros.set(
+        "busca",
+        busca.trim()
+      );
+    }
+
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
+      );
+    }
+
+    const query =
+      parametros.toString();
+
+    return query
+      ? `${rotaBase}?${query}`
+      : rotaBase;
+  }
+
   return (
     <div className="w-full space-y-8">
       {/* Cabeçalho */}
@@ -326,7 +491,9 @@ export default async function NfePage({
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <FileText size={24} />
+            <FileText
+              size={24}
+            />
           </div>
 
           <div>
@@ -345,7 +512,9 @@ export default async function NfePage({
 
         {podeCriar && (
           <NovaNfeDialog
-            empresaId={empresaId}
+            empresaId={
+              empresaId
+            }
             clientes={
               dadosNovaNfe.clientes
             }
@@ -359,11 +528,13 @@ export default async function NfePage({
         )}
       </div>
 
+      {/* Somente leitura */}
+
       {contexto.somenteLeitura && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
-          Esta empresa está inativa. As
-          NF-e estão disponíveis somente
-          para consulta.
+          Esta empresa está inativa.
+          As NF-e estão disponíveis
+          somente para consulta.
         </div>
       )}
 
@@ -372,31 +543,47 @@ export default async function NfePage({
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <IndicadorCard
           titulo="Total de NF-e"
-          valor={notasRaw.length}
+          valor={
+            notasRaw.length
+          }
           descricao="Todos os documentos cadastrados"
-          icone={FileText}
+          icone={
+            FileText
+          }
         />
 
         <IndicadorCard
           titulo="Rascunhos"
-          valor={totalRascunhos}
+          valor={
+            totalRascunhos
+          }
           descricao="Documentos ainda editáveis"
-          icone={Clock3}
+          icone={
+            Clock3
+          }
         />
 
         <IndicadorCard
           titulo="Autorizadas"
-          valor={totalAutorizadas}
+          valor={
+            totalAutorizadas
+          }
           descricao="Documentos autorizados pela SEFAZ"
-          icone={CircleCheck}
+          icone={
+            CircleCheck
+          }
           variante="sucesso"
         />
 
         <IndicadorCard
           titulo="Rejeitadas"
-          valor={totalRejeitadas}
+          valor={
+            totalRejeitadas
+          }
           descricao="Documentos que precisam de correção"
-          icone={CircleX}
+          icone={
+            CircleX
+          }
           variante="erro"
         />
       </section>
@@ -416,7 +603,9 @@ export default async function NfePage({
 
             <Input
               name="busca"
-              defaultValue={busca}
+              defaultValue={
+                busca
+              }
               className="h-11 pl-10"
               placeholder="Buscar por número, série, cliente, documento ou status..."
             />
@@ -427,17 +616,24 @@ export default async function NfePage({
             variant="outline"
             className="h-11"
           >
-            <Search size={17} />
+            <Search
+              size={17}
+            />
 
             Buscar
           </Button>
 
           {busca && (
             <Button
-              nativeButton={false}
+              nativeButton={
+                false
+              }
               render={
                 <Link
-                  href={`/empresa/${empresaId}/nfe`}
+                  href={criarHref({
+                    incluirBusca:
+                      false,
+                  })}
                 />
               }
               variant="ghost"
@@ -450,20 +646,22 @@ export default async function NfePage({
 
         {busca && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {notas.length === 1
+            {totalFiltrado === 1
               ? "1 NF-e encontrada."
-              : `${notas.length} NF-e encontradas.`}
+              : `${totalFiltrado} NF-e encontradas.`}
           </p>
         )}
       </section>
 
       {/* Estado vazio */}
 
-      {notas.length === 0 ? (
+      {totalFiltrado === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <FileText size={30} />
+              <FileText
+                size={30}
+              />
             </div>
 
             <h2 className="mt-5 text-xl font-semibold tracking-tight">
@@ -480,10 +678,14 @@ export default async function NfePage({
 
             {busca && (
               <Button
-                nativeButton={false}
+                nativeButton={
+                  false
+                }
                 render={
                   <Link
-                    href={`/empresa/${empresaId}/nfe`}
+                    href={
+                      rotaBase
+                    }
                   />
                 }
                 variant="outline"
@@ -496,167 +698,153 @@ export default async function NfePage({
         </section>
       ) : (
         <>
-          {/* Cards para celular */}
+          {/* Cards no celular */}
 
           <div className="grid gap-4 md:hidden">
-            {notas.map((nota) => {
-              const identificacao =
-                formatarNumeroNota(
-                  nota.numero,
-                  nota.serie
-                );
+            {notas.map(
+              (nota) => {
+                const identificacao =
+                  formatarNumeroNota(
+                    nota.numero,
+                    nota.serie
+                  );
 
-              const podeExcluirNota =
-                nota.status ===
-                  "RASCUNHO" &&
-                podeExcluirRascunho;
+                const podeExcluirNota =
+                  nota.status ===
+                    "RASCUNHO" &&
+                  podeExcluirRascunho;
 
-              return (
-                <article
-                  key={nota.id}
-                  className="rounded-2xl border bg-card p-5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <FileText
-                          size={21}
-                        />
+                return (
+                  <article
+                    key={
+                      nota.id
+                    }
+                    className="rounded-2xl border bg-card p-5 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <FileText
+                            size={
+                              21
+                            }
+                          />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">
+                            NF-e
+                          </p>
+
+                          <h2 className="font-semibold">
+                            Nº{" "}
+                            {
+                              identificacao.numero
+                            }
+                          </h2>
+
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Série{" "}
+                            {
+                              identificacao.serie
+                            }
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="text-xs text-muted-foreground">
-                          NF-e
-                        </p>
-
-                        <h2 className="font-semibold">
-                          Nº{" "}
-                          {
-                            identificacao.numero
-                          }
-                        </h2>
-
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Série{" "}
-                          {
-                            identificacao.serie
-                          }
-                        </p>
-                      </div>
+                      <StatusBadge
+                        status={
+                          nota.status
+                        }
+                      />
                     </div>
 
-                    <StatusBadge
-                      status={
-                        nota.status
-                      }
-                    />
-                  </div>
-
-                  <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Cliente
-                      </dt>
-
-                      <dd className="max-w-52 truncate text-right font-medium">
-                        {
+                    <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
+                      <LinhaInformacao
+                        titulo="Cliente"
+                        valor={
                           nota.clienteNome
                         }
-                      </dd>
-                    </div>
+                      />
 
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        CPF/CNPJ
-                      </dt>
-
-                      <dd className="text-right font-medium">
-                        {formatarDocumento(
+                      <LinhaInformacao
+                        titulo="CPF/CNPJ"
+                        valor={formatarDocumento(
                           nota.clienteDocumento
                         )}
-                      </dd>
-                    </div>
+                      />
 
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Emissão
-                      </dt>
-
-                      <dd className="text-right font-medium">
-                        {formatarData(
+                      <LinhaInformacao
+                        titulo="Emissão"
+                        valor={formatarData(
                           nota.dataEmissao
                         )}
-                      </dd>
-                    </div>
+                      />
 
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Itens
-                      </dt>
-
-                      <dd className="text-right font-medium">
-                        {
+                      <LinhaInformacao
+                        titulo="Itens"
+                        valor={String(
                           nota.quantidadeItens
-                        }
-                      </dd>
-                    </div>
+                        )}
+                      />
 
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Valor total
-                      </dt>
-
-                      <dd className="text-right font-semibold">
-                        {formatarValor(
+                      <LinhaInformacao
+                        titulo="Valor total"
+                        valor={formatarValor(
                           nota.valorTotal
                         )}
-                      </dd>
-                    </div>
-                  </dl>
+                        destaque
+                      />
+                    </dl>
 
-                  <div className="mt-5 flex flex-col gap-2">
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link
-                          href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                    <div className="mt-5 flex flex-col gap-2">
+                      <Button
+                        nativeButton={
+                          false
+                        }
+                        render={
+                          <Link
+                            href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                          />
+                        }
+                        className="h-11 w-full"
+                      >
+                        <FileSearch
+                          size={
+                            17
+                          }
                         />
-                      }
-                      className="h-11 w-full"
-                    >
-                      <FileSearch
-                        size={17}
-                      />
 
-                      Abrir NF-e
-                    </Button>
+                        Abrir NF-e
+                      </Button>
 
-                    {podeExcluirNota && (
-                      <NfeDeleteButton
-                        empresaId={
-                          empresaId
-                        }
-                        notaFiscalId={
-                          nota.id
-                        }
-                        numero={
-                          nota.numero
-                        }
-                        serie={
-                          nota.serie
-                        }
-                        clienteNome={
-                          nota.clienteNome
-                        }
-                      />
-                    )}
-                  </div>
-                </article>
-              );
-            })}
+                      {podeExcluirNota && (
+                        <NfeDeleteButton
+                          empresaId={
+                            empresaId
+                          }
+                          notaFiscalId={
+                            nota.id
+                          }
+                          numero={
+                            nota.numero
+                          }
+                          serie={
+                            nota.serie
+                          }
+                          clienteNome={
+                            nota.clienteNome
+                          }
+                        />
+                      )}
+                    </div>
+                  </article>
+                );
+              }
+            )}
           </div>
 
-          {/* Tabela para computador */}
+          {/* Tabela no computador */}
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
@@ -694,144 +882,288 @@ export default async function NfePage({
                 </thead>
 
                 <tbody>
-                  {notas.map((nota) => {
-                    const identificacao =
-                      formatarNumeroNota(
-                        nota.numero,
-                        nota.serie
-                      );
+                  {notas.map(
+                    (nota) => {
+                      const identificacao =
+                        formatarNumeroNota(
+                          nota.numero,
+                          nota.serie
+                        );
 
-                    const podeExcluirNota =
-                      nota.status ===
-                        "RASCUNHO" &&
-                      podeExcluirRascunho;
+                      const podeExcluirNota =
+                        nota.status ===
+                          "RASCUNHO" &&
+                        podeExcluirRascunho;
 
-                    return (
-                      <tr
-                        key={nota.id}
-                        className="border-t transition-colors hover:bg-muted/20"
-                      >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                              <FileText
-                                size={19}
-                              />
-                            </div>
-
-                            <div>
-                              <p className="font-medium">
-                                Nº{" "}
-                                {
-                                  identificacao.numero
-                                }
-                              </p>
-
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                Série{" "}
-                                {
-                                  identificacao.serie
-                                }
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <p className="max-w-72 truncate font-medium">
-                            {
-                              nota.clienteNome
-                            }
-                          </p>
-
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            {formatarDocumento(
-                              nota.clienteDocumento
-                            )}
-                          </p>
-                        </td>
-
-                        <td className="px-5 py-4 text-sm">
-                          {formatarData(
-                            nota.dataEmissao
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4 text-sm">
-                          <span className="inline-flex min-w-8 justify-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
-                            {
-                              nota.quantidadeItens
-                            }
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4 font-medium">
-                          {formatarValor(
-                            nota.valorTotal
-                          )}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <StatusBadge
-                            status={
-                              nota.status
-                            }
-                          />
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              nativeButton={
-                                false
-                              }
-                              render={
-                                <Link
-                                  href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                      return (
+                        <tr
+                          key={
+                            nota.id
+                          }
+                          className="border-t transition-colors hover:bg-muted/20"
+                        >
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <FileText
+                                  size={
+                                    19
+                                  }
                                 />
+                              </div>
+
+                              <div>
+                                <p className="font-medium">
+                                  Nº{" "}
+                                  {
+                                    identificacao.numero
+                                  }
+                                </p>
+
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  Série{" "}
+                                  {
+                                    identificacao.serie
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <p className="max-w-72 truncate font-medium">
+                              {
+                                nota.clienteNome
                               }
-                            >
-                              <FileSearch
-                                size={16}
-                              />
+                            </p>
 
-                              Abrir
+                            <p className="mt-0.5 text-sm text-muted-foreground">
+                              {formatarDocumento(
+                                nota.clienteDocumento
+                              )}
+                            </p>
+                          </td>
 
-                              <ArrowRight
-                                size={15}
-                              />
-                            </Button>
-
-                            {podeExcluirNota && (
-                              <NfeDeleteButton
-                                empresaId={
-                                  empresaId
-                                }
-                                notaFiscalId={
-                                  nota.id
-                                }
-                                numero={
-                                  nota.numero
-                                }
-                                serie={
-                                  nota.serie
-                                }
-                                clienteNome={
-                                  nota.clienteNome
-                                }
-                              />
+                          <td className="px-5 py-4 text-sm">
+                            {formatarData(
+                              nota.dataEmissao
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+
+                          <td className="px-5 py-4 text-sm">
+                            <span className="inline-flex min-w-8 justify-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                              {
+                                nota.quantidadeItens
+                              }
+                            </span>
+                          </td>
+
+                          <td className="px-5 py-4 font-medium">
+                            {formatarValor(
+                              nota.valorTotal
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <StatusBadge
+                              status={
+                                nota.status
+                              }
+                            />
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                nativeButton={
+                                  false
+                                }
+                                render={
+                                  <Link
+                                    href={`/empresa/${empresaId}/nfe/${nota.id}`}
+                                  />
+                                }
+                              >
+                                <FileSearch
+                                  size={
+                                    16
+                                  }
+                                />
+
+                                Abrir
+
+                                <ArrowRight
+                                  size={
+                                    15
+                                  }
+                                />
+                              </Button>
+
+                              {podeExcluirNota && (
+                                <NfeDeleteButton
+                                  empresaId={
+                                    empresaId
+                                  }
+                                  notaFiscalId={
+                                    nota.id
+                                  }
+                                  numero={
+                                    nota.numero
+                                  }
+                                  serie={
+                                    nota.serie
+                                  }
+                                  clienteNome={
+                                    nota.clienteNome
+                                  }
+                                />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de notas fiscais"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {primeiroRegistro} a{" "}
+                {ultimoRegistro} de{" "}
+                {totalFiltrado} NF-e
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual -
+                            1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={
+                        numeroPagina
+                      }
+                      nativeButton={
+                        false
+                      }
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual +
+                            1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
     </div>
@@ -891,13 +1223,11 @@ function IndicadorCard({
   );
 }
 
-type StatusBadgeProps = {
-  status: string;
-};
-
 function StatusBadge({
   status,
-}: StatusBadgeProps) {
+}: {
+  status: string;
+}) {
   return (
     <span
       className={[
@@ -909,8 +1239,40 @@ function StatusBadge({
           "bg-muted text-muted-foreground",
       ].join(" ")}
     >
-      {statusLabel[status] ??
-        status}
+      {statusLabel[
+        status
+      ] ?? status}
     </span>
+  );
+}
+
+function LinhaInformacao({
+  titulo,
+  valor,
+  destaque = false,
+}: {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">
+        {titulo}
+      </dt>
+
+      <dd
+        className={[
+          "max-w-52 truncate text-right",
+
+          destaque
+            ? "font-semibold"
+            : "font-medium",
+        ].join(" ")}
+        title={valor}
+      >
+        {valor}
+      </dd>
+    </div>
   );
 }

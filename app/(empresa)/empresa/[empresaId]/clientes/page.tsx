@@ -1,11 +1,11 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
 import {
   Building2,
+  ChevronLeft,
+  ChevronRight,
   Power,
   PowerOff,
   Search,
@@ -15,18 +15,17 @@ import {
 
 import { getClientes } from "@/actions/clientes/get-clientes";
 
-import { NovoClienteDialog } from "@/components/clientes/novo-cliente-dialog";
-import { ClienteEditButton } from "@/components/clientes/cliente-edit-button";
 import { ClienteDeleteButton } from "@/components/clientes/cliente-delete-button";
+import { ClienteEditButton } from "@/components/clientes/cliente-edit-button";
 import { ClienteStatusButton } from "@/components/clientes/cliente-status-button";
+import { NovoClienteDialog } from "@/components/clientes/novo-cliente-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -36,6 +35,7 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
     status?: string;
+    pagina?: string;
   }>;
 };
 
@@ -43,6 +43,23 @@ type FiltroStatus =
   | "TODOS"
   | "ATIVOS"
   | "INATIVOS";
+
+const CLIENTES_POR_PAGINA = 10;
+
+function normalizarPagina(
+  valor?: string
+) {
+  const pagina = Number(valor);
+
+  if (
+    !Number.isInteger(pagina) ||
+    pagina < 1
+  ) {
+    return 1;
+  }
+
+  return pagina;
+}
 
 function somenteNumeros(
   valor?: string | null
@@ -143,6 +160,7 @@ export default async function ClientesPage({
   const {
     busca = "",
     status = "",
+    pagina = "1",
   } = await searchParams;
 
   const filtroStatus =
@@ -233,6 +251,10 @@ export default async function ClientesPage({
       PrivilegioEmpresa.CLIENTES_EXCLUIR
     );
 
+  /*
+   * Filtro por status
+   */
+
   const clientesPorStatus =
     clientesRaw.filter(
       (cliente) => {
@@ -254,6 +276,10 @@ export default async function ClientesPage({
       }
     );
 
+  /*
+   * Busca
+   */
+
   const termoTexto =
     busca
       .trim()
@@ -262,42 +288,139 @@ export default async function ClientesPage({
   const termoNumerico =
     somenteNumeros(busca);
 
-  const clientes = termoTexto
-    ? clientesPorStatus.filter(
-        (cliente) => {
-          const encontrouTexto = [
-            cliente.nome,
-            cliente.email,
-            cliente.municipio,
-            cliente.uf,
-          ].some((valor) =>
-            valor
-              ?.toLowerCase()
-              .includes(termoTexto)
-          );
-
-          const encontrouNumero =
-            Boolean(
-              termoNumerico
-            ) &&
-            [
-              cliente.cpfCnpj,
-              cliente.telefone,
+  const clientesFiltrados =
+    termoTexto
+      ? clientesPorStatus.filter(
+          (cliente) => {
+            const encontrouTexto = [
+              cliente.nome,
+              cliente.email,
+              cliente.municipio,
+              cliente.uf,
+              cliente.tipoPessoa,
+              cliente.ativo
+                ? "ativo"
+                : "inativo",
             ].some((valor) =>
-              somenteNumeros(
-                valor
-              ).includes(
-                termoNumerico
-              )
+              String(valor ?? "")
+                .toLowerCase()
+                .includes(
+                  termoTexto
+                )
             );
 
-          return (
-            encontrouTexto ||
-            encontrouNumero
-          );
-        }
+            const encontrouNumero =
+              Boolean(
+                termoNumerico
+              ) &&
+              [
+                cliente.cpfCnpj,
+                cliente.telefone,
+              ].some((valor) =>
+                somenteNumeros(
+                  valor
+                ).includes(
+                  termoNumerico
+                )
+              );
+
+            return (
+              encontrouTexto ||
+              encontrouNumero
+            );
+          }
+        )
+      : clientesPorStatus;
+
+  /*
+   * Paginação
+   */
+
+  const totalFiltrado =
+    clientesFiltrados.length;
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFiltrado /
+          CLIENTES_POR_PAGINA
       )
-    : clientesPorStatus;
+    );
+
+  const paginaSolicitada =
+    normalizarPagina(
+      pagina
+    );
+
+  const paginaAtual =
+    Math.min(
+      paginaSolicitada,
+      totalPaginas
+    );
+
+  const indiceInicial =
+    (paginaAtual - 1) *
+    CLIENTES_POR_PAGINA;
+
+  const indiceFinal =
+    Math.min(
+      indiceInicial +
+        CLIENTES_POR_PAGINA,
+      totalFiltrado
+    );
+
+  const clientes =
+    clientesFiltrados.slice(
+      indiceInicial,
+      indiceFinal
+    );
+
+  const primeiroRegistro =
+    totalFiltrado === 0
+      ? 0
+      : indiceInicial + 1;
+
+  const ultimoRegistro =
+    indiceFinal;
+
+  /*
+   * Páginas numéricas
+   *
+   * Exibe no máximo cinco páginas.
+   */
+
+  const primeiraPaginaVisivel =
+    Math.max(
+      1,
+      Math.min(
+        paginaAtual - 2,
+        totalPaginas - 4
+      )
+    );
+
+  const ultimaPaginaVisivel =
+    Math.min(
+      totalPaginas,
+      primeiraPaginaVisivel + 4
+    );
+
+  const paginasVisiveis =
+    Array.from(
+      {
+        length:
+          ultimaPaginaVisivel -
+          primeiraPaginaVisivel +
+          1,
+      },
+      (_, indice) =>
+        primeiraPaginaVisivel +
+        indice
+    );
+
+  /*
+   * Indicadores
+   */
 
   const totalAtivos =
     clientesRaw.filter(
@@ -329,10 +452,14 @@ export default async function ClientesPage({
   function criarHref({
     novoStatus =
       filtroStatus,
+
     incluirBusca = true,
+
+    novaPagina = 1,
   }: {
     novoStatus?: FiltroStatus;
     incluirBusca?: boolean;
+    novaPagina?: number;
   }) {
     const parametros =
       new URLSearchParams();
@@ -356,6 +483,13 @@ export default async function ClientesPage({
       );
     }
 
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
+      );
+    }
+
     const query =
       parametros.toString();
 
@@ -365,7 +499,8 @@ export default async function ClientesPage({
   }
 
   function renderizarAcoes(
-    cliente: (typeof clientesRaw)[number]
+    cliente:
+      (typeof clientesRaw)[number]
   ) {
     const possuiAlgumaAcao =
       podeEditar ||
@@ -399,12 +534,10 @@ export default async function ClientesPage({
                 cliente.cpfCnpj,
 
               inscricaoEstadual:
-                cliente
-                  .inscricaoEstadual,
+                cliente.inscricaoEstadual,
 
               inscricaoMunicipal:
-                cliente
-                  .inscricaoMunicipal,
+                cliente.inscricaoMunicipal,
 
               suframa:
                 cliente.suframa,
@@ -464,6 +597,8 @@ export default async function ClientesPage({
 
   return (
     <div className="w-full space-y-8">
+      {/* Cabeçalho */}
+
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -490,6 +625,8 @@ export default async function ClientesPage({
         )}
       </div>
 
+      {/* Somente leitura */}
+
       {contexto.somenteLeitura && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
           Esta empresa está inativa. Os
@@ -498,97 +635,43 @@ export default async function ClientesPage({
         </div>
       )}
 
+      {/* Indicadores */}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Total
-              </p>
+        <Indicador
+          titulo="Total"
+          valor={clientesRaw.length}
+          icone={Users}
+        />
 
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {clientesRaw.length}
-              </p>
-            </div>
+        <Indicador
+          titulo="Ativos"
+          valor={totalAtivos}
+          icone={Power}
+          variante="sucesso"
+        />
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Users size={21} />
-            </div>
-          </div>
-        </div>
+        <Indicador
+          titulo="Inativos"
+          valor={totalInativos}
+          icone={PowerOff}
+          variante="aviso"
+        />
 
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Ativos
-              </p>
+        <Indicador
+          titulo="Pessoas físicas"
+          valor={totalPessoaFisica}
+          icone={UserRound}
+        />
 
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalAtivos}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
-              <Power size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Inativos
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalInativos}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
-              <PowerOff size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Pessoas físicas
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalPessoaFisica}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <UserRound size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Pessoas jurídicas
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalPessoaJuridica}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Building2 size={21} />
-            </div>
-          </div>
-        </div>
+        <Indicador
+          titulo="Pessoas jurídicas"
+          valor={totalPessoaJuridica}
+          icone={Building2}
+        />
       </section>
+
+      {/* Filtros */}
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap gap-2">
@@ -720,14 +803,16 @@ export default async function ClientesPage({
           filtroStatus !==
             "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {clientes.length === 1
+            {totalFiltrado === 1
               ? "1 cliente encontrado."
-              : `${clientes.length} clientes encontrados.`}
+              : `${totalFiltrado} clientes encontrados.`}
           </p>
         )}
       </section>
 
-      {clientes.length === 0 ? (
+      {/* Estado vazio */}
+
+      {totalFiltrado === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -760,16 +845,20 @@ export default async function ClientesPage({
         </section>
       ) : (
         <>
+          {/* Cards no celular */}
+
           <div className="grid gap-4 md:hidden">
             {clientes.map(
               (cliente) => (
                 <article
                   key={cliente.id}
-                  className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                  className={[
+                    "rounded-2xl border bg-card p-5 shadow-sm",
+
                     !cliente.ativo
                       ? "opacity-80"
-                      : ""
-                  }`}
+                      : "",
+                  ].join(" ")}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -791,17 +880,11 @@ export default async function ClientesPage({
                           {cliente.nome}
                         </h2>
 
-                        <span
-                          className={
+                        <StatusBadge
+                          ativo={
                             cliente.ativo
-                              ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                              : "rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
                           }
-                        >
-                          {cliente.ativo
-                            ? "Ativo"
-                            : "Inativo"}
-                        </span>
+                        />
                       </div>
 
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -814,53 +897,35 @@ export default async function ClientesPage({
                   </div>
 
                   <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        CPF/CNPJ
-                      </dt>
+                    <LinhaInformacao
+                      titulo="CPF/CNPJ"
+                      valor={formatarDocumento(
+                        cliente.cpfCnpj
+                      )}
+                    />
 
-                      <dd className="text-right font-medium">
-                        {formatarDocumento(
-                          cliente.cpfCnpj
-                        )}
-                      </dd>
-                    </div>
+                    <LinhaInformacao
+                      titulo="Município"
+                      valor={formatarMunicipio(
+                        cliente.municipio,
+                        cliente.uf
+                      )}
+                    />
 
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Município
-                      </dt>
+                    <LinhaInformacao
+                      titulo="Telefone"
+                      valor={formatarTelefone(
+                        cliente.telefone
+                      )}
+                    />
 
-                      <dd className="text-right font-medium">
-                        {formatarMunicipio(
-                          cliente.municipio,
-                          cliente.uf
-                        )}
-                      </dd>
-                    </div>
-
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Telefone
-                      </dt>
-
-                      <dd className="text-right font-medium">
-                        {formatarTelefone(
-                          cliente.telefone
-                        )}
-                      </dd>
-                    </div>
-
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        E-mail
-                      </dt>
-
-                      <dd className="max-w-48 truncate text-right font-medium">
-                        {cliente.email ||
-                          "Não informado"}
-                      </dd>
-                    </div>
+                    <LinhaInformacao
+                      titulo="E-mail"
+                      valor={
+                        cliente.email ||
+                        "Não informado"
+                      }
+                    />
                   </dl>
 
                   <div className="mt-5 border-t pt-4">
@@ -872,6 +937,8 @@ export default async function ClientesPage({
               )
             )}
           </div>
+
+          {/* Tabela no computador */}
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
@@ -913,11 +980,13 @@ export default async function ClientesPage({
                     (cliente) => (
                       <tr
                         key={cliente.id}
-                        className={`border-t transition-colors hover:bg-muted/20 ${
+                        className={[
+                          "border-t transition-colors hover:bg-muted/20",
+
                           !cliente.ativo
                             ? "bg-muted/10 opacity-80"
-                            : ""
-                        }`}
+                            : "",
+                        ].join(" ")}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -974,17 +1043,11 @@ export default async function ClientesPage({
                         </td>
 
                         <td className="px-5 py-4">
-                          <span
-                            className={
+                          <StatusBadge
+                            ativo={
                               cliente.ativo
-                                ? "inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                                : "inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
                             }
-                          >
-                            {cliente.ativo
-                              ? "Ativo"
-                              : "Inativo"}
-                          </span>
+                          />
                         </td>
 
                         <td className="px-5 py-4">
@@ -999,8 +1062,234 @@ export default async function ClientesPage({
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de clientes"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {primeiroRegistro} a{" "}
+                {ultimoRegistro} de{" "}
+                {totalFiltrado}{" "}
+                {totalFiltrado === 1
+                  ? "cliente"
+                  : "clientes"}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual - 1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={
+                        numeroPagina
+                      }
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual + 1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+type IndicadorProps = {
+  titulo: string;
+  valor: number;
+
+  icone:
+    typeof Users;
+
+  variante?:
+    | "padrao"
+    | "sucesso"
+    | "aviso";
+};
+
+function Indicador({
+  titulo,
+  valor,
+  icone: Icone,
+  variante = "padrao",
+}: IndicadorProps) {
+  const classeIcone =
+    variante === "sucesso"
+      ? "bg-emerald-500/10 text-emerald-600"
+      : variante === "aviso"
+        ? "bg-amber-500/10 text-amber-600"
+        : "bg-primary/10 text-primary";
+
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {titulo}
+          </p>
+
+          <p className="mt-1 text-3xl font-bold tracking-tight">
+            {valor}
+          </p>
+        </div>
+
+        <div
+          className={[
+            "flex h-11 w-11 items-center justify-center rounded-xl",
+            classeIcone,
+          ].join(" ")}
+        >
+          <Icone size={21} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({
+  ativo,
+}: {
+  ativo: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
+        ativo
+          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      ].join(" ")}
+    >
+      {ativo
+        ? "Ativo"
+        : "Inativo"}
+    </span>
+  );
+}
+
+function LinhaInformacao({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">
+        {titulo}
+      </dt>
+
+      <dd
+        className="max-w-52 truncate text-right font-medium"
+        title={valor}
+      >
+        {valor}
+      </dd>
     </div>
   );
 }

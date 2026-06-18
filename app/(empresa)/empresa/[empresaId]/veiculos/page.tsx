@@ -1,11 +1,11 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
 import {
   CarFront,
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   CircleX,
   Power,
@@ -14,11 +14,11 @@ import {
   Truck,
 } from "lucide-react";
 
-import { getVeiculos } from "@/actions/veiculos/get-veiculos";
 import { getDadosVeiculo } from "@/actions/veiculos/get-dados-veiculo";
+import { getVeiculos } from "@/actions/veiculos/get-veiculos";
 
-import { VeiculoDialog } from "@/components/veiculos/veiculo-dialog";
 import { VeiculoDeleteButton } from "@/components/veiculos/veiculo-delete-button";
+import { VeiculoDialog } from "@/components/veiculos/veiculo-dialog";
 import { VeiculoStatusButton } from "@/components/veiculos/veiculo-status-button";
 
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,7 @@ import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -37,6 +36,7 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
     status?: string;
+    pagina?: string;
   }>;
 };
 
@@ -44,6 +44,8 @@ type FiltroStatus =
   | "TODOS"
   | "ATIVOS"
   | "INATIVOS";
+
+const VEICULOS_POR_PAGINA = 10;
 
 const tiposVeiculo: Record<
   string,
@@ -73,6 +75,21 @@ const tiposVeiculo: Record<
   OUTRO:
     "Outro",
 };
+
+function normalizarPagina(
+  valor?: string
+) {
+  const pagina = Number(valor);
+
+  if (
+    !Number.isInteger(pagina) ||
+    pagina < 1
+  ) {
+    return 1;
+  }
+
+  return pagina;
+}
 
 function formatarPlaca(
   valor: string
@@ -148,6 +165,7 @@ export default async function VeiculosPage({
   const {
     busca = "",
     status = "",
+    pagina = "1",
   } = await searchParams;
 
   const filtroStatus =
@@ -249,6 +267,10 @@ export default async function VeiculosPage({
       PrivilegioEmpresa.VEICULOS_EXCLUIR
     );
 
+  /*
+   * Filtro por status
+   */
+
   const veiculosPorStatus =
     veiculosRaw.filter(
       (veiculo) => {
@@ -270,6 +292,10 @@ export default async function VeiculosPage({
       }
     );
 
+  /*
+   * Busca
+   */
+
   const termo =
     busca
       .trim()
@@ -283,59 +309,150 @@ export default async function VeiculosPage({
       )
       .toLowerCase();
 
-  const veiculos = termo
-    ? veiculosPorStatus.filter(
-        (veiculo) => {
-          const encontrouTexto = [
-            veiculo.placa,
-            veiculo.renavam,
-            veiculo.ufLicenciamento,
-            veiculo.marcaModelo,
-            veiculo.tipo,
-
-            tiposVeiculo[
-              veiculo.tipo
-            ],
-
-            veiculo.transportador
-              ?.nome,
-
-            veiculo.ativo
-              ? "ativo"
-              : "inativo",
-          ].some((valor) =>
-            String(
-              valor ?? ""
-            )
-              .toLowerCase()
-              .includes(termo)
-          );
-
-          const encontrouNormalizado =
-            [
+  const veiculosFiltrados =
+    termo
+      ? veiculosPorStatus.filter(
+          (veiculo) => {
+            const encontrouTexto = [
               veiculo.placa,
               veiculo.renavam,
+              veiculo.ufLicenciamento,
+              veiculo.marcaModelo,
+              veiculo.tipo,
+
+              tiposVeiculo[
+                veiculo.tipo
+              ],
+
+              veiculo.transportador
+                ?.nome,
+
+              veiculo.ativo
+                ? "ativo"
+                : "inativo",
             ].some((valor) =>
               String(
                 valor ?? ""
               )
-                .replace(
-                  /[^a-zA-Z0-9]/g,
-                  ""
-                )
                 .toLowerCase()
-                .includes(
-                  termoNormalizado
-                )
+                .includes(termo)
             );
 
-          return (
-            encontrouTexto ||
-            encontrouNormalizado
-          );
-        }
+            const encontrouNormalizado =
+              [
+                veiculo.placa,
+                veiculo.renavam,
+              ].some((valor) =>
+                String(
+                  valor ?? ""
+                )
+                  .replace(
+                    /[^a-zA-Z0-9]/g,
+                    ""
+                  )
+                  .toLowerCase()
+                  .includes(
+                    termoNormalizado
+                  )
+              );
+
+            return (
+              encontrouTexto ||
+              encontrouNormalizado
+            );
+          }
+        )
+      : veiculosPorStatus;
+
+  /*
+   * Paginação
+   */
+
+  const totalFiltrado =
+    veiculosFiltrados.length;
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFiltrado /
+          VEICULOS_POR_PAGINA
       )
-    : veiculosPorStatus;
+    );
+
+  const paginaSolicitada =
+    normalizarPagina(
+      pagina
+    );
+
+  const paginaAtual =
+    Math.min(
+      paginaSolicitada,
+      totalPaginas
+    );
+
+  const indiceInicial =
+    (paginaAtual - 1) *
+    VEICULOS_POR_PAGINA;
+
+  const indiceFinal =
+    Math.min(
+      indiceInicial +
+        VEICULOS_POR_PAGINA,
+      totalFiltrado
+    );
+
+  const veiculos =
+    veiculosFiltrados.slice(
+      indiceInicial,
+      indiceFinal
+    );
+
+  const primeiroRegistro =
+    totalFiltrado === 0
+      ? 0
+      : indiceInicial + 1;
+
+  const ultimoRegistro =
+    indiceFinal;
+
+  /*
+   * Páginas numéricas
+   *
+   * Exibe no máximo cinco páginas.
+   */
+
+  const primeiraPaginaVisivel =
+    Math.max(
+      1,
+      Math.min(
+        paginaAtual - 2,
+        totalPaginas - 4
+      )
+    );
+
+  const ultimaPaginaVisivel =
+    Math.min(
+      totalPaginas,
+      primeiraPaginaVisivel + 4
+    );
+
+  const paginasVisiveis =
+    Array.from(
+      {
+        length:
+          ultimaPaginaVisivel -
+          primeiraPaginaVisivel +
+          1,
+      },
+      (_, indice) =>
+        primeiraPaginaVisivel +
+        indice
+    );
+
+  /*
+   * Indicadores
+   */
 
   const totalAtivos =
     veiculosRaw.filter(
@@ -355,12 +472,17 @@ export default async function VeiculosPage({
       filtroStatus,
 
     incluirBusca = true,
+
+    novaPagina = 1,
   }: {
     novoStatus?:
       FiltroStatus;
 
     incluirBusca?:
       boolean;
+
+    novaPagina?:
+      number;
   }) {
     const parametros =
       new URLSearchParams();
@@ -382,6 +504,13 @@ export default async function VeiculosPage({
       parametros.set(
         "status",
         novoStatus.toLowerCase()
+      );
+    }
+
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
       );
     }
 
@@ -562,6 +691,8 @@ export default async function VeiculosPage({
           />
         )}
       </div>
+
+      {/* Somente leitura */}
 
       {contexto.somenteLeitura && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
@@ -753,17 +884,16 @@ export default async function VeiculosPage({
           filtroStatus !==
             "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {veiculos.length ===
-            1
+            {totalFiltrado === 1
               ? "1 veículo encontrado."
-              : `${veiculos.length} veículos encontrados.`}
+              : `${totalFiltrado} veículos encontrados.`}
           </p>
         )}
       </section>
 
       {/* Estado vazio */}
 
-      {veiculos.length === 0 ? (
+      {totalFiltrado === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -1053,6 +1183,143 @@ export default async function VeiculosPage({
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de veículos"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {primeiroRegistro} a{" "}
+                {ultimoRegistro} de{" "}
+                {totalFiltrado}{" "}
+                {totalFiltrado === 1
+                  ? "veículo"
+                  : "veículos"}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual -
+                            1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={
+                        numeroPagina
+                      }
+                      nativeButton={
+                        false
+                      }
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual +
+                            1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
     </div>
@@ -1151,7 +1418,10 @@ function LinhaInformacao({
         {titulo}
       </dt>
 
-      <dd className="text-right font-medium">
+      <dd
+        className="max-w-52 truncate text-right font-medium"
+        title={valor}
+      >
         {valor}
       </dd>
     </div>

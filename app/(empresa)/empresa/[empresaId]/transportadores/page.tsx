@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   CircleX,
   Power,
@@ -25,8 +25,7 @@ import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -36,28 +35,20 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
     status?: string;
+    pagina?: string;
   }>;
 };
 
-type FiltroStatus =
-  | "TODOS"
-  | "ATIVOS"
-  | "INATIVOS";
+type FiltroStatus = "TODOS" | "ATIVOS" | "INATIVOS";
 
-function somenteNumeros(
-  valor?: string | null
-) {
-  return (
-    valor?.replace(/\D/g, "") ??
-    ""
-  );
+const ITENS_POR_PAGINA = 10;
+
+function somenteNumeros(valor?: string | null) {
+  return valor?.replace(/\D/g, "") ?? "";
 }
 
-function formatarDocumento(
-  documento: string
-) {
-  const numeros =
-    somenteNumeros(documento);
+function formatarDocumento(documento: string) {
+  const numeros = somenteNumeros(documento);
 
   if (numeros.length === 11) {
     return numeros.replace(
@@ -76,15 +67,12 @@ function formatarDocumento(
   return documento;
 }
 
-function formatarTelefone(
-  telefone?: string | null
-) {
+function formatarTelefone(telefone?: string | null) {
   if (!telefone) {
     return "Não informado";
   }
 
-  const numeros =
-    somenteNumeros(telefone);
+  const numeros = somenteNumeros(telefone);
 
   if (numeros.length === 11) {
     return numeros.replace(
@@ -103,11 +91,8 @@ function formatarTelefone(
   return telefone;
 }
 
-function normalizarStatus(
-  valor?: string
-): FiltroStatus {
-  const status =
-    valor?.toUpperCase();
+function normalizarStatus(valor?: string): FiltroStatus {
+  const status = valor?.toUpperCase();
 
   if (status === "ATIVOS") {
     return "ATIVOS";
@@ -124,222 +109,232 @@ export default async function TransportadoresPage({
   params,
   searchParams,
 }: Props) {
-  const { empresaId } =
-    await params;
+  const { empresaId } = await params;
 
   const {
     busca = "",
     status = "",
+    pagina = "1",
   } = await searchParams;
 
-  const filtroStatus =
-    normalizarStatus(status);
+  const filtroStatus = normalizarStatus(status);
 
-  const contexto =
-    await validarPrivilegioEmpresa(
-      empresaId,
-      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-      {
-        exigirEmpresaAtiva: false,
-      }
-    );
+  const contexto = await validarPrivilegioEmpresa(
+    empresaId,
+    PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
+    {
+      exigirEmpresaAtiva: false,
+    }
+  );
 
-  const transportadoresRaw =
-    await getTransportadores(
-      empresaId
-    );
+  const transportadoresRaw = await getTransportadores(
+    empresaId
+  );
 
   function possuiPrivilegio(
-    privilegio:
-      PrivilegioEmpresa
+    privilegio: PrivilegioEmpresa
   ) {
-    if (
-      contexto.somenteLeitura
-    ) {
+    if (contexto.somenteLeitura) {
       return false;
     }
 
-    if (
-      contexto.usuario.role ===
-      "OWNER"
-    ) {
+    if (contexto.usuario.role === "OWNER") {
       return true;
     }
 
-    const acesso =
-      contexto.acesso;
+    const acesso = contexto.acesso;
 
-    if (
-      !acesso ||
-      !acesso.ativo
-    ) {
+    if (!acesso || !acesso.ativo) {
       return false;
     }
 
-    if (
-      contexto.usuario.role ===
-      "ADMIN"
-    ) {
-      return (
-        acesso.permissao ===
-        "ADMIN"
-      );
+    if (contexto.usuario.role === "ADMIN") {
+      return acesso.permissao === "ADMIN";
     }
 
-    if (
-      acesso.permissao ===
-      "PERSONALIZADO"
-    ) {
+    if (acesso.permissao === "PERSONALIZADO") {
       return acesso.privilegios.some(
-        (item) =>
-          item.privilegio ===
-          privilegio
+        (item) => item.privilegio === privilegio
       );
     }
 
     return false;
   }
 
-  const podeCriar =
-    possuiPrivilegio(
-      PrivilegioEmpresa.TRANSPORTADORES_CRIAR
-    );
+  const podeCriar = possuiPrivilegio(
+    PrivilegioEmpresa.TRANSPORTADORES_CRIAR
+  );
 
-  const podeEditar =
-    possuiPrivilegio(
-      PrivilegioEmpresa.TRANSPORTADORES_EDITAR
-    );
+  const podeEditar = possuiPrivilegio(
+    PrivilegioEmpresa.TRANSPORTADORES_EDITAR
+  );
 
-  const podeAlterarStatus =
-    possuiPrivilegio(
-      PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS
-    );
+  const podeAlterarStatus = possuiPrivilegio(
+    PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS
+  );
 
-  const podeExcluir =
-    possuiPrivilegio(
-      PrivilegioEmpresa.TRANSPORTADORES_EXCLUIR
-    );
+  const podeExcluir = possuiPrivilegio(
+    PrivilegioEmpresa.TRANSPORTADORES_EXCLUIR
+  );
 
   const transportadoresPorStatus =
-    transportadoresRaw.filter(
-      (transportador) => {
-        if (
-          filtroStatus ===
-          "ATIVOS"
-        ) {
-          return transportador.ativo;
-        }
-
-        if (
-          filtroStatus ===
-          "INATIVOS"
-        ) {
-          return !transportador.ativo;
-        }
-
-        return true;
+    transportadoresRaw.filter((transportador) => {
+      if (filtroStatus === "ATIVOS") {
+        return transportador.ativo;
       }
-    );
 
-  const termoTexto =
-    busca
-      .trim()
-      .toLowerCase();
+      if (filtroStatus === "INATIVOS") {
+        return !transportador.ativo;
+      }
 
-  const termoNumerico =
-    somenteNumeros(busca);
+      return true;
+    });
+
+  const termoTexto = busca.trim().toLowerCase();
+  const termoNumerico = somenteNumeros(busca);
+
+  const transportadoresFiltrados = termoTexto
+    ? transportadoresPorStatus.filter(
+        (transportador) => {
+          const encontrouTexto = [
+            transportador.nome,
+            transportador.nomeFantasia,
+            transportador.email,
+            transportador.municipio,
+            transportador.uf,
+            transportador.rntrc,
+            transportador.tipoPessoa,
+            transportador.ativo
+              ? "ativo"
+              : "inativo",
+          ].some((valor) =>
+            String(valor ?? "")
+              .toLowerCase()
+              .includes(termoTexto)
+          );
+
+          const encontrouNumero =
+            Boolean(termoNumerico) &&
+            [
+              transportador.cpfCnpj,
+              transportador.telefone,
+              transportador.rntrc,
+            ].some((valor) =>
+              somenteNumeros(valor).includes(
+                termoNumerico
+              )
+            );
+
+          return encontrouTexto || encontrouNumero;
+        }
+      )
+    : transportadoresPorStatus;
+
+  /*
+   * Paginação
+   */
+
+  const paginaInformada = Number.parseInt(
+    pagina,
+    10
+  );
+
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(
+      transportadoresFiltrados.length /
+        ITENS_POR_PAGINA
+    )
+  );
+
+  const paginaAtual =
+    Number.isFinite(paginaInformada) &&
+    paginaInformada > 0
+      ? Math.min(paginaInformada, totalPaginas)
+      : 1;
+
+  const indiceInicial =
+    (paginaAtual - 1) * ITENS_POR_PAGINA;
+
+  const indiceFinal = Math.min(
+    indiceInicial + ITENS_POR_PAGINA,
+    transportadoresFiltrados.length
+  );
 
   const transportadores =
-    termoTexto
-      ? transportadoresPorStatus.filter(
-          (transportador) => {
-            const encontrouTexto = [
-              transportador.nome,
-              transportador.nomeFantasia,
-              transportador.email,
-              transportador.municipio,
-              transportador.uf,
-              transportador.rntrc,
-              transportador.tipoPessoa,
-              transportador.ativo
-                ? "ativo"
-                : "inativo",
-            ].some((valor) =>
-              String(valor ?? "")
-                .toLowerCase()
-                .includes(termoTexto)
-            );
+    transportadoresFiltrados.slice(
+      indiceInicial,
+      indiceFinal
+    );
 
-            const encontrouNumero =
-              Boolean(
-                termoNumerico
-              ) &&
-              [
-                transportador.cpfCnpj,
-                transportador.telefone,
-                transportador.rntrc,
-              ].some((valor) =>
-                somenteNumeros(
-                  valor
-                ).includes(
-                  termoNumerico
-                )
-              );
+  /*
+   * Mostra no máximo 5 números de páginas.
+   */
 
-            return (
-              encontrouTexto ||
-              encontrouNumero
-            );
-          }
-        )
-      : transportadoresPorStatus;
+  const primeiraPaginaVisivel = Math.max(
+    1,
+    Math.min(
+      paginaAtual - 2,
+      totalPaginas - 4
+    )
+  );
 
-  const totalAtivos =
-    transportadoresRaw.filter(
-      (transportador) =>
-        transportador.ativo
-    ).length;
+  const ultimaPaginaVisivel = Math.min(
+    totalPaginas,
+    primeiraPaginaVisivel + 4
+  );
+
+  const paginasVisiveis = Array.from(
+    {
+      length:
+        ultimaPaginaVisivel -
+        primeiraPaginaVisivel +
+        1,
+    },
+    (_, indice) =>
+      primeiraPaginaVisivel + indice
+  );
+
+  const totalAtivos = transportadoresRaw.filter(
+    (transportador) => transportador.ativo
+  ).length;
 
   const totalInativos =
-    transportadoresRaw.length -
-    totalAtivos;
+    transportadoresRaw.length - totalAtivos;
 
   const rotaBase =
     `/empresa/${empresaId}/transportadores`;
 
   function criarHref({
-    novoStatus =
-      filtroStatus,
-
+    novoStatus = filtroStatus,
     incluirBusca = true,
+    novaPagina = 1,
   }: {
     novoStatus?: FiltroStatus;
     incluirBusca?: boolean;
+    novaPagina?: number;
   }) {
-    const parametros =
-      new URLSearchParams();
+    const parametros = new URLSearchParams();
 
-    if (
-      incluirBusca &&
-      busca.trim()
-    ) {
-      parametros.set(
-        "busca",
-        busca.trim()
-      );
+    if (incluirBusca && busca.trim()) {
+      parametros.set("busca", busca.trim());
     }
 
-    if (
-      novoStatus !== "TODOS"
-    ) {
+    if (novoStatus !== "TODOS") {
       parametros.set(
         "status",
         novoStatus.toLowerCase()
       );
     }
 
-    const query =
-      parametros.toString();
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
+      );
+    }
+
+    const query = parametros.toString();
 
     return query
       ? `${rotaBase}?${query}`
@@ -368,62 +363,35 @@ export default async function TransportadoresPage({
           <TransportadorDialog
             empresaId={empresaId}
             transportador={{
-              id:
-                transportador.id,
-
+              id: transportador.id,
               tipoPessoa:
                 transportador.tipoPessoa,
-
-              nome:
-                transportador.nome,
-
+              nome: transportador.nome,
               nomeFantasia:
                 transportador.nomeFantasia,
-
               cpfCnpj:
                 transportador.cpfCnpj,
-
               inscricaoEstadual:
                 transportador.inscricaoEstadual,
-
               inscricaoMunicipal:
                 transportador.inscricaoMunicipal,
-
-              rntrc:
-                transportador.rntrc,
-
-              email:
-                transportador.email,
-
+              rntrc: transportador.rntrc,
+              email: transportador.email,
               telefone:
                 transportador.telefone,
-
-              cep:
-                transportador.cep,
-
+              cep: transportador.cep,
               logradouro:
                 transportador.logradouro,
-
-              numero:
-                transportador.numero,
-
+              numero: transportador.numero,
               complemento:
                 transportador.complemento,
-
-              bairro:
-                transportador.bairro,
-
+              bairro: transportador.bairro,
               municipio:
                 transportador.municipio,
-
               codigoMunicipio:
                 transportador.codigoMunicipio,
-
-              uf:
-                transportador.uf,
-
-              ativo:
-                transportador.ativo,
+              uf: transportador.uf,
+              ativo: transportador.ativo,
             }}
           />
         )}
@@ -437,9 +405,7 @@ export default async function TransportadoresPage({
             transportadorNome={
               transportador.nome
             }
-            ativo={
-              transportador.ativo
-            }
+            ativo={transportador.ativo}
           />
         )}
 
@@ -453,12 +419,10 @@ export default async function TransportadoresPage({
               transportador.nome
             }
             quantidadeVeiculos={
-              transportador._count
-                .veiculos
+              transportador._count.veiculos
             }
             quantidadeMotoristas={
-              transportador._count
-                .motoristas
+              transportador._count.motoristas
             }
           />
         )}
@@ -483,8 +447,8 @@ export default async function TransportadoresPage({
 
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
               Gerencie transportadoras,
-              autônomos e seus vínculos
-              com veículos e motoristas.
+              autônomos e seus vínculos com
+              veículos e motoristas.
             </p>
           </div>
         </div>
@@ -509,9 +473,7 @@ export default async function TransportadoresPage({
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Indicador
           titulo="Total de transportadores"
-          valor={
-            transportadoresRaw.length
-          }
+          valor={transportadoresRaw.length}
           icone={Truck}
         />
 
@@ -540,14 +502,12 @@ export default async function TransportadoresPage({
             render={
               <Link
                 href={criarHref({
-                  novoStatus:
-                    "TODOS",
+                  novoStatus: "TODOS",
                 })}
               />
             }
             variant={
-              filtroStatus ===
-              "TODOS"
+              filtroStatus === "TODOS"
                 ? "default"
                 : "outline"
             }
@@ -561,21 +521,18 @@ export default async function TransportadoresPage({
             render={
               <Link
                 href={criarHref({
-                  novoStatus:
-                    "ATIVOS",
+                  novoStatus: "ATIVOS",
                 })}
               />
             }
             variant={
-              filtroStatus ===
-              "ATIVOS"
+              filtroStatus === "ATIVOS"
                 ? "default"
                 : "outline"
             }
             size="sm"
           >
             <Power size={15} />
-
             Ativos
           </Button>
 
@@ -584,21 +541,18 @@ export default async function TransportadoresPage({
             render={
               <Link
                 href={criarHref({
-                  novoStatus:
-                    "INATIVOS",
+                  novoStatus: "INATIVOS",
                 })}
               />
             }
             variant={
-              filtroStatus ===
-              "INATIVOS"
+              filtroStatus === "INATIVOS"
                 ? "default"
                 : "outline"
             }
             size="sm"
           >
             <PowerOff size={15} />
-
             Inativos
           </Button>
         </div>
@@ -607,8 +561,7 @@ export default async function TransportadoresPage({
           method="GET"
           className="flex flex-col gap-3 sm:flex-row"
         >
-          {filtroStatus !==
-            "TODOS" && (
+          {filtroStatus !== "TODOS" && (
             <input
               type="hidden"
               name="status"
@@ -636,7 +589,6 @@ export default async function TransportadoresPage({
             className="h-11"
           >
             <Search size={17} />
-
             Buscar
           </Button>
 
@@ -646,8 +598,7 @@ export default async function TransportadoresPage({
               render={
                 <Link
                   href={criarHref({
-                    incluirBusca:
-                      false,
+                    incluirBusca: false,
                   })}
                 />
               }
@@ -660,13 +611,12 @@ export default async function TransportadoresPage({
         </form>
 
         {(busca ||
-          filtroStatus !==
-            "TODOS") && (
+          filtroStatus !== "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {transportadores.length ===
+            {transportadoresFiltrados.length ===
             1
               ? "1 transportador encontrado."
-              : `${transportadores.length} transportadores encontrados.`}
+              : `${transportadoresFiltrados.length} transportadores encontrados.`}
           </p>
         )}
       </section>
@@ -695,9 +645,7 @@ export default async function TransportadoresPage({
             <Button
               nativeButton={false}
               render={
-                <Link
-                  href={rotaBase}
-                />
+                <Link href={rotaBase} />
               }
               variant="outline"
               className="mt-6 h-11"
@@ -714,9 +662,7 @@ export default async function TransportadoresPage({
             {transportadores.map(
               (transportador) => (
                 <article
-                  key={
-                    transportador.id
-                  }
+                  key={transportador.id}
                   className={`rounded-2xl border bg-card p-5 shadow-sm ${
                     !transportador.ativo
                       ? "opacity-80"
@@ -732,17 +678,13 @@ export default async function TransportadoresPage({
                             size={21}
                           />
                         ) : (
-                          <Truck
-                            size={21}
-                          />
+                          <Truck size={21} />
                         )}
                       </div>
 
                       <div className="min-w-0">
                         <h2 className="truncate font-semibold">
-                          {
-                            transportador.nome
-                          }
+                          {transportador.nome}
                         </h2>
 
                         <p className="mt-1 text-sm text-muted-foreground">
@@ -802,16 +744,16 @@ export default async function TransportadoresPage({
                     <LinhaInformacao
                       titulo="Veículos"
                       valor={String(
-                        transportador
-                          ._count.veiculos
+                        transportador._count
+                          .veiculos
                       )}
                     />
 
                     <LinhaInformacao
                       titulo="Motoristas"
                       valor={String(
-                        transportador
-                          ._count.motoristas
+                        transportador._count
+                          .motoristas
                       )}
                     />
                   </dl>
@@ -871,9 +813,7 @@ export default async function TransportadoresPage({
                   {transportadores.map(
                     (transportador) => (
                       <tr
-                        key={
-                          transportador.id
-                        }
+                        key={transportador.id}
                         className={`border-t transition-colors hover:bg-muted/20 ${
                           !transportador.ativo
                             ? "bg-muted/10 opacity-80"
@@ -937,8 +877,7 @@ export default async function TransportadoresPage({
                         <td className="px-5 py-4 text-center">
                           <span className="inline-flex min-w-8 justify-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
                             {
-                              transportador
-                                ._count
+                              transportador._count
                                 .veiculos
                             }
                           </span>
@@ -947,8 +886,7 @@ export default async function TransportadoresPage({
                         <td className="px-5 py-4 text-center">
                           <span className="inline-flex min-w-8 justify-center rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
                             {
-                              transportador
-                                ._count
+                              transportador._count
                                 .motoristas
                             }
                           </span>
@@ -974,6 +912,119 @@ export default async function TransportadoresPage({
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de transportadores"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {indiceInicial + 1} a{" "}
+                {indiceFinal} de{" "}
+                {
+                  transportadoresFiltrados.length
+                }{" "}
+                transportadores
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual - 1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft size={16} />
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft size={16} />
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={numeroPagina}
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual + 1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+                    <ChevronRight size={16} />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+                    <ChevronRight size={16} />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
     </div>
@@ -983,14 +1034,11 @@ export default async function TransportadoresPage({
 type IndicadorProps = {
   titulo: string;
   valor: number;
-
   icone: typeof Truck;
-
   variante?:
     | "padrao"
     | "sucesso"
     | "alerta";
-
   className?: string;
 };
 
@@ -1045,15 +1093,12 @@ function StatusBadge({
     <span
       className={[
         "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-
         ativo
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
           : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
       ].join(" ")}
     >
-      {ativo
-        ? "Ativo"
-        : "Inativo"}
+      {ativo ? "Ativo" : "Inativo"}
     </span>
   );
 }

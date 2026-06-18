@@ -1,16 +1,14 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
-import type {
-  LucideIcon,
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import {
   AlertTriangle,
   BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   CircleX,
   IdCard,
@@ -20,11 +18,11 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { getMotoristas } from "@/actions/motoristas/get-motoristas";
 import { getDadosMotorista } from "@/actions/motoristas/get-dados-motorista";
+import { getMotoristas } from "@/actions/motoristas/get-motoristas";
 
-import { MotoristaDialog } from "@/components/motoristas/motorista-dialog";
 import { MotoristaDeleteButton } from "@/components/motoristas/motorista-delete-button";
+import { MotoristaDialog } from "@/components/motoristas/motorista-dialog";
 import { MotoristaStatusButton } from "@/components/motoristas/motorista-status-button";
 
 import { Button } from "@/components/ui/button";
@@ -32,8 +30,7 @@ import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -43,6 +40,7 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
     status?: string;
+    pagina?: string;
   }>;
 };
 
@@ -50,6 +48,23 @@ type FiltroStatus =
   | "TODOS"
   | "ATIVOS"
   | "INATIVOS";
+
+const MOTORISTAS_POR_PAGINA = 10;
+
+function normalizarPagina(
+  valor?: string
+) {
+  const pagina = Number(valor);
+
+  if (
+    !Number.isInteger(pagina) ||
+    pagina < 1
+  ) {
+    return 1;
+  }
+
+  return pagina;
+}
 
 function somenteNumeros(
   valor?: string | null
@@ -144,8 +159,7 @@ function obterSituacaoCnh(
     };
   }
 
-  const hoje =
-    new Date();
+  const hoje = new Date();
 
   hoje.setHours(
     0,
@@ -189,8 +203,10 @@ function obterSituacaoCnh(
     return {
       status:
         "PROXIMA_VENCIMENTO",
+
       texto:
         "Próxima do vencimento",
+
       descricao:
         dias === 0
           ? "Vence hoje"
@@ -216,6 +232,7 @@ export default async function MotoristasPage({
   const {
     busca = "",
     status = "",
+    pagina = "1",
   } = await searchParams;
 
   const filtroStatus =
@@ -317,6 +334,10 @@ export default async function MotoristasPage({
       PrivilegioEmpresa.MOTORISTAS_EXCLUIR
     );
 
+  /*
+   * Filtro por status
+   */
+
   const motoristasPorStatus =
     motoristasRaw.filter(
       (motorista) => {
@@ -338,6 +359,10 @@ export default async function MotoristasPage({
       }
     );
 
+  /*
+   * Busca
+   */
+
   const termo =
     busca
       .trim()
@@ -348,53 +373,144 @@ export default async function MotoristasPage({
       busca
     );
 
-  const motoristas = termo
-    ? motoristasPorStatus.filter(
-        (motorista) => {
-          const situacao =
-            obterSituacaoCnh(
-              motorista.validadeCnh
-            );
+  const motoristasFiltrados =
+    termo
+      ? motoristasPorStatus.filter(
+          (motorista) => {
+            const situacao =
+              obterSituacaoCnh(
+                motorista.validadeCnh
+              );
 
-          const encontrouTexto = [
-            motorista.nome,
-            motorista.categoriaCnh,
-            motorista.transportador
-              ?.nome,
-            motorista.ativo
-              ? "ativo"
-              : "inativo",
-            situacao.texto,
-            situacao.descricao,
-          ].some((valor) =>
-            String(valor ?? "")
-              .toLowerCase()
-              .includes(termo)
-          );
-
-          const encontrouNumero =
-            Boolean(
-              termoNumerico
-            ) &&
-            [
-              motorista.cpf,
-              motorista.numeroCnh,
-              motorista.telefone,
+            const encontrouTexto = [
+              motorista.nome,
+              motorista.categoriaCnh,
+              motorista.transportador
+                ?.nome,
+              motorista.ativo
+                ? "ativo"
+                : "inativo",
+              situacao.texto,
+              situacao.descricao,
             ].some((valor) =>
-              somenteNumeros(
-                valor
-              ).includes(
-                termoNumerico
-              )
+              String(valor ?? "")
+                .toLowerCase()
+                .includes(termo)
             );
 
-          return (
-            encontrouTexto ||
-            encontrouNumero
-          );
-        }
+            const encontrouNumero =
+              Boolean(
+                termoNumerico
+              ) &&
+              [
+                motorista.cpf,
+                motorista.numeroCnh,
+                motorista.telefone,
+              ].some((valor) =>
+                somenteNumeros(
+                  valor
+                ).includes(
+                  termoNumerico
+                )
+              );
+
+            return (
+              encontrouTexto ||
+              encontrouNumero
+            );
+          }
+        )
+      : motoristasPorStatus;
+
+  /*
+   * Paginação
+   */
+
+  const totalFiltrado =
+    motoristasFiltrados.length;
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFiltrado /
+          MOTORISTAS_POR_PAGINA
       )
-    : motoristasPorStatus;
+    );
+
+  const paginaSolicitada =
+    normalizarPagina(
+      pagina
+    );
+
+  const paginaAtual =
+    Math.min(
+      paginaSolicitada,
+      totalPaginas
+    );
+
+  const indiceInicial =
+    (paginaAtual - 1) *
+    MOTORISTAS_POR_PAGINA;
+
+  const indiceFinal =
+    Math.min(
+      indiceInicial +
+        MOTORISTAS_POR_PAGINA,
+      totalFiltrado
+    );
+
+  const motoristas =
+    motoristasFiltrados.slice(
+      indiceInicial,
+      indiceFinal
+    );
+
+  const primeiroRegistro =
+    totalFiltrado === 0
+      ? 0
+      : indiceInicial + 1;
+
+  const ultimoRegistro =
+    indiceFinal;
+
+  /*
+   * Páginas numéricas
+   *
+   * Exibe no máximo cinco páginas.
+   */
+
+  const primeiraPaginaVisivel =
+    Math.max(
+      1,
+      Math.min(
+        paginaAtual - 2,
+        totalPaginas - 4
+      )
+    );
+
+  const ultimaPaginaVisivel =
+    Math.min(
+      totalPaginas,
+      primeiraPaginaVisivel + 4
+    );
+
+  const paginasVisiveis =
+    Array.from(
+      {
+        length:
+          ultimaPaginaVisivel -
+          primeiraPaginaVisivel +
+          1,
+      },
+      (_, indice) =>
+        primeiraPaginaVisivel +
+        indice
+    );
+
+  /*
+   * Indicadores
+   */
 
   const totalAtivos =
     motoristasRaw.filter(
@@ -431,12 +547,17 @@ export default async function MotoristasPage({
       filtroStatus,
 
     incluirBusca = true,
+
+    novaPagina = 1,
   }: {
     novoStatus?:
       FiltroStatus;
 
     incluirBusca?:
       boolean;
+
+    novaPagina?:
+      number;
   }) {
     const parametros =
       new URLSearchParams();
@@ -458,6 +579,13 @@ export default async function MotoristasPage({
       parametros.set(
         "status",
         novoStatus.toLowerCase()
+      );
+    }
+
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
       );
     }
 
@@ -608,10 +736,10 @@ export default async function MotoristasPage({
 
       {contexto.somenteLeitura && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
-          Esta empresa está
-          inativa. Os motoristas
-          estão disponíveis somente
-          para consulta.
+          Esta empresa está inativa.
+          Os motoristas estão
+          disponíveis somente para
+          consulta.
         </div>
       )}
 
@@ -821,17 +949,16 @@ export default async function MotoristasPage({
           filtroStatus !==
             "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {motoristas.length ===
-            1
+            {totalFiltrado === 1
               ? "1 motorista encontrado."
-              : `${motoristas.length} motoristas encontrados.`}
+              : `${totalFiltrado} motoristas encontrados.`}
           </p>
         )}
       </section>
 
       {/* Estado vazio */}
 
-      {motoristas.length === 0 ? (
+      {totalFiltrado === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -886,11 +1013,13 @@ export default async function MotoristasPage({
                     key={
                       motorista.id
                     }
-                    className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                    className={[
+                      "rounded-2xl border bg-card p-5 shadow-sm",
+
                       !motorista.ativo
                         ? "opacity-80"
-                        : ""
-                    }`}
+                        : "",
+                    ].join(" ")}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
@@ -1035,11 +1164,13 @@ export default async function MotoristasPage({
                           key={
                             motorista.id
                           }
-                          className={`border-t transition-colors hover:bg-muted/20 ${
+                          className={[
+                            "border-t transition-colors hover:bg-muted/20",
+
                             !motorista.ativo
                               ? "bg-muted/10 opacity-80"
-                              : ""
-                          }`}
+                              : "",
+                          ].join(" ")}
                         >
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
@@ -1122,6 +1253,143 @@ export default async function MotoristasPage({
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de motoristas"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {primeiroRegistro} a{" "}
+                {ultimoRegistro} de{" "}
+                {totalFiltrado}{" "}
+                {totalFiltrado === 1
+                  ? "motorista"
+                  : "motoristas"}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual -
+                            1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={
+                        numeroPagina
+                      }
+                      nativeButton={
+                        false
+                      }
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual +
+                            1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
     </div>
@@ -1262,7 +1530,10 @@ function LinhaInformacao({
         {titulo}
       </dt>
 
-      <dd className="text-right font-medium">
+      <dd
+        className="max-w-52 truncate text-right font-medium"
+        title={valor}
+      >
         {valor}
       </dd>
     </div>

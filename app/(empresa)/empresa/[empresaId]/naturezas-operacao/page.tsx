@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
 import {
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
   CircleX,
   ClipboardList,
@@ -15,8 +15,8 @@ import {
 
 import { getNaturezasOperacao } from "@/actions/naturezas-operacao/get-naturezas-operacao";
 
-import { NaturezaOperacaoDialog } from "@/components/naturezas-operacao/natureza-operacao-dialog";
 import { NaturezaDeleteButton } from "@/components/naturezas-operacao/natureza-delete-button";
+import { NaturezaOperacaoDialog } from "@/components/naturezas-operacao/natureza-operacao-dialog";
 import { NaturezaStatusButton } from "@/components/naturezas-operacao/natureza-status-button";
 
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,7 @@ import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -35,6 +34,7 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
     status?: string;
+    pagina?: string;
   }>;
 };
 
@@ -42,6 +42,8 @@ type FiltroStatus =
   | "TODAS"
   | "ATIVAS"
   | "INATIVAS";
+
+const NATUREZAS_POR_PAGINA = 10;
 
 const finalidades: Record<
   string,
@@ -79,6 +81,21 @@ function normalizarStatus(
   return "TODAS";
 }
 
+function normalizarPagina(
+  valor?: string
+) {
+  const pagina = Number(valor);
+
+  if (
+    !Number.isInteger(pagina) ||
+    pagina < 1
+  ) {
+    return 1;
+  }
+
+  return pagina;
+}
+
 export default async function NaturezasOperacaoPage({
   params,
   searchParams,
@@ -89,6 +106,7 @@ export default async function NaturezasOperacaoPage({
   const {
     busca = "",
     status = "",
+    pagina = "1",
   } = await searchParams;
 
   const filtroStatus =
@@ -99,7 +117,8 @@ export default async function NaturezasOperacaoPage({
       empresaId,
       PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
       {
-        exigirEmpresaAtiva: false,
+        exigirEmpresaAtiva:
+          false,
       }
     );
 
@@ -179,6 +198,10 @@ export default async function NaturezasOperacaoPage({
       PrivilegioEmpresa.NATUREZAS_EXCLUIR
     );
 
+  /*
+   * Filtro por status
+   */
+
   const naturezasPorStatus =
     naturezasRaw.filter(
       (natureza) => {
@@ -200,50 +223,145 @@ export default async function NaturezasOperacaoPage({
       }
     );
 
+  /*
+   * Busca
+   */
+
   const termo =
     busca
       .trim()
       .toLowerCase();
 
-  const naturezas = termo
-    ? naturezasPorStatus.filter(
-        (natureza) => {
-          const finalidade =
-            obterFinalidade(
-              natureza.finalidadeNfe
+  const naturezasFiltradas =
+    termo
+      ? naturezasPorStatus.filter(
+          (natureza) => {
+            const finalidade =
+              obterFinalidade(
+                natureza.finalidadeNfe
+              );
+
+            const statusNatureza =
+              natureza.ativo
+                ? "ativa"
+                : "inativa";
+
+            const consumidorFinal =
+              natureza.consumidorFinal
+                ? "sim"
+                : "não";
+
+            const contribuinteIcms =
+              natureza.contribuinteIcms
+                ? "sim"
+                : "não";
+
+            return [
+              natureza.descricao,
+              natureza.cfop,
+              natureza.finalidadeNfe,
+              finalidade,
+              statusNatureza,
+              consumidorFinal,
+              contribuinteIcms,
+            ].some((valor) =>
+              valor
+                .toLowerCase()
+                .includes(termo)
             );
+          }
+        )
+      : naturezasPorStatus;
 
-          const statusNatureza =
-            natureza.ativo
-              ? "ativa"
-              : "inativa";
+  /*
+   * Paginação
+   */
 
-          const consumidorFinal =
-            natureza.consumidorFinal
-              ? "sim"
-              : "não";
+  const totalFiltrado =
+    naturezasFiltradas.length;
 
-          const contribuinteIcms =
-            natureza.contribuinteIcms
-              ? "sim"
-              : "não";
-
-          return [
-            natureza.descricao,
-            natureza.cfop,
-            natureza.finalidadeNfe,
-            finalidade,
-            statusNatureza,
-            consumidorFinal,
-            contribuinteIcms,
-          ].some((valor) =>
-            valor
-              .toLowerCase()
-              .includes(termo)
-          );
-        }
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFiltrado /
+          NATUREZAS_POR_PAGINA
       )
-    : naturezasPorStatus;
+    );
+
+  const paginaSolicitada =
+    normalizarPagina(
+      pagina
+    );
+
+  const paginaAtual =
+    Math.min(
+      paginaSolicitada,
+      totalPaginas
+    );
+
+  const indiceInicial =
+    (paginaAtual - 1) *
+    NATUREZAS_POR_PAGINA;
+
+  const indiceFinal =
+    Math.min(
+      indiceInicial +
+        NATUREZAS_POR_PAGINA,
+      totalFiltrado
+    );
+
+  const naturezas =
+    naturezasFiltradas.slice(
+      indiceInicial,
+      indiceFinal
+    );
+
+  const primeiroRegistro =
+    totalFiltrado === 0
+      ? 0
+      : indiceInicial + 1;
+
+  const ultimoRegistro =
+    indiceFinal;
+
+  /*
+   * Páginas numéricas
+   *
+   * Exibe no máximo cinco páginas.
+   */
+
+  const primeiraPaginaVisivel =
+    Math.max(
+      1,
+      Math.min(
+        paginaAtual - 2,
+        totalPaginas - 4
+      )
+    );
+
+  const ultimaPaginaVisivel =
+    Math.min(
+      totalPaginas,
+      primeiraPaginaVisivel + 4
+    );
+
+  const paginasVisiveis =
+    Array.from(
+      {
+        length:
+          ultimaPaginaVisivel -
+          primeiraPaginaVisivel +
+          1,
+      },
+      (_, indice) =>
+        primeiraPaginaVisivel +
+        indice
+    );
+
+  /*
+   * Indicadores
+   */
 
   const totalAtivas =
     naturezasRaw.filter(
@@ -263,9 +381,17 @@ export default async function NaturezasOperacaoPage({
       filtroStatus,
 
     incluirBusca = true,
+
+    novaPagina = 1,
   }: {
-    novoStatus?: FiltroStatus;
-    incluirBusca?: boolean;
+    novoStatus?:
+      FiltroStatus;
+
+    incluirBusca?:
+      boolean;
+
+    novaPagina?:
+      number;
   }) {
     const parametros =
       new URLSearchParams();
@@ -289,6 +415,13 @@ export default async function NaturezasOperacaoPage({
       );
     }
 
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
+      );
+    }
+
     const query =
       parametros.toString();
 
@@ -298,7 +431,8 @@ export default async function NaturezasOperacaoPage({
   }
 
   function renderizarAcoes(
-    natureza: (typeof naturezasRaw)[number]
+    natureza:
+      (typeof naturezasRaw)[number]
   ) {
     const possuiAlgumaAcao =
       podeEditar ||
@@ -345,19 +479,29 @@ export default async function NaturezasOperacaoPage({
 
         {podeAlterarStatus && (
           <NaturezaStatusButton
-            empresaId={empresaId}
-            naturezaId={natureza.id}
+            empresaId={
+              empresaId
+            }
+            naturezaId={
+              natureza.id
+            }
             descricao={
               natureza.descricao
             }
-            ativo={natureza.ativo}
+            ativo={
+              natureza.ativo
+            }
           />
         )}
 
         {podeExcluir && (
           <NaturezaDeleteButton
-            empresaId={empresaId}
-            naturezaId={natureza.id}
+            empresaId={
+              empresaId
+            }
+            naturezaId={
+              natureza.id
+            }
             descricao={
               natureza.descricao
             }
@@ -400,6 +544,8 @@ export default async function NaturezasOperacaoPage({
         )}
       </div>
 
+      {/* Somente leitura */}
+
       {contexto.somenteLeitura && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
           Esta empresa está inativa. As
@@ -412,63 +558,38 @@ export default async function NaturezasOperacaoPage({
       {/* Indicadores */}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Total de naturezas
-              </p>
+        <Indicador
+          titulo="Total de naturezas"
+          valor={
+            naturezasRaw.length
+          }
+          icone={
+            ClipboardList
+          }
+        />
 
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {naturezasRaw.length}
-              </p>
-            </div>
+        <Indicador
+          titulo="Naturezas ativas"
+          valor={
+            totalAtivas
+          }
+          icone={
+            CircleCheck
+          }
+          variante="sucesso"
+        />
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ClipboardList
-                size={21}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Naturezas ativas
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalAtivas}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-              <CircleCheck
-                size={21}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm sm:col-span-2 xl:col-span-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Naturezas inativas
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalInativas}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400">
-              <CircleX size={21} />
-            </div>
-          </div>
-        </div>
+        <Indicador
+          titulo="Naturezas inativas"
+          valor={
+            totalInativas
+          }
+          icone={
+            CircleX
+          }
+          variante="aviso"
+          className="sm:col-span-2 xl:col-span-1"
+        />
       </section>
 
       {/* Filtros e busca */}
@@ -476,7 +597,9 @@ export default async function NaturezasOperacaoPage({
       <section className="rounded-2xl border bg-card p-5 shadow-sm">
         <div className="mb-4 flex flex-wrap gap-2">
           <Button
-            nativeButton={false}
+            nativeButton={
+              false
+            }
             render={
               <Link
                 href={criarHref({
@@ -497,7 +620,9 @@ export default async function NaturezasOperacaoPage({
           </Button>
 
           <Button
-            nativeButton={false}
+            nativeButton={
+              false
+            }
             render={
               <Link
                 href={criarHref({
@@ -520,7 +645,9 @@ export default async function NaturezasOperacaoPage({
           </Button>
 
           <Button
-            nativeButton={false}
+            nativeButton={
+              false
+            }
             render={
               <Link
                 href={criarHref({
@@ -582,7 +709,9 @@ export default async function NaturezasOperacaoPage({
 
           {busca && (
             <Button
-              nativeButton={false}
+              nativeButton={
+                false
+              }
               render={
                 <Link
                   href={criarHref({
@@ -603,16 +732,16 @@ export default async function NaturezasOperacaoPage({
           filtroStatus !==
             "TODAS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {naturezas.length === 1
+            {totalFiltrado === 1
               ? "1 natureza encontrada."
-              : `${naturezas.length} naturezas encontradas.`}
+              : `${totalFiltrado} naturezas encontradas.`}
           </p>
         )}
       </section>
 
       {/* Estado vazio */}
 
-      {naturezas.length === 0 ? (
+      {totalFiltrado === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -654,11 +783,13 @@ export default async function NaturezasOperacaoPage({
               (natureza) => (
                 <article
                   key={natureza.id}
-                  className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                  className={[
+                    "rounded-2xl border bg-card p-5 shadow-sm",
+
                     !natureza.ativo
                       ? "opacity-80"
-                      : ""
-                  }`}
+                      : "",
+                  ].join(" ")}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
@@ -690,17 +821,12 @@ export default async function NaturezasOperacaoPage({
                   </div>
 
                   <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-                    <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">
-                        Finalidade
-                      </dt>
-
-                      <dd className="text-right font-medium">
-                        {obterFinalidade(
-                          natureza.finalidadeNfe
-                        )}
-                      </dd>
-                    </div>
+                    <LinhaInformacao
+                      titulo="Finalidade"
+                      valor={obterFinalidade(
+                        natureza.finalidadeNfe
+                      )}
+                    />
 
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground">
@@ -783,11 +909,13 @@ export default async function NaturezasOperacaoPage({
                     (natureza) => (
                       <tr
                         key={natureza.id}
-                        className={`border-t transition-colors hover:bg-muted/20 ${
+                        className={[
+                          "border-t transition-colors hover:bg-muted/20",
+
                           !natureza.ativo
                             ? "bg-muted/10 opacity-80"
-                            : ""
-                        }`}
+                            : "",
+                        ].join(" ")}
                       >
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
@@ -859,19 +987,214 @@ export default async function NaturezasOperacaoPage({
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de naturezas de operação"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {primeiroRegistro} a{" "}
+                {ultimoRegistro} de{" "}
+                {totalFiltrado}{" "}
+                {totalFiltrado === 1
+                  ? "natureza"
+                  : "naturezas"}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual -
+                            1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={
+                        numeroPagina
+                      }
+                      nativeButton={
+                        false
+                      }
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={
+                      false
+                    }
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual +
+                            1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
     </div>
   );
 }
 
-type StatusBadgeProps = {
-  ativo: boolean;
+type IndicadorProps = {
+  titulo: string;
+  valor: number;
+
+  icone:
+    typeof ClipboardList;
+
+  variante?:
+    | "padrao"
+    | "sucesso"
+    | "aviso";
+
+  className?: string;
 };
+
+function Indicador({
+  titulo,
+  valor,
+  icone: Icone,
+  variante = "padrao",
+  className,
+}: IndicadorProps) {
+  const classeIcone =
+    variante === "sucesso"
+      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : variante === "aviso"
+        ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        : "bg-primary/10 text-primary";
+
+  return (
+    <div
+      className={[
+        "rounded-2xl border bg-card p-5 shadow-sm",
+        className ?? "",
+      ].join(" ")}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {titulo}
+          </p>
+
+          <p className="mt-1 text-3xl font-bold tracking-tight">
+            {valor}
+          </p>
+        </div>
+
+        <div
+          className={[
+            "flex h-11 w-11 items-center justify-center rounded-xl",
+            classeIcone,
+          ].join(" ")}
+        >
+          <Icone size={21} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StatusBadge({
   ativo,
-}: StatusBadgeProps) {
+}: {
+  ativo: boolean;
+}) {
   return (
     <span
       className={[
@@ -889,13 +1212,11 @@ function StatusBadge({
   );
 }
 
-type BooleanBadgeProps = {
-  valor: boolean;
-};
-
 function BooleanBadge({
   valor,
-}: BooleanBadgeProps) {
+}: {
+  valor: boolean;
+}) {
   return (
     <span
       className={[
@@ -910,5 +1231,28 @@ function BooleanBadge({
         ? "Sim"
         : "Não"}
     </span>
+  );
+}
+
+function LinhaInformacao({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">
+        {titulo}
+      </dt>
+
+      <dd
+        className="max-w-52 truncate text-right font-medium"
+        title={valor}
+      >
+        {valor}
+      </dd>
+    </div>
   );
 }

@@ -1,11 +1,11 @@
 import Link from "next/link";
 
-import {
-  PrivilegioEmpresa,
-} from "@prisma/client";
+import { PrivilegioEmpresa } from "@prisma/client";
 
 import {
   Boxes,
+  ChevronLeft,
+  ChevronRight,
   Package,
   Power,
   PowerOff,
@@ -16,8 +16,8 @@ import {
 import { getProdutos } from "@/actions/produtos/get-produto";
 
 import { NovoProdutoDialog } from "@/components/produtos/novo-produto-dialog";
-import { ProdutoEditButton } from "@/components/produtos/produto-edit-button";
 import { ProdutoDeleteButton } from "@/components/produtos/produto-delete-button";
+import { ProdutoEditButton } from "@/components/produtos/produto-edit-button";
 import { ProdutoStatusButton } from "@/components/produtos/produto-status-button";
 
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,7 @@ import { Input } from "@/components/ui/input";
 
 import { validarPrivilegioEmpresa } from "@/lib/usuarios/validar-privilegio-empresa";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{
@@ -36,6 +35,7 @@ type Props = {
   searchParams: Promise<{
     busca?: string;
     status?: string;
+    pagina?: string;
   }>;
 };
 
@@ -43,6 +43,23 @@ type FiltroStatus =
   | "TODOS"
   | "ATIVOS"
   | "INATIVOS";
+
+const PRODUTOS_POR_PAGINA = 10;
+
+function normalizarPagina(
+  valor?: string
+) {
+  const pagina = Number(valor);
+
+  if (
+    !Number.isInteger(pagina) ||
+    pagina < 1
+  ) {
+    return 1;
+  }
+
+  return pagina;
+}
 
 function formatarValor(
   valor: number
@@ -92,6 +109,7 @@ export default async function ProdutosPage({
   const {
     busca = "",
     status = "",
+    pagina = "1",
   } = await searchParams;
 
   const filtroStatus =
@@ -182,6 +200,10 @@ export default async function ProdutosPage({
       PrivilegioEmpresa.PRODUTOS_EXCLUIR
     );
 
+  /*
+   * Filtro por status
+   */
+
   const produtosPorStatus =
     produtosRaw.filter(
       (produto) => {
@@ -203,36 +225,131 @@ export default async function ProdutosPage({
       }
     );
 
+  /*
+   * Busca
+   */
+
   const termo =
     busca
       .trim()
       .toLowerCase();
 
-  const produtos = termo
-    ? produtosPorStatus.filter(
-        (produto) =>
-          [
-            produto.codigo,
-            produto.descricao,
-            produto.ean,
-            produto.ncm,
-            produto.cest,
-            produto.cfopPadrao,
-            produto.cstIcms,
-            produto.csosnIcms,
-            produto.cstPis,
-            produto.cstCofins,
-            produto.cstIpi,
-            produto.cstIbsCbs,
-            produto
-              .classificacaoTributariaIbsCbs,
-          ].some((valor) =>
-            valor
-              ?.toLowerCase()
-              .includes(termo)
-          )
+  const produtosFiltrados =
+    termo
+      ? produtosPorStatus.filter(
+          (produto) =>
+            [
+              produto.codigo,
+              produto.descricao,
+              produto.ean,
+              produto.ncm,
+              produto.cest,
+              produto.cfopPadrao,
+              produto.cstIcms,
+              produto.csosnIcms,
+              produto.cstPis,
+              produto.cstCofins,
+              produto.cstIpi,
+              produto.cstIbsCbs,
+              produto
+                .classificacaoTributariaIbsCbs,
+            ].some((valor) =>
+              valor
+                ?.toLowerCase()
+                .includes(termo)
+            )
+        )
+      : produtosPorStatus;
+
+  /*
+   * Paginação
+   */
+
+  const totalFiltrado =
+    produtosFiltrados.length;
+
+  const totalPaginas =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFiltrado /
+          PRODUTOS_POR_PAGINA
       )
-    : produtosPorStatus;
+    );
+
+  const paginaSolicitada =
+    normalizarPagina(
+      pagina
+    );
+
+  const paginaAtual =
+    Math.min(
+      paginaSolicitada,
+      totalPaginas
+    );
+
+  const indiceInicial =
+    (paginaAtual - 1) *
+    PRODUTOS_POR_PAGINA;
+
+  const indiceFinal =
+    Math.min(
+      indiceInicial +
+        PRODUTOS_POR_PAGINA,
+      totalFiltrado
+    );
+
+  const produtos =
+    produtosFiltrados.slice(
+      indiceInicial,
+      indiceFinal
+    );
+
+  const primeiroRegistro =
+    totalFiltrado === 0
+      ? 0
+      : indiceInicial + 1;
+
+  const ultimoRegistro =
+    indiceFinal;
+
+  /*
+   * Páginas numéricas
+   *
+   * Exibe no máximo cinco números.
+   */
+
+  const primeiraPaginaVisivel =
+    Math.max(
+      1,
+      Math.min(
+        paginaAtual - 2,
+        totalPaginas - 4
+      )
+    );
+
+  const ultimaPaginaVisivel =
+    Math.min(
+      totalPaginas,
+      primeiraPaginaVisivel + 4
+    );
+
+  const paginasVisiveis =
+    Array.from(
+      {
+        length:
+          ultimaPaginaVisivel -
+          primeiraPaginaVisivel +
+          1,
+      },
+      (_, indice) =>
+        primeiraPaginaVisivel +
+        indice
+    );
+
+  /*
+   * Indicadores
+   */
 
   const totalAtivos =
     produtosRaw.filter(
@@ -266,9 +383,17 @@ export default async function ProdutosPage({
       filtroStatus,
 
     incluirBusca = true,
+
+    novaPagina = 1,
   }: {
-    novoStatus?: FiltroStatus;
-    incluirBusca?: boolean;
+    novoStatus?:
+      FiltroStatus;
+
+    incluirBusca?:
+      boolean;
+
+    novaPagina?:
+      number;
   }) {
     const parametros =
       new URLSearchParams();
@@ -292,6 +417,13 @@ export default async function ProdutosPage({
       );
     }
 
+    if (novaPagina > 1) {
+      parametros.set(
+        "pagina",
+        String(novaPagina)
+      );
+    }
+
     const query =
       parametros.toString();
 
@@ -301,7 +433,8 @@ export default async function ProdutosPage({
   }
 
   function renderizarAcoes(
-    produto: (typeof produtosRaw)[number]
+    produto:
+      (typeof produtosRaw)[number]
   ) {
     const possuiAlgumaAcao =
       podeEditar ||
@@ -493,6 +626,8 @@ export default async function ProdutosPage({
         )}
       </div>
 
+      {/* Somente leitura */}
+
       {contexto.somenteLeitura && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-700 dark:text-amber-400">
           Esta empresa está inativa. Os
@@ -504,95 +639,37 @@ export default async function ProdutosPage({
       {/* Indicadores */}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Total
-              </p>
+        <Indicador
+          titulo="Total"
+          valor={produtosRaw.length}
+          icone={Boxes}
+        />
 
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {produtosRaw.length}
-              </p>
-            </div>
+        <Indicador
+          titulo="Ativos"
+          valor={totalAtivos}
+          icone={Power}
+          variante="sucesso"
+        />
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Boxes size={21} />
-            </div>
-          </div>
-        </div>
+        <Indicador
+          titulo="Inativos"
+          valor={totalInativos}
+          icone={PowerOff}
+          variante="aviso"
+        />
 
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Ativos
-              </p>
+        <Indicador
+          titulo="Produtos"
+          valor={totalProdutos}
+          icone={Package}
+        />
 
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalAtivos}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
-              <Power size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Inativos
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalInativos}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
-              <PowerOff size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Produtos
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalProdutos}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Package size={21} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Serviços
-              </p>
-
-              <p className="mt-1 text-3xl font-bold tracking-tight">
-                {totalServicos}
-              </p>
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Wrench size={21} />
-            </div>
-          </div>
-        </div>
+        <Indicador
+          titulo="Serviços"
+          valor={totalServicos}
+          icone={Wrench}
+        />
       </section>
 
       {/* Filtros e busca */}
@@ -727,16 +804,16 @@ export default async function ProdutosPage({
           filtroStatus !==
             "TODOS") && (
           <p className="mt-3 text-xs text-muted-foreground">
-            {produtos.length === 1
+            {totalFiltrado === 1
               ? "1 cadastro encontrado."
-              : `${produtos.length} cadastros encontrados.`}
+              : `${totalFiltrado} cadastros encontrados.`}
           </p>
         )}
       </section>
 
       {/* Estado vazio */}
 
-      {produtos.length === 0 ? (
+      {totalFiltrado === 0 ? (
         <section className="rounded-2xl border bg-card shadow-sm">
           <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -769,7 +846,7 @@ export default async function ProdutosPage({
         </section>
       ) : (
         <>
-          {/* Cards para celular */}
+          {/* Cards no celular */}
 
           <div className="grid gap-4 md:hidden">
             {produtos.map(
@@ -781,11 +858,13 @@ export default async function ProdutosPage({
                 return (
                   <article
                     key={produto.id}
-                    className={`rounded-2xl border bg-card p-5 shadow-sm ${
+                    className={[
+                      "rounded-2xl border bg-card p-5 shadow-sm",
+
                       !produto.ativo
                         ? "opacity-80"
-                        : ""
-                    }`}
+                        : "",
+                    ].join(" ")}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
@@ -809,17 +888,11 @@ export default async function ProdutosPage({
                               }
                             </h2>
 
-                            <span
-                              className={
+                            <StatusBadge
+                              ativo={
                                 produto.ativo
-                                  ? "rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                                  : "rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
                               }
-                            >
-                              {produto.ativo
-                                ? "Ativo"
-                                : "Inativo"}
-                            </span>
+                            />
                           </div>
 
                           <p className="mt-1 text-sm text-muted-foreground">
@@ -837,53 +910,36 @@ export default async function ProdutosPage({
                     </div>
 
                     <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          Unidade
-                        </dt>
+                      <LinhaInformacao
+                        titulo="Unidade"
+                        valor={
+                          produto.unidade
+                        }
+                      />
 
-                        <dd className="text-right font-medium">
-                          {produto.unidade}
-                        </dd>
-                      </div>
+                      <LinhaInformacao
+                        titulo="NCM"
+                        valor={exibirCodigo(
+                          produto.ncm
+                        )}
+                      />
 
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          NCM
-                        </dt>
+                      <LinhaInformacao
+                        titulo="CFOP"
+                        valor={exibirCodigo(
+                          produto.cfopPadrao
+                        )}
+                      />
 
-                        <dd className="text-right font-medium">
-                          {exibirCodigo(
-                            produto.ncm
-                          )}
-                        </dd>
-                      </div>
-
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          CFOP
-                        </dt>
-
-                        <dd className="text-right font-medium">
-                          {exibirCodigo(
-                            produto.cfopPadrao
-                          )}
-                        </dd>
-                      </div>
-
-                      <div className="flex justify-between gap-4">
-                        <dt className="text-muted-foreground">
-                          Valor unitário
-                        </dt>
-
-                        <dd className="text-right font-semibold">
-                          {formatarValor(
-                            Number(
-                              produto.valorUnitario
-                            )
-                          )}
-                        </dd>
-                      </div>
+                      <LinhaInformacao
+                        titulo="Valor unitário"
+                        valor={formatarValor(
+                          Number(
+                            produto.valorUnitario
+                          )
+                        )}
+                        destaque
+                      />
                     </dl>
 
                     <div className="mt-5 border-t pt-4">
@@ -897,7 +953,7 @@ export default async function ProdutosPage({
             )}
           </div>
 
-          {/* Tabela para computador */}
+          {/* Tabela no computador */}
 
           <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
             <div className="overflow-x-auto">
@@ -948,11 +1004,13 @@ export default async function ProdutosPage({
                       return (
                         <tr
                           key={produto.id}
-                          className={`border-t transition-colors hover:bg-muted/20 ${
+                          className={[
+                            "border-t transition-colors hover:bg-muted/20",
+
                             !produto.ativo
                               ? "bg-muted/10 opacity-80"
-                              : ""
-                          }`}
+                              : "",
+                          ].join(" ")}
                         >
                           <td className="px-5 py-4">
                             <div className="flex items-center gap-3">
@@ -994,7 +1052,9 @@ export default async function ProdutosPage({
                           </td>
 
                           <td className="px-5 py-4 text-sm">
-                            {produto.unidade}
+                            {
+                              produto.unidade
+                            }
                           </td>
 
                           <td className="px-5 py-4 text-sm">
@@ -1018,17 +1078,11 @@ export default async function ProdutosPage({
                           </td>
 
                           <td className="px-5 py-4">
-                            <span
-                              className={
+                            <StatusBadge
+                              ativo={
                                 produto.ativo
-                                  ? "inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"
-                                  : "inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
                               }
-                            >
-                              {produto.ativo
-                                ? "Ativo"
-                                : "Inativo"}
-                            </span>
+                            />
                           </td>
 
                           <td className="px-5 py-4">
@@ -1044,8 +1098,240 @@ export default async function ProdutosPage({
               </table>
             </div>
           </div>
+
+          {/* Paginação */}
+
+          {totalPaginas > 1 && (
+            <nav
+              aria-label="Paginação de produtos"
+              className="flex flex-col items-center justify-between gap-4 rounded-2xl border bg-card px-4 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {primeiroRegistro} a{" "}
+                {ultimoRegistro} de{" "}
+                {totalFiltrado}{" "}
+                {totalFiltrado === 1
+                  ? "cadastro"
+                  : "cadastros"}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {paginaAtual > 1 ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual - 1,
+                        })}
+                        aria-label="Página anterior"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+
+                    Anterior
+                  </Button>
+                )}
+
+                {paginasVisiveis.map(
+                  (numeroPagina) => (
+                    <Button
+                      key={numeroPagina}
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={criarHref({
+                            novaPagina:
+                              numeroPagina,
+                          })}
+                          aria-label={`Ir para a página ${numeroPagina}`}
+                          aria-current={
+                            numeroPagina ===
+                            paginaAtual
+                              ? "page"
+                              : undefined
+                          }
+                        />
+                      }
+                      variant={
+                        numeroPagina ===
+                        paginaAtual
+                          ? "default"
+                          : "outline"
+                      }
+                      size="icon-sm"
+                    >
+                      {numeroPagina}
+                    </Button>
+                  )
+                )}
+
+                {paginaAtual <
+                totalPaginas ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={criarHref({
+                          novaPagina:
+                            paginaAtual + 1,
+                        })}
+                        aria-label="Próxima página"
+                      />
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                  >
+                    Próxima
+
+                    <ChevronRight
+                      size={16}
+                    />
+                  </Button>
+                )}
+              </div>
+            </nav>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+type IndicadorProps = {
+  titulo: string;
+  valor: number;
+
+  icone:
+    typeof Boxes;
+
+  variante?:
+    | "padrao"
+    | "sucesso"
+    | "aviso";
+};
+
+function Indicador({
+  titulo,
+  valor,
+  icone: Icone,
+  variante = "padrao",
+}: IndicadorProps) {
+  const classeIcone =
+    variante === "sucesso"
+      ? "bg-emerald-500/10 text-emerald-600"
+      : variante === "aviso"
+        ? "bg-amber-500/10 text-amber-600"
+        : "bg-primary/10 text-primary";
+
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {titulo}
+          </p>
+
+          <p className="mt-1 text-3xl font-bold tracking-tight">
+            {valor}
+          </p>
+        </div>
+
+        <div
+          className={[
+            "flex h-11 w-11 items-center justify-center rounded-xl",
+            classeIcone,
+          ].join(" ")}
+        >
+          <Icone size={21} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({
+  ativo,
+}: {
+  ativo: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
+
+        ativo
+          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+          : "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      ].join(" ")}
+    >
+      {ativo
+        ? "Ativo"
+        : "Inativo"}
+    </span>
+  );
+}
+
+function LinhaInformacao({
+  titulo,
+  valor,
+  destaque = false,
+}: {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">
+        {titulo}
+      </dt>
+
+      <dd
+        className={[
+          "max-w-52 truncate text-right",
+
+          destaque
+            ? "font-semibold"
+            : "font-medium",
+        ].join(" ")}
+        title={valor}
+      >
+        {valor}
+      </dd>
     </div>
   );
 }
