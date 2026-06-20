@@ -39,22 +39,32 @@ jobs:
       - name: Validar schema Prisma
         run: npx prisma validate > /dev/null
 
+      - name: Validar TypeScript
+        id: typecheck
+        continue-on-error: true
+        run: npx tsc --noEmit --pretty false > typecheck.log 2>&1
+
       - name: Compilar aplicação
         id: build
         continue-on-error: true
         run: npm run build > build.log 2>&1
 
-      - name: Publicar log do build
+      - name: Publicar logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log
-          path: build.log
+          name: validation-logs
+          path: |
+            typecheck.log
+            build.log
           if-no-files-found: error
           retention-days: 1
 
-      - name: Confirmar resultado do build
-        if: steps.build.outcome == 'failure'
+      - name: Confirmar validações
+        if: steps.typecheck.outcome == 'failure' || steps.build.outcome == 'failure'
         run: |
+          echo "--- TypeScript ---"
+          tail -n 200 typecheck.log
+          echo "--- Build ---"
           tail -n 100 build.log
           exit 1
