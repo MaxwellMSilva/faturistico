@@ -8,6 +8,11 @@ import {
 
 import { prisma } from "@/lib/prisma";
 
+import {
+  cfopValido,
+  normalizarCfop,
+} from "@/lib/fiscal/cfop";
+
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type FinalidadeNfe =
@@ -52,7 +57,7 @@ export async function createNaturezaOperacao(
     data.descricao.trim();
 
   const cfop =
-    data.cfop.replace(/\D/g, "");
+    normalizarCfop(data.cfop);
 
   if (!descricao) {
     return {
@@ -62,7 +67,7 @@ export async function createNaturezaOperacao(
     };
   }
 
-  if (cfop.length !== 4) {
+  if (!cfopValido(cfop)) {
     return {
       success: false,
       message:
