@@ -36,7 +36,7 @@ export async function getNaturezasOperacao(
 
     orderBy: [
       {
-        ativo: "desc",
+        createdAt: "desc",
       },
       {
         descricao: "asc",

@@ -28,6 +28,7 @@ export async function getEmpresas() {
 
       select: {
         permissao: true,
+        createdAt: true,
 
         empresa: {
           select: {
@@ -48,6 +49,19 @@ export async function getEmpresas() {
           },
         },
       },
+
+      orderBy: [
+        {
+          empresa: {
+            createdAt: "desc",
+          },
+        },
+        {
+          empresa: {
+            razaoSocial: "asc",
+          },
+        },
+      ],
     });
 
   return vinculos
@@ -61,10 +75,4 @@ export async function getEmpresas() {
       permissao:
         vinculo.permissao,
     }))
-    .sort((empresaA, empresaB) =>
-      empresaA.razaoSocial.localeCompare(
-        empresaB.razaoSocial,
-        "pt-BR"
-      )
-    );
 }

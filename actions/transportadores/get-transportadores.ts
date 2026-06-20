@@ -25,8 +25,13 @@ export async function getTransportadores(
       },
     },
 
-    orderBy: {
-      nome: "asc",
-    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        nome: "asc",
+      },
+    ],
   });
 }

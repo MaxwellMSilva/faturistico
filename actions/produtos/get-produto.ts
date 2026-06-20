@@ -15,8 +15,13 @@ export async function getProdutos(
       empresaId,
     },
 
-    orderBy: {
-      descricao: "asc",
-    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        descricao: "asc",
+      },
+    ],
   });
 }

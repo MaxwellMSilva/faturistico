@@ -29,7 +29,7 @@ export async function getVeiculos(
 
     orderBy: [
       {
-        ativo: "desc",
+        createdAt: "desc",
       },
       {
         placa: "asc",

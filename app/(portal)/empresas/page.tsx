@@ -134,11 +134,17 @@ export default async function EmpresasPage({
           uf: true,
 
           ativo: true,
+          createdAt: true,
         },
 
-        orderBy: {
-          razaoSocial: "asc",
-        },
+        orderBy: [
+          {
+            createdAt: "desc",
+          },
+          {
+            razaoSocial: "asc",
+          },
+        ],
       });
 
     empresasRaw =
@@ -184,15 +190,23 @@ export default async function EmpresasPage({
               uf: true,
 
               ativo: true,
+              createdAt: true,
             },
           },
         },
 
-        orderBy: {
-          empresa: {
-            razaoSocial: "asc",
+        orderBy: [
+          {
+            empresa: {
+              createdAt: "desc",
+            },
           },
-        },
+          {
+            empresa: {
+              razaoSocial: "asc",
+            },
+          },
+        ],
       });
 
     empresasRaw =

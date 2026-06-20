@@ -56,7 +56,7 @@ export async function getUsuarios() {
 
         orderBy: [
           {
-            role: "asc",
+            createdAt: "desc",
           },
           {
             nome: "asc",
@@ -242,9 +242,14 @@ export async function getUsuarios() {
         },
       },
 
-      orderBy: {
-        nome: "asc",
-      },
+      orderBy: [
+        {
+          createdAt: "desc",
+        },
+        {
+          nome: "asc",
+        },
+      ],
     });
 
   return usuarios.map(

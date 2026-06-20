@@ -30,7 +30,7 @@ export async function getMotoristas(
 
     orderBy: [
       {
-        ativo: "desc",
+        createdAt: "desc",
       },
       {
         nome: "asc",

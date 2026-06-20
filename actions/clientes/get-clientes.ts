@@ -16,8 +16,13 @@ export async function getClientes(
       empresaId,
     },
 
-    orderBy: {
-      nome: "asc",
-    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        nome: "asc",
+      },
+    ],
   });
 }

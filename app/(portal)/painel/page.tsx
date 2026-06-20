@@ -104,15 +104,23 @@ export default async function PainelPage() {
             cnpj: true,
             municipio: true,
             uf: true,
+            createdAt: true,
           },
         },
       },
 
-      orderBy: {
-        empresa: {
-          razaoSocial: "asc",
+      orderBy: [
+        {
+          empresa: {
+            createdAt: "desc",
+          },
         },
-      },
+        {
+          empresa: {
+            razaoSocial: "asc",
+          },
+        },
+      ],
 
       take: 6,
     });
