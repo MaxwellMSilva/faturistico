@@ -33,6 +33,33 @@ enum FinalidadeNfe {
   DEVOLUCAO
 }
 
+enum TipoOperacaoFiscal {
+  ENTRADA
+  SAIDA
+}
+
+enum DestinoOperacao {
+  INTERNA
+  INTERESTADUAL
+  EXTERIOR
+}
+
+enum IndicadorPresenca {
+  NAO_SE_APLICA
+  PRESENCIAL
+  INTERNET
+  TELEATENDIMENTO
+  ENTREGA_DOMICILIO
+  FORA_ESTABELECIMENTO
+  OUTROS
+}
+
+enum IndicadorIeDestinatario {
+  CONTRIBUINTE
+  CONTRIBUINTE_ISENTO
+  NAO_CONTRIBUINTE
+}
+
 enum StatusAssinatura {
   PENDENTE
   ATIVA
