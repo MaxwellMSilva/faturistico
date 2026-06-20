@@ -534,6 +534,10 @@ export function NovoClienteDialog({
   ) {
     event.preventDefault();
 
+    const submitter = (
+      event.nativeEvent as SubmitEvent
+    ).submitter as HTMLElement | null;
+
     /*
      * Proteção contra submit antecipado.
      *
@@ -543,8 +547,16 @@ export function NovoClienteDialog({
      * O createCliente só poderá ser executado
      * quando estiver no último passo.
      */
-    if (passoAtual < ultimoPasso) {
-      handleProximoPasso();
+    if (
+      passoAtual !== ultimoPasso ||
+      (submitter &&
+        submitter.dataset
+          .finalSubmit !== "true")
+    ) {
+      if (passoAtual < ultimoPasso) {
+        handleProximoPasso();
+      }
+
       return;
     }
 
@@ -1262,6 +1274,7 @@ export function NovoClienteDialog({
                 ) : (
                   <Button
                     type="submit"
+                    data-final-submit="true"
                     className="h-11 rounded-xl px-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:min-w-48"
                     disabled={bloqueado}
                   >

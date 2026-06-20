@@ -4,6 +4,10 @@ import type {
   ComponentProps,
   ReactNode,
 } from "react";
+import {
+  useEffect,
+  useRef,
+} from "react";
 
 import { Check } from "lucide-react";
 
@@ -45,6 +49,20 @@ export function FormStepperNav({
   passos,
   passoAtual,
 }: FormStepperNavProps) {
+  const passoAtivoRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
+  useEffect(() => {
+    passoAtivoRef.current?.scrollIntoView(
+      {
+        block: "nearest",
+        inline: "center",
+      }
+    );
+  }, [passoAtual]);
+
   return (
     <nav
       aria-label="Etapas do formulário"
@@ -66,6 +84,11 @@ export function FormStepperNav({
                   className="flex shrink-0 items-center"
                 >
                   <div
+                    ref={
+                      ativo
+                        ? passoAtivoRef
+                        : null
+                    }
                     aria-current={
                       ativo
                         ? "step"
