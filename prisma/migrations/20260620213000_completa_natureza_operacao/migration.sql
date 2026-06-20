@@ -41,6 +41,22 @@ SET "indicadorIeDestinatario" = CASE
   ELSE 'NAO_CONTRIBUINTE'
 END;
 
+-- Naturezas antigas com CFOP inválido ficam indisponíveis até serem corrigidas.
+UPDATE "NaturezaOperacao"
+SET "ativo" = false
+WHERE length("cfop") <> 4
+   OR substr("cfop", 1, 1) NOT IN ('1', '2', '3', '5', '6', '7');
+
+-- Alinha valores antigos do regime tributário com o enum usado pelo cálculo.
+UPDATE "ConfiguracaoFiscal"
+SET "regimeTributario" = CASE
+  WHEN "regimeTributario" = 'SIMPLES_EXCESSO_SUBLIMITE'
+    THEN 'SIMPLES_NACIONAL_EXCESSO_SUBLIMITE'
+  WHEN "regimeTributario" IN ('LUCRO_PRESUMIDO', 'LUCRO_REAL')
+    THEN 'REGIME_NORMAL'
+  ELSE "regimeTributario"
+END;
+
 CREATE INDEX IF NOT EXISTS "NaturezaOperacao_empresaId_idx"
 ON "NaturezaOperacao"("empresaId");
 
