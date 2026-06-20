@@ -31,13 +31,16 @@ jobs:
           cache: npm
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm ci --silent
 
       - name: Gerar Prisma Client
-        run: npx prisma generate
+        run: npx prisma generate > /dev/null
 
       - name: Validar schema Prisma
-        run: npx prisma validate
+        run: npx prisma validate > /dev/null
 
       - name: Compilar aplicação
-        run: npm run build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tail -n 100
