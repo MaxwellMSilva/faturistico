@@ -4,21 +4,22 @@ import { prisma } from "@/lib/prisma";
 
 import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
 
-export async function getNaturezasOperacao(
-  empresaId: string
+export async function getNaturezaOperacao(
+  empresaId: string,
+  naturezaId: string
 ) {
   await validarAcessoEmpresa(
     empresaId
   );
 
-  return prisma.naturezaOperacao.findMany({
+  return prisma.naturezaOperacao.findFirst({
     where: {
+      id: naturezaId,
       empresaId,
     },
 
     select: {
       id: true,
-      empresaId: true,
 
       descricao: true,
       codigoInterno: true,
@@ -33,25 +34,10 @@ export async function getNaturezasOperacao(
       indicadorIeDestinatario: true,
       possuiIntermediador: true,
 
-      // Mantido enquanto as telas antigas ainda utilizam o booleano.
-      contribuinteIcms: true,
-
       informacoesComplementaresPadrao:
         true,
 
       ativo: true,
-
-      createdAt: true,
-      updatedAt: true,
     },
-
-    orderBy: [
-      {
-        createdAt: "desc",
-      },
-      {
-        descricao: "asc",
-      },
-    ],
   });
 }

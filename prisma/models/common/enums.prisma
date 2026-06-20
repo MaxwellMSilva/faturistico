@@ -5,9 +5,8 @@ enum AmbienteFiscal {
 
 enum RegimeTributario {
   SIMPLES_NACIONAL
-  SIMPLES_EXCESSO_SUBLIMITE
-  LUCRO_PRESUMIDO
-  LUCRO_REAL
+  SIMPLES_NACIONAL_EXCESSO_SUBLIMITE
+  REGIME_NORMAL
 }
 
 enum TipoPessoa {
@@ -31,6 +30,33 @@ enum FinalidadeNfe {
   COMPLEMENTAR
   AJUSTE
   DEVOLUCAO
+}
+
+enum TipoOperacaoFiscal {
+  ENTRADA
+  SAIDA
+}
+
+enum DestinoOperacao {
+  INTERNA
+  INTERESTADUAL
+  EXTERIOR
+}
+
+enum IndicadorPresenca {
+  NAO_SE_APLICA
+  PRESENCIAL
+  INTERNET
+  TELEATENDIMENTO
+  ENTREGA_DOMICILIO
+  FORA_ESTABELECIMENTO
+  OUTROS
+}
+
+enum IndicadorIeDestinatario {
+  CONTRIBUINTE
+  CONTRIBUINTE_ISENTO
+  NAO_CONTRIBUINTE
 }
 
 enum StatusAssinatura {

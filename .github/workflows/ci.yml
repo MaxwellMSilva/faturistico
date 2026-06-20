@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DATABASE_URL: file:./ci.db
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: faturistico-ci-secret
+      AUTH_SECRET: faturistico-ci-secret
+      CRYPTO_SECRET: faturistico-ci-secret-32-bytes
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci --silent
+
+      - name: Gerar Prisma Client
+        run: npx prisma generate > /dev/null
+
+      - name: Validar schema Prisma
+        run: npx prisma validate > /dev/null
+
+      - name: Aplicar migrações em banco novo
+        run: npx prisma migrate deploy
+
+      - name: Validar TypeScript
+        id: typecheck
+        continue-on-error: true
+        run: npx tsc --noEmit --pretty false > typecheck.log 2>&1
+
+      - name: Compilar aplicação
+        id: build
+        continue-on-error: true
+        run: npm run build > build.log 2>&1
+
+      - name: Publicar logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-logs
+          path: |
+            typecheck.log
+            build.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Confirmar validações
+        if: steps.typecheck.outcome == 'failure' || steps.build.outcome == 'failure'
+        run: |
+          echo "--- TypeScript ---"
+          tail -n 200 typecheck.log
+          echo "--- Build ---"
+          tail -n 100 build.log
+          exit 1

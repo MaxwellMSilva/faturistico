@@ -1,11 +1,7 @@
-import { getServerSession }
-  from "next-auth";
+import { getServerSession } from "next-auth";
 
-import { authOptions }
-  from "@/lib/auth";
-
-import { prisma }
-  from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function getEmpresaAtual() {
   const session =
@@ -19,19 +15,33 @@ export async function getEmpresaAtual() {
     );
   }
 
-  const empresa =
-    await prisma.empresa.findFirst({
+  const acesso =
+    await prisma.usuarioEmpresa.findFirst({
       where: {
         usuarioId:
           session.user.id,
+
+        ativo: true,
+
+        empresa: {
+          ativo: true,
+        },
+      },
+
+      include: {
+        empresa: true,
+      },
+
+      orderBy: {
+        createdAt: "asc",
       },
     });
 
-  if (!empresa) {
+  if (!acesso) {
     throw new Error(
       "Empresa não encontrada."
     );
   }
 
-  return empresa;
+  return acesso.empresa;
 }

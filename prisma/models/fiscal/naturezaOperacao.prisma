@@ -4,15 +4,28 @@ model NaturezaOperacao {
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id])
 
-  descricao String
+  descricao     String
+  codigoInterno String?
 
   cfop String
+
+  tipoOperacao    TipoOperacaoFiscal @default(SAIDA)
+  destinoOperacao DestinoOperacao    @default(INTERNA)
 
   finalidadeNfe FinalidadeNfe @default(NORMAL)
 
   consumidorFinal Boolean @default(false)
 
+  indicadorPresenca       IndicadorPresenca       @default(NAO_SE_APLICA)
+  indicadorIeDestinatario IndicadorIeDestinatario @default(CONTRIBUINTE)
+
+  possuiIntermediador Boolean @default(false)
+
+  // Campo legado mantido para compatibilidade com validações existentes.
+  // Deve permanecer sincronizado com indicadorIeDestinatario.
   contribuinteIcms Boolean @default(true)
+
+  informacoesComplementaresPadrao String?
 
   ativo Boolean @default(true)
 
@@ -20,4 +33,8 @@ model NaturezaOperacao {
   updatedAt DateTime @updatedAt
 
   notasFiscais NotaFiscal[]
+
+  @@index([empresaId])
+  @@index([empresaId, ativo])
+  @@index([empresaId, cfop])
 }

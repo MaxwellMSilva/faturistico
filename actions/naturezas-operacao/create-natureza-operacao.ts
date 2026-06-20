@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 import {
   cfopValido,
   normalizarCfop,
+  obterDestinoOperacaoCfop,
+  obterTipoOperacaoCfop,
 } from "@/lib/fiscal/cfop";
 
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
@@ -21,16 +23,35 @@ type FinalidadeNfe =
   | "AJUSTE"
   | "DEVOLUCAO";
 
+type IndicadorPresenca =
+  | "NAO_SE_APLICA"
+  | "PRESENCIAL"
+  | "INTERNET"
+  | "TELEATENDIMENTO"
+  | "ENTREGA_DOMICILIO"
+  | "FORA_ESTABELECIMENTO"
+  | "OUTROS";
+
+type IndicadorIeDestinatario =
+  | "CONTRIBUINTE"
+  | "CONTRIBUINTE_ISENTO"
+  | "NAO_CONTRIBUINTE";
+
 type CreateNaturezaOperacaoData = {
   empresaId: string;
 
   descricao: string;
+  codigoInterno?: string;
   cfop: string;
 
   finalidadeNfe: FinalidadeNfe;
 
   consumidorFinal: boolean;
-  contribuinteIcms: boolean;
+  indicadorPresenca: IndicadorPresenca;
+  indicadorIeDestinatario: IndicadorIeDestinatario;
+  possuiIntermediador: boolean;
+
+  informacoesComplementaresPadrao?: string;
 
   ativo: boolean;
 };
@@ -45,6 +66,24 @@ type CreateNaturezaOperacaoResult =
       message: string;
     };
 
+const indicadoresPresencaValidos =
+  new Set<IndicadorPresenca>([
+    "NAO_SE_APLICA",
+    "PRESENCIAL",
+    "INTERNET",
+    "TELEATENDIMENTO",
+    "ENTREGA_DOMICILIO",
+    "FORA_ESTABELECIMENTO",
+    "OUTROS",
+  ]);
+
+const indicadoresIeValidos =
+  new Set<IndicadorIeDestinatario>([
+    "CONTRIBUINTE",
+    "CONTRIBUINTE_ISENTO",
+    "NAO_CONTRIBUINTE",
+  ]);
+
 export async function createNaturezaOperacao(
   data: CreateNaturezaOperacaoData
 ): Promise<CreateNaturezaOperacaoResult> {
@@ -56,8 +95,15 @@ export async function createNaturezaOperacao(
   const descricao =
     data.descricao.trim();
 
+  const codigoInterno =
+    data.codigoInterno?.trim() || null;
+
   const cfop =
     normalizarCfop(data.cfop);
+
+  const informacoesComplementaresPadrao =
+    data.informacoesComplementaresPadrao
+      ?.trim() || null;
 
   if (!descricao) {
     return {
@@ -67,11 +113,83 @@ export async function createNaturezaOperacao(
     };
   }
 
+  if (descricao.length > 60) {
+    return {
+      success: false,
+      message:
+        "A descrição da natureza deve possuir no máximo 60 caracteres.",
+    };
+  }
+
+  if (
+    codigoInterno &&
+    codigoInterno.length > 20
+  ) {
+    return {
+      success: false,
+      message:
+        "O código interno deve possuir no máximo 20 caracteres.",
+    };
+  }
+
   if (!cfopValido(cfop)) {
     return {
       success: false,
       message:
-        "O CFOP deve possuir 4 ou 6 números.",
+        "Informe um CFOP fiscal válido com 4 números.",
+    };
+  }
+
+  if (
+    !indicadoresPresencaValidos.has(
+      data.indicadorPresenca
+    )
+  ) {
+    return {
+      success: false,
+      message:
+        "O indicador de presença informado é inválido.",
+    };
+  }
+
+  if (
+    !indicadoresIeValidos.has(
+      data.indicadorIeDestinatario
+    )
+  ) {
+    return {
+      success: false,
+      message:
+        "O indicador de inscrição estadual do destinatário é inválido.",
+    };
+  }
+
+  if (
+    data.possuiIntermediador &&
+    data.indicadorPresenca ===
+      "NAO_SE_APLICA"
+  ) {
+    return {
+      success: false,
+      message:
+        "Selecione uma forma de presença quando houver intermediador da operação.",
+    };
+  }
+
+  const tipoOperacao =
+    obterTipoOperacaoCfop(cfop);
+
+  const destinoOperacao =
+    obterDestinoOperacaoCfop(cfop);
+
+  if (
+    !tipoOperacao ||
+    !destinoOperacao
+  ) {
+    return {
+      success: false,
+      message:
+        "Não foi possível identificar o tipo e o destino da operação pelo CFOP.",
     };
   }
 
@@ -81,12 +199,24 @@ export async function createNaturezaOperacao(
         empresaId:
           data.empresaId,
 
-        descricao,
-        cfop,
+        OR: [
+          {
+            descricao,
+            cfop,
+          },
+          ...(codigoInterno
+            ? [
+                {
+                  codigoInterno,
+                },
+              ]
+            : []),
+        ],
       },
 
       select: {
         id: true,
+        codigoInterno: true,
       },
     });
 
@@ -94,7 +224,10 @@ export async function createNaturezaOperacao(
     return {
       success: false,
       message:
-        "Esta natureza de operação já está cadastrada.",
+        naturezaExistente.codigoInterno ===
+        codigoInterno
+          ? "Já existe uma natureza com este código interno."
+          : "Esta natureza de operação já está cadastrada.",
     };
   }
 
@@ -106,7 +239,11 @@ export async function createNaturezaOperacao(
             data.empresaId,
 
           descricao,
+          codigoInterno,
           cfop,
+
+          tipoOperacao,
+          destinoOperacao,
 
           finalidadeNfe:
             data.finalidadeNfe,
@@ -114,8 +251,20 @@ export async function createNaturezaOperacao(
           consumidorFinal:
             data.consumidorFinal,
 
+          indicadorPresenca:
+            data.indicadorPresenca,
+
+          indicadorIeDestinatario:
+            data.indicadorIeDestinatario,
+
+          possuiIntermediador:
+            data.possuiIntermediador,
+
           contribuinteIcms:
-            data.contribuinteIcms,
+            data.indicadorIeDestinatario ===
+            "CONTRIBUINTE",
+
+          informacoesComplementaresPadrao,
 
           ativo:
             data.ativo,
