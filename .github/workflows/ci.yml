@@ -39,6 +39,9 @@ jobs:
       - name: Validar schema Prisma
         run: npx prisma validate > /dev/null
 
+      - name: Aplicar migrações em banco novo
+        run: npx prisma migrate deploy
+
       - name: Validar TypeScript
         id: typecheck
         continue-on-error: true
