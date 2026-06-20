@@ -41,11 +41,11 @@ SET "indicadorIeDestinatario" = CASE
   ELSE 'NAO_CONTRIBUINTE'
 END;
 
-CREATE INDEX "NaturezaOperacao_empresaId_idx"
+CREATE INDEX IF NOT EXISTS "NaturezaOperacao_empresaId_idx"
 ON "NaturezaOperacao"("empresaId");
 
-CREATE INDEX "NaturezaOperacao_empresaId_ativo_idx"
+CREATE INDEX IF NOT EXISTS "NaturezaOperacao_empresaId_ativo_idx"
 ON "NaturezaOperacao"("empresaId", "ativo");
 
-CREATE INDEX "NaturezaOperacao_empresaId_cfop_idx"
+CREATE INDEX IF NOT EXISTS "NaturezaOperacao_empresaId_cfop_idx"
 ON "NaturezaOperacao"("empresaId", "cfop");
