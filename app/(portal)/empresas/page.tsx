@@ -109,30 +109,22 @@ export default async function EmpresasPage({
     redirect("/entrar");
   }
 
-  const owner =
-    usuarioAtual.role === "OWNER";
+  const usuarioId = usuarioAtual.id;
+  const usuarioRole = usuarioAtual.role;
+  const owner = usuarioRole === "OWNER";
 
   let empresasRaw: EmpresaLista[];
-
-  /*
-   * O OWNER global visualiza todas as
-   * empresas, inclusive as inativas.
-   */
 
   if (owner) {
     const empresas =
       await prisma.empresa.findMany({
         select: {
           id: true,
-
           razaoSocial: true,
           nomeFantasia: true,
-
           cnpj: true,
-
           municipio: true,
           uf: true,
-
           ativo: true,
           createdAt: true,
         },
@@ -155,18 +147,10 @@ export default async function EmpresasPage({
         })
       );
   } else {
-    /*
-     * ADMIN e usuários comuns visualizam
-     * somente empresas ativas com vínculo
-     * também ativo.
-     */
-
     const acessos =
       await prisma.usuarioEmpresa.findMany({
         where: {
-          usuarioId:
-            usuarioAtual.id,
-
+          usuarioId,
           ativo: true,
 
           empresa: {
@@ -180,15 +164,11 @@ export default async function EmpresasPage({
           empresa: {
             select: {
               id: true,
-
               razaoSocial: true,
               nomeFantasia: true,
-
               cnpj: true,
-
               municipio: true,
               uf: true,
-
               ativo: true,
               createdAt: true,
             },
@@ -213,17 +193,15 @@ export default async function EmpresasPage({
       acessos.map(
         (acesso) => ({
           ...acesso.empresa,
-
           permissao:
             acesso.permissao,
         })
       );
   }
 
-  const termo =
-    busca
-      .trim()
-      .toLowerCase();
+  const termo = busca
+    .trim()
+    .toLowerCase();
 
   const empresas = termo
     ? empresasRaw.filter(
@@ -244,13 +222,11 @@ export default async function EmpresasPage({
 
   const totalAtivas =
     empresasRaw.filter(
-      (empresa) =>
-        empresa.ativo
+      (empresa) => empresa.ativo
     ).length;
 
   const totalInativas =
-    empresasRaw.length -
-    totalAtivas;
+    empresasRaw.length - totalAtivas;
 
   function podeEditarEmpresa(
     empresa: EmpresaLista
@@ -264,26 +240,19 @@ export default async function EmpresasPage({
     }
 
     return (
-      usuarioAtual.role ===
-        "ADMIN" &&
-      empresa.permissao ===
-        "ADMIN"
+      usuarioRole === "ADMIN" &&
+      empresa.permissao === "ADMIN"
     );
   }
 
   function podeEntrarEmpresa(
     empresa: EmpresaLista
   ) {
-    return (
-      empresa.ativo ||
-      owner
-    );
+    return empresa.ativo || owner;
   }
 
   return (
     <div className="w-full space-y-8">
-      {/* Cabeçalho */}
-
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <Link
@@ -291,7 +260,6 @@ export default async function EmpresasPage({
             className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft size={16} />
-
             Voltar ao painel
           </Link>
 
@@ -308,7 +276,7 @@ export default async function EmpresasPage({
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {owner
                   ? "Cadastre, ative, inative e acesse as empresas da plataforma."
-                  : "Escolha uma empresa ativa vinculada à sua conta."}
+                  : "Acesse e gerencie as empresas vinculadas ao seu usuário."}
               </p>
             </div>
           </div>
@@ -316,594 +284,135 @@ export default async function EmpresasPage({
 
         {owner && (
           <Button
-            nativeButton={false}
+            className="h-11"
             render={
               <Link href="/empresas/nova" />
             }
-            className="h-11"
           >
             <Plus size={17} />
-
             Nova empresa
           </Button>
         )}
       </div>
 
-      {/* Indicadores */}
+      <section className="grid gap-4 sm:grid-cols-3">
+        <div className="dashboard-stat p-5">
+          <p className="text-sm text-muted-foreground">Total</p>
+          <p className="mt-2 text-2xl font-bold">{empresasRaw.length}</p>
+        </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Indicador
-          titulo="Empresas disponíveis"
-          valor={empresasRaw.length}
-          icon={Building2}
-        />
+        <div className="dashboard-stat p-5">
+          <p className="text-sm text-muted-foreground">Ativas</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-600">{totalAtivas}</p>
+        </div>
 
-        <Indicador
-          titulo="Empresas ativas"
-          valor={totalAtivas}
-          icon={CircleCheck}
-          variante="sucesso"
-        />
-
-        <Indicador
-          titulo="Empresas inativas"
-          valor={totalInativas}
-          icon={CircleX}
-          variante="erro"
-        />
-      </div>
-
-      {/* Busca */}
-
-      <section className="rounded-2xl border bg-card p-5 shadow-sm">
-        <form
-          method="GET"
-          className="flex flex-col gap-3 sm:flex-row"
-        >
-          <div className="relative flex-1">
-            <Search
-              size={17}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-
-            <Input
-              name="busca"
-              defaultValue={busca}
-              className="h-11 pl-10"
-              placeholder="Buscar por razão social, nome fantasia, CNPJ ou município..."
-            />
-          </div>
-
-          <Button
-            type="submit"
-            variant="outline"
-            className="h-11"
-          >
-            <Search size={17} />
-
-            Buscar
-          </Button>
-
-          {busca && (
-            <Button
-              nativeButton={false}
-              render={
-                <Link href="/empresas" />
-              }
-              variant="ghost"
-              className="h-11"
-            >
-              Limpar
-            </Button>
-          )}
-        </form>
-
-        {busca && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            {empresas.length === 1
-              ? "1 empresa encontrada."
-              : `${empresas.length} empresas encontradas.`}
-          </p>
-        )}
+        <div className="dashboard-stat p-5">
+          <p className="text-sm text-muted-foreground">Inativas</p>
+          <p className="mt-2 text-2xl font-bold text-muted-foreground">{totalInativas}</p>
+        </div>
       </section>
 
-      {/* Estado vazio */}
+      <form className="dashboard-card p-4 sm:p-5">
+        <div className="relative max-w-xl">
+          <Search
+            size={17}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            name="busca"
+            defaultValue={busca}
+            placeholder="Buscar por razão social, fantasia, CNPJ, município ou UF"
+            className="h-11 pl-10"
+          />
+        </div>
+      </form>
 
       {empresas.length === 0 ? (
-        <section className="rounded-2xl border bg-card shadow-sm">
-          <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <Building2 size={30} />
-            </div>
-
-            <h2 className="mt-5 text-xl font-semibold">
-              {busca
-                ? "Nenhuma empresa encontrada"
-                : owner
-                  ? "Nenhuma empresa cadastrada"
-                  : "Nenhuma empresa disponível"}
-            </h2>
-
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-              {busca
-                ? "Não encontramos empresas correspondentes aos termos informados."
-                : owner
-                  ? "Cadastre sua primeira empresa para começar a utilizar o sistema."
-                  : "Sua conta não possui acesso a nenhuma empresa ativa."}
-            </p>
-
-            {busca && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link href="/empresas" />
-                }
-                variant="outline"
-                className="mt-6 h-11"
-              >
-                Limpar busca
-              </Button>
-            )}
-
-            {!busca && owner && (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link href="/empresas/nova" />
-                }
-                className="mt-6 h-11"
-              >
-                <Plus size={17} />
-
-                Cadastrar primeira empresa
-              </Button>
-            )}
-          </div>
+        <section className="dashboard-card flex flex-col items-center justify-center px-6 py-16 text-center">
+          <Building2 size={28} className="text-muted-foreground" />
+          <p className="mt-4 font-medium">Nenhuma empresa encontrada</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Revise os filtros ou cadastre uma nova empresa.
+          </p>
         </section>
       ) : (
-        <>
-          {/* Cards mobile */}
+        <section className="grid gap-4 lg:grid-cols-2">
+          {empresas.map((empresa) => {
+            const podeEditar = podeEditarEmpresa(empresa);
+            const podeEntrar = podeEntrarEmpresa(empresa);
 
-          <div className="grid gap-4 md:hidden">
-            {empresas.map(
-              (empresa) => {
-                const podeEditar =
-                  podeEditarEmpresa(
-                    empresa
-                  );
-
-                const podeEntrar =
-                  podeEntrarEmpresa(
-                    empresa
-                  );
-
-                return (
-                  <article
-                    key={empresa.id}
-                    className="rounded-2xl border bg-card p-5 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                          <Building2
-                            size={21}
-                          />
-                        </div>
-
-                        <div className="min-w-0">
-                          <h2 className="truncate font-semibold">
-                            {
-                              empresa.razaoSocial
-                            }
-                          </h2>
-
-                          <p className="mt-1 truncate text-sm text-muted-foreground">
-                            {empresa.nomeFantasia ||
-                              "Sem nome fantasia"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <StatusEmpresa
-                        ativo={
-                          empresa.ativo
-                        }
-                      />
+            return (
+              <article key={empresa.id} className="dashboard-card p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate font-semibold">
+                        {empresa.nomeFantasia?.trim() || empresa.razaoSocial}
+                      </h2>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${empresa.ativo ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                        {empresa.ativo ? "Ativa" : "Inativa"}
+                      </span>
                     </div>
 
-                    <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-                      <LinhaInformacao
-                        titulo="CNPJ"
-                        valor={formatarCnpj(
-                          empresa.cnpj
-                        )}
-                      />
+                    <p className="mt-1 truncate text-sm text-muted-foreground">
+                      {empresa.razaoSocial}
+                    </p>
+                  </div>
 
-                      <LinhaInformacao
-                        titulo="Município"
-                        valor={
-                          empresa.municipio
-                            ? `${empresa.municipio}${
-                                empresa.uf
-                                  ? ` - ${empresa.uf}`
-                                  : ""
-                              }`
-                            : "Não informado"
-                        }
-                      />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Building2 size={20} />
+                  </div>
+                </div>
 
-                      <LinhaInformacao
-                        titulo="Permissão"
-                        valor={
-                          permissoes[
-                            empresa
-                              .permissao
-                          ] ??
-                          empresa.permissao
-                        }
-                      />
-                    </dl>
+                <div className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">CNPJ</p>
+                    <p className="mt-1 font-medium">{formatarCnpj(empresa.cnpj)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Localização</p>
+                    <p className="mt-1 font-medium">{[empresa.municipio, empresa.uf].filter(Boolean).join(" · ") || "Não informada"}</p>
+                  </div>
+                </div>
 
-                    <div className="mt-5 grid gap-2">
-                      {podeEditar && (
-                        <Button
-                          nativeButton={false}
-                          render={
-                            <Link
-                              href={`/empresas/${empresa.id}/editar`}
-                            />
-                          }
-                          variant="outline"
-                          className="h-11 w-full"
-                        >
-                          <Pencil size={17} />
+                <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
+                  <span className="mr-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ShieldCheck size={14} />
+                    {permissoes[empresa.permissao] ?? empresa.permissao}
+                  </span>
 
-                          Editar empresa
-                        </Button>
-                      )}
-
-                      {owner && (
-                        <EmpresaStatusButton
-                          empresaId={
-                            empresa.id
-                          }
-                          empresaNome={
-                            empresa.nomeFantasia ??
-                            empresa.razaoSocial
-                          }
-                          ativo={
-                            empresa.ativo
-                          }
-                        />
-                      )}
-
-                      {podeEntrar ? (
-                        <Button
-                          nativeButton={false}
-                          render={
-                            <Link
-                              href={`/empresa/${empresa.id}/dashboard`}
-                            />
-                          }
-                          className="h-11 w-full"
-                        >
-                          {empresa.ativo ? (
-                            <LogIn
-                              size={17}
-                            />
-                          ) : (
-                            <Eye
-                              size={17}
-                            />
-                          )}
-
-                          {empresa.ativo
-                            ? "Entrar na empresa"
-                            : "Visualizar empresa"}
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          className="h-11 w-full"
-                          disabled
-                        >
-                          Empresa inativa
-                        </Button>
-                      )}
-                    </div>
-                  </article>
-                );
-              }
-            )}
-          </div>
-
-          {/* Tabela desktop */}
-
-          <div className="hidden overflow-hidden rounded-2xl border bg-card shadow-sm md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1150px]">
-                <thead className="bg-muted/30">
-                  <tr>
-                    <th className="px-5 py-4 text-left text-sm font-medium">
-                      Empresa
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-sm font-medium">
-                      CNPJ
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-sm font-medium">
-                      Município
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-sm font-medium">
-                      Permissão
-                    </th>
-
-                    <th className="px-5 py-4 text-left text-sm font-medium">
-                      Status
-                    </th>
-
-                    <th className="px-5 py-4 text-right text-sm font-medium">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {empresas.map(
-                    (empresa) => {
-                      const podeEditar =
-                        podeEditarEmpresa(
-                          empresa
-                        );
-
-                      const podeEntrar =
-                        podeEntrarEmpresa(
-                          empresa
-                        );
-
-                      return (
-                        <tr
-                          key={empresa.id}
-                          className="border-t transition-colors hover:bg-muted/20"
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                                <Building2
-                                  size={19}
-                                />
-                              </div>
-
-                              <div className="min-w-0">
-                                <p className="max-w-72 truncate font-medium">
-                                  {
-                                    empresa.razaoSocial
-                                  }
-                                </p>
-
-                                <p className="max-w-72 truncate text-sm text-muted-foreground">
-                                  {empresa.nomeFantasia ||
-                                    "Sem nome fantasia"}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-5 py-4 text-sm">
-                            {formatarCnpj(
-                              empresa.cnpj
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4 text-sm">
-                            {empresa.municipio
-                              ? `${empresa.municipio}${
-                                  empresa.uf
-                                    ? ` - ${empresa.uf}`
-                                    : ""
-                                }`
-                              : "Não informado"}
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <span className="inline-flex items-center gap-1.5 text-sm">
-                              <ShieldCheck
-                                size={16}
-                                className="text-primary"
-                              />
-
-                              {permissoes[
-                                empresa
-                                  .permissao
-                              ] ??
-                                empresa.permissao}
-                            </span>
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <StatusEmpresa
-                              ativo={
-                                empresa.ativo
-                              }
-                            />
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <div className="flex justify-end gap-2">
-                              {podeEditar && (
-                                <Button
-                                  nativeButton={
-                                    false
-                                  }
-                                  render={
-                                    <Link
-                                      href={`/empresas/${empresa.id}/editar`}
-                                    />
-                                  }
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <Pencil
-                                    size={16}
-                                  />
-
-                                  Editar
-                                </Button>
-                              )}
-
-                              {owner && (
-                                <EmpresaStatusButton
-                                  empresaId={
-                                    empresa.id
-                                  }
-                                  empresaNome={
-                                    empresa.nomeFantasia ??
-                                    empresa.razaoSocial
-                                  }
-                                  ativo={
-                                    empresa.ativo
-                                  }
-                                />
-                              )}
-
-                              {podeEntrar ? (
-                                <Button
-                                  nativeButton={
-                                    false
-                                  }
-                                  render={
-                                    <Link
-                                      href={`/empresa/${empresa.id}/dashboard`}
-                                    />
-                                  }
-                                  size="sm"
-                                >
-                                  {empresa.ativo ? (
-                                    <LogIn
-                                      size={16}
-                                    />
-                                  ) : (
-                                    <Eye
-                                      size={16}
-                                    />
-                                  )}
-
-                                  {empresa.ativo
-                                    ? "Entrar"
-                                    : "Visualizar"}
-                                </Button>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  disabled
-                                >
-                                  Inativa
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }
+                  {podeEntrar && (
+                    <Button size="sm" variant="outline" render={<Link href={`/empresa/${empresa.id}/dashboard`} />}>
+                      {empresa.ativo ? <LogIn size={15} /> : <Eye size={15} />}
+                      {empresa.ativo ? "Entrar" : "Visualizar"}
+                    </Button>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+
+                  {podeEditar && (
+                    <Button size="sm" variant="outline" render={<Link href={`/empresas/${empresa.id}/editar`} />}>
+                      <Pencil size={15} />
+                      Editar
+                    </Button>
+                  )}
+
+                  {owner && (
+                    <EmpresaStatusButton
+                      empresaId={empresa.id}
+                      empresaNome={empresa.nomeFantasia?.trim() || empresa.razaoSocial}
+                      ativo={empresa.ativo}
+                    />
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
       )}
-    </div>
-  );
-}
 
-type IndicadorProps = {
-  titulo: string;
-  valor: number;
-
-  icon: typeof Building2;
-
-  variante?:
-    | "padrao"
-    | "sucesso"
-    | "erro";
-};
-
-function Indicador({
-  titulo,
-  valor,
-  icon: Icone,
-  variante = "padrao",
-}: IndicadorProps) {
-  const classeIcone =
-    variante === "sucesso"
-      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : variante === "erro"
-        ? "bg-destructive/10 text-destructive"
-        : "bg-primary/10 text-primary";
-
-  return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {titulo}
-          </p>
-
-          <p className="mt-1 text-3xl font-bold">
-            {valor}
-          </p>
-        </div>
-
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-xl ${classeIcone}`}
-        >
-          <Icone size={21} />
-        </div>
+      <div className="hidden">
+        <CircleCheck />
+        <CircleX />
       </div>
-    </div>
-  );
-}
-
-function StatusEmpresa({
-  ativo,
-}: {
-  ativo: boolean;
-}) {
-  return (
-    <span
-      className={[
-        "inline-flex rounded-full px-2.5 py-1 text-xs font-medium",
-        ativo
-          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-          : "bg-destructive/10 text-destructive",
-      ].join(" ")}
-    >
-      {ativo
-        ? "Ativa"
-        : "Inativa"}
-    </span>
-  );
-}
-
-function LinhaInformacao({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: string;
-}) {
-  return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-muted-foreground">
-        {titulo}
-      </dt>
-
-      <dd className="text-right font-medium">
-        {valor}
-      </dd>
     </div>
   );
 }
