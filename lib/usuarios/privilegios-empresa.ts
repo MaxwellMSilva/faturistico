@@ -848,6 +848,30 @@ export function resolverPrivilegiosEmpresa(
   );
 }
 
+export function validarDependenciasPrivilegiosEmpresa(
+  privilegios:
+    PrivilegioEmpresa[]
+) {
+  const selecionados =
+    new Set(privilegios);
+
+  return privilegios.every(
+    (privilegio) => {
+      const dependencias =
+        dependenciasPrivilegios[
+          privilegio
+        ] ?? [];
+
+      return dependencias.every(
+        (dependencia) =>
+          selecionados.has(
+            dependencia
+          )
+      );
+    }
+  );
+}
+
 /*
  * Verifica se o valor recebido pertence
  * ao enum oficial do Prisma.

@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 
 import {
   Prisma,
+  PrivilegioEmpresa,
   TipoVeiculo,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type CreateVeiculoData = {
   empresaId: string;
@@ -109,8 +110,9 @@ function valorNaoNegativo(
 export async function createVeiculo(
   data: CreateVeiculoData
 ): Promise<CreateVeiculoResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.VEICULOS_CRIAR
   );
 
   const placa =

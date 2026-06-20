@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type UpdateMotoristaData = {
   id: string;
@@ -146,8 +149,9 @@ function converterData(
 export async function updateMotorista(
   data: UpdateMotoristaData
 ): Promise<UpdateMotoristaResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.MOTORISTAS_EDITAR
   );
 
   const motorista =

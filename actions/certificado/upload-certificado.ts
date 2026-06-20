@@ -12,13 +12,17 @@ import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
 
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
 import { criptografar } from "@/lib/seguranca/criptografia";
 
 import { lerCertificadoA1 } from "@/lib/certificado/ler-certificado-a1";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type UploadCertificadoResult =
   | {
@@ -36,21 +40,10 @@ export async function uploadCertificado(
   empresaId: string,
   formData: FormData
 ): Promise<UploadCertificadoResult> {
-  const { acesso } =
-    await validarAcessoEmpresa(
-      empresaId
-    );
-
-  if (
-    acesso.permissao !== "OWNER" &&
-    acesso.permissao !== "ADMIN"
-  ) {
-    return {
-      success: false,
-      message:
-        "Você não possui permissão para alterar o certificado.",
-    };
-  }
+  await validarPrivilegioEmpresa(
+    empresaId,
+    PrivilegioEmpresa.CERTIFICADO_SUBSTITUIR
+  );
 
   const arquivo =
     formData.get("arquivo");

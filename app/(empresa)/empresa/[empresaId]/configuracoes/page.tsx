@@ -1,4 +1,10 @@
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import { notFound } from "next/navigation";
+
+import {
   CircleCheck,
   CircleDashed,
   FileKey2,
@@ -15,6 +21,8 @@ import { ConfiguracaoFiscalForm } from "@/components/configuracao-fiscal/configu
 
 import { CertificadoDigitalForm } from "@/components/certificado/certificado-digital-form";
 
+import { obterPrivilegiosEmpresa } from "@/lib/empresa/obter-privilegios-empresa";
+
 export const dynamic =
   "force-dynamic";
 
@@ -30,17 +38,43 @@ export default async function ConfiguracoesPage({
   const { empresaId } =
     await params;
 
+  const permissoes =
+    await obterPrivilegiosEmpresa(
+      empresaId
+    );
+
+  const podeVerConfiguracaoFiscal =
+    permissoes.privilegios.includes(
+      PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR
+    );
+
+  const podeVerCertificado =
+    permissoes.privilegios.includes(
+      PrivilegioEmpresa.CERTIFICADO_VISUALIZAR
+    );
+
+  if (
+    !podeVerConfiguracaoFiscal &&
+    !podeVerCertificado
+  ) {
+    notFound();
+  }
+
   const [
     configuracao,
     certificado,
   ] = await Promise.all([
-    getConfiguracaoFiscal(
-      empresaId
-    ),
+    podeVerConfiguracaoFiscal
+      ? getConfiguracaoFiscal(
+          empresaId
+        )
+      : null,
 
-    getCertificadoAtivo(
-      empresaId
-    ),
+    podeVerCertificado
+      ? getCertificadoAtivo(
+          empresaId
+        )
+      : null,
   ]);
 
   const configuracaoCadastrada =
@@ -75,7 +109,8 @@ export default async function ConfiguracoesPage({
       {/* Indicadores */}
 
       <section className="grid gap-4 md:grid-cols-2">
-        <StatusCard
+        {podeVerConfiguracaoFiscal && (
+          <StatusCard
           titulo="Configuração fiscal"
           descricao={
             configuracaoCadastrada
@@ -86,9 +121,11 @@ export default async function ConfiguracoesPage({
             configuracaoCadastrada
           }
           icone={Landmark}
-        />
+          />
+        )}
 
-        <StatusCard
+        {podeVerCertificado && (
+          <StatusCard
           titulo="Certificado digital"
           descricao={
             certificadoCadastrado
@@ -99,12 +136,14 @@ export default async function ConfiguracoesPage({
             certificadoCadastrado
           }
           icone={FileKey2}
-        />
+          />
+        )}
       </section>
 
       {/* Configuração fiscal */}
 
-      <section className="space-y-4">
+      {podeVerConfiguracaoFiscal && (
+        <section className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Landmark size={20} />
@@ -129,11 +168,13 @@ export default async function ConfiguracoesPage({
             configuracao
           }
         />
-      </section>
+        </section>
+      )}
 
       {/* Certificado digital */}
 
-      <section className="space-y-4">
+      {podeVerCertificado && (
+        <section className="space-y-4">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <ShieldCheck size={20} />
@@ -178,7 +219,8 @@ export default async function ConfiguracoesPage({
             certificado
           }
         />
-      </section>
+        </section>
+      )}
     </div>
   );
 }

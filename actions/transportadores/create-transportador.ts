@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type TipoPessoa =
   | "FISICA"
@@ -69,8 +72,9 @@ function textoOpcional(
 export async function createTransportador(
   data: CreateTransportadorData
 ): Promise<CreateTransportadorResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.TRANSPORTADORES_CRIAR
   );
 
   const nome = data.nome.trim();

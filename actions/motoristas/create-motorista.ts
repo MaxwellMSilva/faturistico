@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type CreateMotoristaData = {
   empresaId: string;
@@ -144,8 +147,9 @@ function converterData(
 export async function createMotorista(
   data: CreateMotoristaData
 ): Promise<CreateMotoristaResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.MOTORISTAS_CRIAR
   );
 
   const nome =

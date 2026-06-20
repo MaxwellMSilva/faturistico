@@ -39,6 +39,7 @@ export type EmpresaSidebarProps = {
   usuarioNome: string;
   usuarioEmail?: string;
   permissao: string;
+  privilegios: string[];
 
   variante?:
     | "desktop"
@@ -52,6 +53,7 @@ type ItemMenu = {
   href: string;
   icon: typeof LayoutDashboard;
   ativo: boolean;
+  privilegios?: string[];
 };
 
 type GrupoMenu = {
@@ -75,6 +77,7 @@ export function EmpresaSidebar({
   usuarioNome,
   usuarioEmail,
   permissao,
+  privilegios,
   variante = "desktop",
   onNavigate,
 }: EmpresaSidebarProps) {
@@ -99,6 +102,28 @@ export function EmpresaSidebar({
   const baseUrl =
     `/empresa/${empresaId}`;
 
+  function podeVerModulo(
+    item: ItemMenu
+  ) {
+    if (!item.ativo) {
+      return true;
+    }
+
+    if (
+      !item.privilegios ||
+      item.privilegios.length === 0
+    ) {
+      return true;
+    }
+
+    return item.privilegios.some(
+      (privilegio) =>
+        privilegios.includes(
+          privilegio
+        )
+    );
+  }
+
   const grupos: GrupoMenu[] = [
     {
       titulo: "Visão geral",
@@ -109,6 +134,9 @@ export function EmpresaSidebar({
           href: `${baseUrl}/dashboard`,
           icon: LayoutDashboard,
           ativo: true,
+          privilegios: [
+            "DASHBOARD_VISUALIZAR",
+          ],
         },
       ],
     },
@@ -122,6 +150,9 @@ export function EmpresaSidebar({
           href: `${baseUrl}/clientes`,
           icon: Users,
           ativo: true,
+          privilegios: [
+            "CLIENTES_VISUALIZAR",
+          ],
         },
 
         {
@@ -129,6 +160,9 @@ export function EmpresaSidebar({
           href: `${baseUrl}/produtos`,
           icon: Package,
           ativo: true,
+          privilegios: [
+            "PRODUTOS_VISUALIZAR",
+          ],
         },
 
         {
@@ -142,6 +176,9 @@ export function EmpresaSidebar({
             ClipboardList,
 
           ativo: true,
+          privilegios: [
+            "NATUREZAS_VISUALIZAR",
+          ],
         },
       ],
     },
@@ -156,6 +193,9 @@ export function EmpresaSidebar({
           href: `${baseUrl}/nfe`,
           icon: FileText,
           ativo: true,
+          privilegios: [
+            "NFE_VISUALIZAR",
+          ],
         },
 
         {
@@ -182,6 +222,9 @@ export function EmpresaSidebar({
             Building2,
 
           ativo: true,
+          privilegios: [
+            "TRANSPORTADORES_VISUALIZAR",
+          ],
         },
 
         {
@@ -190,6 +233,9 @@ export function EmpresaSidebar({
             `${baseUrl}/veiculos`,
           icon: CarFront,
           ativo: true,
+          privilegios: [
+            "VEICULOS_VISUALIZAR",
+          ],
         },
 
         {
@@ -198,6 +244,9 @@ export function EmpresaSidebar({
             `${baseUrl}/motoristas`,
           icon: UserRound,
           ativo: true,
+          privilegios: [
+            "MOTORISTAS_VISUALIZAR",
+          ],
         },
       ],
     },
@@ -217,10 +266,28 @@ export function EmpresaSidebar({
             Settings,
 
           ativo: true,
+          privilegios: [
+            "CONFIGURACOES_VISUALIZAR",
+            "CERTIFICADO_VISUALIZAR",
+          ],
         },
       ],
     },
   ];
+
+  const gruposVisiveis =
+    grupos
+      .map((grupo) => ({
+        ...grupo,
+        itens:
+          grupo.itens.filter(
+            podeVerModulo
+          ),
+      }))
+      .filter(
+        (grupo) =>
+          grupo.itens.length > 0
+      );
 
   useEffect(() => {
     setMenuUsuarioAberto(
@@ -385,7 +452,7 @@ export function EmpresaSidebar({
         className="flex-1 overflow-y-auto px-3 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <div className="space-y-7">
-          {grupos.map(
+          {gruposVisiveis.map(
             (grupo) => (
               <section
                 key={

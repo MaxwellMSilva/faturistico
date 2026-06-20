@@ -1,9 +1,15 @@
 import { notFound } from "next/navigation";
 
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import { getNfeDetalhes } from "@/actions/nfe/get-nfe-detalhes";
 import { getDadosTransporteNfe } from "@/actions/nfe/get-dados-transporte-nfe";
 
 import { NfeRascunhoForm } from "@/components/nfe/nfe-rascunho-form";
+
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 export const dynamic =
   "force-dynamic";
@@ -22,6 +28,11 @@ export default async function NfeDetalhesPage({
     empresaId,
     notaFiscalId,
   } = await params;
+
+  await validarPrivilegioEmpresa(
+    empresaId,
+    PrivilegioEmpresa.NFE_VISUALIZAR
+  );
 
   const [
     dados,

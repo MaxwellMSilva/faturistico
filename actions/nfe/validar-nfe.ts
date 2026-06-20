@@ -2,11 +2,12 @@
 
 import {
   Prisma,
+  PrivilegioEmpresa,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 export type ValidarNfeResult = {
   success: boolean;
@@ -95,8 +96,9 @@ export async function validarNfe(
   empresaId: string,
   notaFiscalId: string
 ): Promise<ValidarNfeResult> {
-  await validarAcessoEmpresa(
-    empresaId
+  await validarPrivilegioEmpresa(
+    empresaId,
+    PrivilegioEmpresa.NFE_VALIDAR
   );
 
   const [

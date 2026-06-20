@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { Prisma } from "@prisma/client";
+import {
+  Prisma,
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 import { recalcularTotaisNfe } from "@/lib/fiscal/recalcular-totais-nfe";
 
@@ -32,8 +35,9 @@ type UpdateDadosNfeResult =
 export async function updateDadosNfe(
   data: UpdateDadosNfeData
 ): Promise<UpdateDadosNfeResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.NFE_EDITAR
   );
 
   if (

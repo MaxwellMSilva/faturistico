@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 import {
   normalizarIbsCbsProduto,
@@ -105,8 +109,9 @@ function validarPercentual(
 export async function createProduto(
   data: CreateProdutoData
 ): Promise<CreateProdutoResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.PRODUTOS_CRIAR
   );
 
   const codigo =

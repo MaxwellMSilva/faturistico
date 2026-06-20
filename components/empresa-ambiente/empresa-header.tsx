@@ -31,6 +31,7 @@ type Props = {
   usuarioNome: string;
   usuarioEmail?: string;
   permissao: string;
+  privilegios: string[];
 };
 
 type PaginaNavegacao = {
@@ -211,6 +212,106 @@ function criarPaginas(
       ],
     },
   ];
+}
+
+function obterPrivilegiosPagina(
+  href: string
+) {
+  if (href.endsWith("/dashboard")) {
+    return [
+      "DASHBOARD_VISUALIZAR",
+    ];
+  }
+
+  if (href.endsWith("/clientes")) {
+    return [
+      "CLIENTES_VISUALIZAR",
+    ];
+  }
+
+  if (href.endsWith("/produtos")) {
+    return [
+      "PRODUTOS_VISUALIZAR",
+    ];
+  }
+
+  if (
+    href.endsWith(
+      "/naturezas-operacao"
+    )
+  ) {
+    return [
+      "NATUREZAS_VISUALIZAR",
+    ];
+  }
+
+  if (href.endsWith("/nfe")) {
+    return [
+      "NFE_VISUALIZAR",
+    ];
+  }
+
+  if (
+    href.endsWith(
+      "/transportadores"
+    )
+  ) {
+    return [
+      "TRANSPORTADORES_VISUALIZAR",
+    ];
+  }
+
+  if (href.endsWith("/veiculos")) {
+    return [
+      "VEICULOS_VISUALIZAR",
+    ];
+  }
+
+  if (href.endsWith("/motoristas")) {
+    return [
+      "MOTORISTAS_VISUALIZAR",
+    ];
+  }
+
+  if (
+    href.endsWith(
+      "/configuracoes"
+    )
+  ) {
+    return [
+      "CONFIGURACOES_VISUALIZAR",
+      "CERTIFICADO_VISUALIZAR",
+    ];
+  }
+
+  return [];
+}
+
+function filtrarPaginasPermitidas(
+  paginas: PaginaNavegacao[],
+  privilegios: string[]
+) {
+  return paginas.filter(
+    (pagina) => {
+      const privilegiosPagina =
+        obterPrivilegiosPagina(
+          pagina.href
+        );
+
+      if (
+        privilegiosPagina.length === 0
+      ) {
+        return true;
+      }
+
+      return privilegiosPagina.some(
+        (privilegio) =>
+          privilegios.includes(
+            privilegio
+          )
+      );
+    }
+  );
 }
 
 function obterContextoPagina(
@@ -798,6 +899,7 @@ export function EmpresaHeader({
   usuarioNome,
   usuarioEmail,
   permissao,
+  privilegios,
 }: Props) {
   const pathname =
     usePathname();
@@ -830,7 +932,10 @@ export function EmpresaHeader({
 
   const paginas =
     baseUrl
-      ? criarPaginas(baseUrl)
+      ? filtrarPaginasPermitidas(
+          criarPaginas(baseUrl),
+          privilegios
+        )
       : [];
 
   const {

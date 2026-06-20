@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type CreateClienteData = {
   empresaId: string;
@@ -61,8 +65,9 @@ function textoOpcional(
 export async function createCliente(
   data: CreateClienteData
 ): Promise<CreateClienteResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.CLIENTES_CRIAR
   );
 
   const nome = data.nome.trim();

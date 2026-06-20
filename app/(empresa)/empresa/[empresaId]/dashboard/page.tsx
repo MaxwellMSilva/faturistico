@@ -1,13 +1,26 @@
 import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
+import Link from "next/link";
+
+import {
+  ArrowRight,
+  Car,
   CircleCheck,
   FileText,
+  Landmark,
   Package,
+  Settings,
+  Truck,
+  UserRound,
   Users,
 } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 
 import { getContextoEmpresa } from "@/lib/empresa/get-contexto-empresa";
+import { obterPrivilegiosEmpresa } from "@/lib/empresa/obter-privilegios-empresa";
 
 import {
   ActivityTable,
@@ -137,6 +150,189 @@ function calcularVariacao(
   };
 }
 
+type EntradaModulo = {
+  titulo: string;
+  descricao: string;
+  href: string;
+  privilegios: PrivilegioEmpresa[];
+  icone: typeof FileText;
+};
+
+function criarModulosEntrada(
+  baseUrl: string
+): EntradaModulo[] {
+  return [
+    {
+      titulo: "Clientes",
+      descricao:
+        "Consulte e mantenha os cadastros comerciais.",
+      href: `${baseUrl}/clientes`,
+      privilegios: [
+        PrivilegioEmpresa.CLIENTES_VISUALIZAR,
+      ],
+      icone: Users,
+    },
+    {
+      titulo: "Produtos",
+      descricao:
+        "Acesse itens, servicos e dados fiscais.",
+      href: `${baseUrl}/produtos`,
+      privilegios: [
+        PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
+      ],
+      icone: Package,
+    },
+    {
+      titulo: "Naturezas",
+      descricao:
+        "Gerencie operacoes fiscais da NF-e.",
+      href: `${baseUrl}/naturezas-operacao`,
+      privilegios: [
+        PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
+      ],
+      icone: Landmark,
+    },
+    {
+      titulo: "NF-e",
+      descricao:
+        "Acompanhe e edite documentos fiscais.",
+      href: `${baseUrl}/nfe`,
+      privilegios: [
+        PrivilegioEmpresa.NFE_VISUALIZAR,
+      ],
+      icone: FileText,
+    },
+    {
+      titulo: "Transportadores",
+      descricao:
+        "Consulte transportadores vinculados.",
+      href: `${baseUrl}/transportadores`,
+      privilegios: [
+        PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
+      ],
+      icone: Truck,
+    },
+    {
+      titulo: "Veiculos",
+      descricao:
+        "Acesse a frota usada no transporte.",
+      href: `${baseUrl}/veiculos`,
+      privilegios: [
+        PrivilegioEmpresa.VEICULOS_VISUALIZAR,
+      ],
+      icone: Car,
+    },
+    {
+      titulo: "Motoristas",
+      descricao:
+        "Consulte motoristas cadastrados.",
+      href: `${baseUrl}/motoristas`,
+      privilegios: [
+        PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
+      ],
+      icone: UserRound,
+    },
+    {
+      titulo: "Configuracoes",
+      descricao:
+        "Acesse fiscal e certificado digital.",
+      href: `${baseUrl}/configuracoes`,
+      privilegios: [
+        PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR,
+        PrivilegioEmpresa.CERTIFICADO_VISUALIZAR,
+      ],
+      icone: Settings,
+    },
+  ];
+}
+
+function TelaEntradaEmpresa({
+  empresaNome,
+  modulos,
+}: {
+  empresaNome: string;
+  modulos: EntradaModulo[];
+}) {
+  return (
+    <div className="w-full space-y-6">
+      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="max-w-3xl">
+          <p className="text-sm font-medium text-primary">
+            Ambiente da empresa
+          </p>
+
+          <h1 className="mt-2 text-2xl font-bold tracking-tight md:text-3xl">
+            {empresaNome}
+          </h1>
+
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+            O dashboard nao esta liberado para
+            visualizacao neste perfil. Escolha um
+            modulo disponivel para continuar.
+          </p>
+        </div>
+      </section>
+
+      {modulos.length > 0 ? (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {modulos.map((modulo) => {
+            const Icone = modulo.icone;
+
+            return (
+              <Link
+                key={modulo.href}
+                href={modulo.href}
+                className="group flex min-h-40 flex-col justify-between rounded-2xl border bg-card p-5 shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/30"
+              >
+                <div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Icone size={21} />
+                  </div>
+
+                  <h2 className="mt-4 text-base font-semibold tracking-tight">
+                    {modulo.titulo}
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {modulo.descricao}
+                  </p>
+                </div>
+
+                <span className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary">
+                  Abrir
+                  <ArrowRight
+                    size={16}
+                    className="transition-transform group-hover:translate-x-1"
+                  />
+                </span>
+              </Link>
+            );
+          })}
+        </section>
+      ) : (
+        <section className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <Settings size={20} />
+            </div>
+
+            <div>
+              <h2 className="font-semibold tracking-tight">
+                Nenhum modulo disponivel
+              </h2>
+
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Peca a um administrador para revisar as
+                permissoes deste usuario.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 export default async function EmpresaDashboardPage({
   params,
 }: Props) {
@@ -147,6 +343,48 @@ export default async function EmpresaDashboardPage({
     await getContextoEmpresa(
       empresaId
     );
+
+  const permissoes =
+    await obterPrivilegiosEmpresa(
+      empresaId
+    );
+
+  function podeVer(
+    privilegio: PrivilegioEmpresa
+  ) {
+    return permissoes.privilegios.includes(
+      privilegio
+    );
+  }
+
+  const baseUrl =
+    `/empresa/${empresaId}`;
+
+  if (
+    !podeVer(
+      PrivilegioEmpresa.DASHBOARD_VISUALIZAR
+    )
+  ) {
+    const modulos =
+      criarModulosEntrada(
+        baseUrl
+      ).filter((modulo) =>
+        modulo.privilegios.some(
+          (privilegio) =>
+            podeVer(privilegio)
+        )
+      );
+
+    return (
+      <TelaEntradaEmpresa
+        empresaNome={
+          empresa.nomeFantasia ??
+          empresa.razaoSocial
+        }
+        modulos={modulos}
+      />
+    );
+  }
 
   const agora = new Date();
   const inicioMesAtual = new Date(
@@ -334,9 +572,6 @@ export default async function EmpresaDashboardPage({
     }),
   ]);
 
-  const baseUrl =
-    `/empresa/${empresaId}`;
-
   const totalFaturado = Number(
     faturamentoAutorizado._sum
       .valorProdutos ?? 0
@@ -449,7 +684,11 @@ export default async function EmpresaDashboardPage({
         status: status.label,
         statusVariant:
           status.variant,
-        href: `${baseUrl}/nfe/${nota.id}`,
+        href: podeVer(
+          PrivilegioEmpresa.NFE_VISUALIZAR
+        )
+          ? `${baseUrl}/nfe/${nota.id}`
+          : undefined,
       };
     });
 
@@ -489,7 +728,13 @@ export default async function EmpresaDashboardPage({
             faturadoMesAnterior
           )}
           icon={FileText}
-          href={`${baseUrl}/nfe`}
+          href={
+            podeVer(
+              PrivilegioEmpresa.NFE_VISUALIZAR
+            )
+              ? `${baseUrl}/nfe`
+              : undefined
+          }
           sparklineData={
             serieFaturamento
           }
@@ -505,7 +750,13 @@ export default async function EmpresaDashboardPage({
             nfeMesAnterior
           )}
           icon={CircleCheck}
-          href={`${baseUrl}/nfe`}
+          href={
+            podeVer(
+              PrivilegioEmpresa.NFE_VISUALIZAR
+            )
+              ? `${baseUrl}/nfe`
+              : undefined
+          }
           sparklineData={
             serieQuantidade
           }
@@ -517,7 +768,13 @@ export default async function EmpresaDashboardPage({
           value={totalClientes}
           hint="cadastros disponíveis"
           icon={Users}
-          href={`${baseUrl}/clientes`}
+          href={
+            podeVer(
+              PrivilegioEmpresa.CLIENTES_VISUALIZAR
+            )
+              ? `${baseUrl}/clientes`
+              : undefined
+          }
           sparklineData={
             serieQuantidade
           }
@@ -529,7 +786,13 @@ export default async function EmpresaDashboardPage({
           value={totalProdutos}
           hint="itens e serviços"
           icon={Package}
-          href={`${baseUrl}/produtos`}
+          href={
+            podeVer(
+              PrivilegioEmpresa.PRODUTOS_VISUALIZAR
+            )
+              ? `${baseUrl}/produtos`
+              : undefined
+          }
           sparklineData={
             serieQuantidade
           }
@@ -541,7 +804,13 @@ export default async function EmpresaDashboardPage({
         <ActivityTable
           title="NF-e recentes"
           rows={atividade}
-          viewAllHref={`${baseUrl}/nfe`}
+          viewAllHref={
+            podeVer(
+              PrivilegioEmpresa.NFE_VISUALIZAR
+            )
+              ? `${baseUrl}/nfe`
+              : undefined
+          }
         />
 
         <DonutChart

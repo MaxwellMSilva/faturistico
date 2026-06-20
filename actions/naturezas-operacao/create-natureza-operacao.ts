@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type FinalidadeNfe =
   | "NORMAL"
@@ -39,8 +43,9 @@ type CreateNaturezaOperacaoResult =
 export async function createNaturezaOperacao(
   data: CreateNaturezaOperacaoData
 ): Promise<CreateNaturezaOperacaoResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.NATUREZAS_CRIAR
   );
 
   const descricao =

@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import {
   ModalidadeFrete,
+  PrivilegioEmpresa,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type UpdateTransporteNfeData = {
   empresaId: string;
@@ -77,8 +78,9 @@ function valorNaoNegativo(
 export async function updateTransporteNfe(
   data: UpdateTransporteNfeData
 ): Promise<UpdateTransporteNfeResult> {
-  await validarAcessoEmpresa(
-    data.empresaId
+  await validarPrivilegioEmpresa(
+    data.empresaId,
+    PrivilegioEmpresa.NFE_EDITAR
   );
 
   const nota =

@@ -113,13 +113,31 @@ export function PrivilegiosEmpresaTree({
     );
   }
 
+  function obterPrivilegioVisualizar(
+    privilegiosGrupo:
+      PrivilegioEmpresa[]
+  ) {
+    return privilegiosGrupo.find(
+      (privilegio) =>
+        String(privilegio).endsWith(
+          "_VISUALIZAR"
+        )
+    );
+  }
+
   function alternarPrivilegio(
-    privilegio:
-      PrivilegioEmpresa
+    privilegio: PrivilegioEmpresa,
+    privilegiosGrupo:
+      PrivilegioEmpresa[]
   ) {
     if (disabled) {
       return;
     }
+
+    const privilegioVisualizar =
+      obterPrivilegioVisualizar(
+        privilegiosGrupo
+      );
 
     const novos =
       new Set(selecionados);
@@ -129,10 +147,31 @@ export function PrivilegiosEmpresaTree({
         privilegio
       )
     ) {
-      novos.delete(
-        privilegio
-      );
+      if (
+        privilegio ===
+        privilegioVisualizar
+      ) {
+        privilegiosGrupo.forEach(
+          (item) =>
+            novos.delete(item)
+        );
+      } else {
+        novos.delete(
+          privilegio
+        );
+      }
     } else {
+      if (
+        privilegio !==
+          privilegioVisualizar &&
+        privilegioVisualizar &&
+        !novos.has(
+          privilegioVisualizar
+        )
+      ) {
+        return;
+      }
+
       novos.add(
         privilegio
       );
@@ -186,6 +225,18 @@ export function PrivilegiosEmpresaTree({
                 (item) =>
                   item.valor
               );
+
+            const privilegioVisualizar =
+              obterPrivilegioVisualizar(
+                privilegiosGrupo
+              );
+
+            const visualizacaoMarcada =
+              privilegioVisualizar
+                ? selecionadosSet.has(
+                    privilegioVisualizar
+                  )
+                : true;
 
             const quantidadeSelecionada =
               privilegiosGrupo.filter(
@@ -248,42 +299,59 @@ export function PrivilegiosEmpresaTree({
 
                 <div className="space-y-1 p-3">
                   {grupo.privilegios.map(
-                    (item) => (
-                      <label
-                        key={
-                          item.valor
-                        }
-                        className="flex cursor-pointer items-start gap-3 rounded-lg p-3 transition-colors hover:bg-muted/40"
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                          checked={selecionadosSet.has(
+                    (item) => {
+                      const dependeVisualizar =
+                        item.valor !==
+                          privilegioVisualizar &&
+                        !visualizacaoMarcada;
+
+                      const itemDisabled =
+                        disabled ||
+                        dependeVisualizar;
+
+                      return (
+                        <label
+                          key={
                             item.valor
-                          )}
-                          onChange={() =>
-                            alternarPrivilegio(
+                          }
+                          className={[
+                            "flex items-start gap-3 rounded-lg p-3 transition-colors",
+                            itemDisabled
+                              ? "cursor-not-allowed opacity-55"
+                              : "cursor-pointer hover:bg-muted/40",
+                          ].join(" ")}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                            checked={selecionadosSet.has(
                               item.valor
-                            )
-                          }
-                          disabled={
-                            disabled
-                          }
-                        />
-
-                        <span>
-                          <span className="block text-sm font-medium">
-                            {item.titulo}
-                          </span>
-
-                          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                            {
-                              item.descricao
+                            )}
+                            onChange={() =>
+                              alternarPrivilegio(
+                                item.valor,
+                                privilegiosGrupo
+                              )
                             }
+                            disabled={
+                              itemDisabled
+                            }
+                          />
+
+                          <span>
+                            <span className="block text-sm font-medium">
+                              {item.titulo}
+                            </span>
+
+                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                              {
+                                item.descricao
+                              }
+                            </span>
                           </span>
-                        </span>
-                      </label>
-                    )
+                        </label>
+                      );
+                    }
                   )}
                 </div>
               </section>

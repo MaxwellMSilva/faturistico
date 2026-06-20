@@ -1,4 +1,5 @@
 import { getContextoEmpresa } from "@/lib/empresa/get-contexto-empresa";
+import { obterPrivilegiosEmpresa } from "@/lib/empresa/obter-privilegios-empresa";
 
 import { EmpresaHeader } from "@/components/empresa-ambiente/empresa-header";
 import { EmpresaSidebar } from "@/components/empresa-ambiente/empresa-sidebar";
@@ -30,6 +31,11 @@ export default async function EmpresaLayout({
     empresaId
   );
 
+  const permissoes =
+    await obterPrivilegiosEmpresa(
+      empresaId
+    );
+
   const empresaNome =
     empresa.nomeFantasia ??
     empresa.razaoSocial;
@@ -54,6 +60,9 @@ export default async function EmpresaLayout({
 
     permissao:
       acesso.permissao,
+
+    privilegios:
+      permissoes.privilegios,
   };
 
   return (
@@ -84,6 +93,9 @@ export default async function EmpresaLayout({
           }
           permissao={
             acesso.permissao
+          }
+          privilegios={
+            permissoes.privilegios
           }
         />
 

@@ -10,6 +10,69 @@ type Opcoes = {
   exigirEmpresaAtiva?: boolean;
 };
 
+type ContextoEmpresa =
+  Awaited<
+    ReturnType<
+      typeof validarAcessoEmpresa
+    >
+  >;
+
+export function contextoPossuiPrivilegioEmpresa(
+  contexto: ContextoEmpresa,
+  privilegio: PrivilegioEmpresa
+) {
+  const {
+    usuario,
+    acesso,
+    somenteLeitura,
+  } = contexto;
+
+  if (somenteLeitura) {
+    return false;
+  }
+
+  if (usuario.role === "OWNER") {
+    return true;
+  }
+
+  if (!acesso || !acesso.ativo) {
+    return false;
+  }
+
+  if (usuario.role === "ADMIN") {
+    return acesso.permissao === "ADMIN";
+  }
+
+  if (
+    acesso.permissao === "OWNER" ||
+    acesso.permissao === "ADMIN"
+  ) {
+    return false;
+  }
+
+  if (
+    acesso.permissao ===
+    "VISUALIZADOR"
+  ) {
+    return privilegiosVisualizador.has(
+      privilegio
+    );
+  }
+
+  if (
+    acesso.permissao ===
+    "PERSONALIZADO"
+  ) {
+    return acesso.privilegios.some(
+      (item) =>
+        item.privilegio ===
+        privilegio
+    );
+  }
+
+  return false;
+}
+
 export async function validarPrivilegioEmpresa(
   empresaId: string,
   privilegio: PrivilegioEmpresa,
@@ -24,129 +87,59 @@ export async function validarPrivilegioEmpresa(
       empresaId
     );
 
-  const {
-    usuario,
-    empresa,
-    acesso,
-  } = contexto;
-
-  /*
-   * Qualquer alteração em empresa
-   * inativa deve ser bloqueada,
-   * inclusive para o OWNER.
-   */
-
   if (
     exigirEmpresaAtiva &&
-    !empresa.ativo
+    !contexto.empresa.ativo
   ) {
     throw new Error(
       "EMPRESA_INATIVA_SOMENTE_LEITURA"
     );
   }
 
-  /*
-   * OWNER possui acesso total somente
-   * quando a operação permitir o estado
-   * atual da empresa.
-   */
-
   if (
-    usuario.role === "OWNER"
+    contexto.usuario.role === "OWNER"
   ) {
     return contexto;
   }
 
   if (
-    !acesso ||
-    !acesso.ativo
+    !contexto.acesso
   ) {
     throw new Error(
       "ACESSO_EMPRESA_NAO_AUTORIZADO"
     );
   }
 
-  /*
-   * ADMIN global precisa possuir
-   * vínculo ADMIN nesta empresa.
-   */
-
   if (
-    usuario.role === "ADMIN"
+    contexto.acesso &&
+    !contexto.acesso.ativo
   ) {
-    if (
-      acesso.permissao ===
-      "ADMIN"
-    ) {
-      return contexto;
-    }
-
     throw new Error(
-      "PRIVILEGIO_NAO_AUTORIZADO"
+      "ACESSO_EMPRESA_NAO_AUTORIZADO"
     );
   }
 
-  /*
-   * USUARIO não pode possuir vínculo
-   * OWNER ou ADMIN.
-   */
-
   if (
-    acesso.permissao ===
+    contexto.acesso &&
+    contexto.usuario.role ===
+      "USUARIO" &&
+    (contexto.acesso.permissao ===
       "OWNER" ||
-    acesso.permissao ===
-      "ADMIN"
+      contexto.acesso.permissao ===
+        "ADMIN")
   ) {
     throw new Error(
       "PERMISSAO_EMPRESA_INVALIDA"
     );
   }
 
-  /*
-   * VISUALIZADOR recebe automaticamente
-   * apenas os privilégios de consulta.
-   */
-
   if (
-    acesso.permissao ===
-    "VISUALIZADOR"
+    contextoPossuiPrivilegioEmpresa(
+      contexto,
+      privilegio
+    )
   ) {
-    if (
-      privilegiosVisualizador.has(
-        privilegio
-      )
-    ) {
-      return contexto;
-    }
-
-    throw new Error(
-      "PRIVILEGIO_NAO_AUTORIZADO"
-    );
-  }
-
-  /*
-   * PERSONALIZADO depende dos privilégios
-   * gravados em UsuarioEmpresaPrivilegio.
-   */
-
-  if (
-    acesso.permissao ===
-    "PERSONALIZADO"
-  ) {
-    const possuiPrivilegio =
-      acesso.privilegios.some(
-        (item) =>
-          item.privilegio ===
-          privilegio
-      );
-
-    if (possuiPrivilegio) {
-      return contexto;
-    }
-
-    throw new Error(
-      "PRIVILEGIO_NAO_AUTORIZADO"
-    );
+    return contexto;
   }
 
   throw new Error(

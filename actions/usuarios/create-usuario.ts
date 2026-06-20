@@ -16,6 +16,7 @@ import { validarGestaoUsuarios } from "@/lib/usuarios/validar-gestao-usuarios";
 import {
   privilegioEmpresaValido,
   resolverPrivilegiosEmpresa,
+  validarDependenciasPrivilegiosEmpresa,
 } from "@/lib/usuarios/privilegios-empresa";
 
 type RoleNovoUsuario =
@@ -294,9 +295,24 @@ export async function createUsuario(
       };
     }
 
+    const privilegiosValidos =
+      privilegiosRecebidos as PrivilegioEmpresa[];
+
+    if (
+      !validarDependenciasPrivilegiosEmpresa(
+        privilegiosValidos
+      )
+    ) {
+      return {
+        success: false,
+        message:
+          "Para marcar aÃ§Ãµes de um mÃ³dulo, marque tambÃ©m a permissÃ£o de visualizar.",
+      };
+    }
+
     const privilegiosResolvidos =
       resolverPrivilegiosEmpresa(
-        privilegiosRecebidos as PrivilegioEmpresa[]
+        privilegiosValidos
       );
 
     if (

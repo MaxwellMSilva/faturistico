@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type DeleteNfeData = {
   empresaId: string;
@@ -24,8 +28,9 @@ export async function deleteNfe({
   empresaId,
   notaFiscalId,
 }: DeleteNfeData): Promise<DeleteNfeResult> {
-  await validarAcessoEmpresa(
-    empresaId
+  await validarPrivilegioEmpresa(
+    empresaId,
+    PrivilegioEmpresa.NFE_EXCLUIR_RASCUNHO
   );
 
   const nota =
