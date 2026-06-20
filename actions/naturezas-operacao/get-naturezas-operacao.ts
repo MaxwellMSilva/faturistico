@@ -21,12 +21,23 @@ export async function getNaturezasOperacao(
       empresaId: true,
 
       descricao: true,
+      codigoInterno: true,
       cfop: true,
 
+      tipoOperacao: true,
+      destinoOperacao: true,
       finalidadeNfe: true,
 
       consumidorFinal: true,
+      indicadorPresenca: true,
+      indicadorIeDestinatario: true,
+      possuiIntermediador: true,
+
+      // Mantido enquanto as telas antigas ainda utilizam o booleano.
       contribuinteIcms: true,
+
+      informacoesComplementaresPadrao:
+        true,
 
       ativo: true,
 
