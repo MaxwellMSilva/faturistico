@@ -33,6 +33,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+import {
+  cfopValido,
+  normalizarCfop,
+  somenteNumerosCfop,
+} from "@/lib/fiscal/cfop";
+
 type FinalidadeNfe =
   | "NORMAL"
   | "COMPLEMENTAR"
@@ -80,6 +86,25 @@ const finalidades = [
   label: string;
 }>;
 
+function formatarCfopDigitado(
+  valor?: string | null
+) {
+  const numeros =
+    somenteNumerosCfop(valor).slice(
+      0,
+      6
+    );
+
+  if (numeros.length <= 4) {
+    return numeros;
+  }
+
+  return `${numeros.slice(
+    0,
+    4
+  )}-${numeros.slice(4)}`;
+}
+
 export function NaturezaOperacaoDialog({
   empresaId,
   natureza,
@@ -94,8 +119,9 @@ export function NaturezaOperacaoDialog({
       descricao:
         natureza?.descricao ?? "",
 
-      cfop:
-        natureza?.cfop ?? "",
+      cfop: formatarCfopDigitado(
+        natureza?.cfop
+      ),
 
       finalidadeNfe:
         natureza?.finalidadeNfe ??
@@ -162,10 +188,7 @@ export function NaturezaOperacaoDialog({
       form.descricao.trim();
 
     const cfop =
-      form.cfop.replace(
-        /\D/g,
-        ""
-      );
+      normalizarCfop(form.cfop);
 
     if (!descricao) {
       setErro(
@@ -175,9 +198,9 @@ export function NaturezaOperacaoDialog({
       return;
     }
 
-    if (cfop.length !== 4) {
+    if (!cfopValido(cfop)) {
       setErro(
-        "Informe um CFOP válido com 4 números."
+        "Informe um CFOP válido com 4 números ou um detalhamento com 6 números."
       );
 
       return;
@@ -205,26 +228,22 @@ export function NaturezaOperacaoDialog({
           form.ativo,
       };
 
-      const resultado =
-        natureza
-          ? await updateNaturezaOperacao({
-              id: natureza.id,
-              ...dados,
-            })
-          : await createNaturezaOperacao(
-              dados
-            );
+      const resultado = natureza
+        ? await updateNaturezaOperacao({
+            id: natureza.id,
+            ...dados,
+          })
+        : await createNaturezaOperacao(
+            dados
+          );
 
       if (!resultado.success) {
-        setErro(
-          resultado.message
-        );
+        setErro(resultado.message);
 
         return;
       }
 
       setAberto(false);
-
       router.refresh();
     } catch (error) {
       console.error(
@@ -254,7 +273,6 @@ export function NaturezaOperacaoDialog({
           setForm(
             criarEstadoInicial()
           );
-
           setErro("");
         }
       }}
@@ -312,8 +330,6 @@ export function NaturezaOperacaoDialog({
           onSubmit={handleSubmit}
           className="space-y-6"
         >
-          {/* Identificação */}
-
           <section className="rounded-xl border bg-muted/10 p-5">
             <div className="mb-5 flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -384,29 +400,38 @@ export function NaturezaOperacaoDialog({
                     natureza?.id ??
                     "nova"
                   }`}
+                  aria-describedby={`cfop-ajuda-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
                   className="h-11"
-                  placeholder="5102"
+                  placeholder="5102 ou 5102-01"
                   inputMode="numeric"
-                  maxLength={4}
+                  autoComplete="off"
+                  maxLength={7}
                   value={form.cfop}
                   onChange={(event) =>
                     atualizarCampo(
                       "cfop",
-                      event.target.value
-                        .replace(
-                          /\D/g,
-                          ""
-                        )
-                        .slice(0, 4)
+                      formatarCfopDigitado(
+                        event.target.value
+                      )
                     )
                   }
                   disabled={carregando}
                   required
                 />
 
-                <p className="text-xs text-muted-foreground">
-                  Informe os quatro números
-                  do código fiscal.
+                <p
+                  id={`cfop-ajuda-${
+                    natureza?.id ??
+                    "nova"
+                  }`}
+                  className="text-xs text-muted-foreground"
+                >
+                  Use 4 números para o CFOP
+                  ou mais 2 números para o
+                  detalhamento interno.
                 </p>
               </div>
 
@@ -459,8 +484,6 @@ export function NaturezaOperacaoDialog({
               </div>
             </div>
           </section>
-
-          {/* Regras */}
 
           <section className="rounded-xl border bg-muted/10 p-5">
             <div className="mb-5 flex items-start gap-3">
@@ -526,8 +549,6 @@ export function NaturezaOperacaoDialog({
             </div>
           </section>
 
-          {/* Erro */}
-
           {erro && (
             <div
               role="alert"
@@ -558,7 +579,6 @@ export function NaturezaOperacaoDialog({
                 disabled={carregando}
               >
                 <X size={17} />
-
                 Cancelar
               </Button>
 
@@ -573,13 +593,11 @@ export function NaturezaOperacaoDialog({
                       size={17}
                       className="animate-spin"
                     />
-
                     Salvando...
                   </>
                 ) : (
                   <>
                     <Save size={17} />
-
                     {editando
                       ? "Salvar alterações"
                       : "Cadastrar natureza"}
