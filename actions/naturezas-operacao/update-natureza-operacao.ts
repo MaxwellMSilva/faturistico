@@ -8,6 +8,11 @@ import {
 
 import { prisma } from "@/lib/prisma";
 
+import {
+  cfopValido,
+  normalizarCfop,
+} from "@/lib/fiscal/cfop";
+
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type FinalidadeNfe =
@@ -73,7 +78,7 @@ export async function updateNaturezaOperacao(
     data.descricao.trim();
 
   const cfop =
-    data.cfop.replace(/\D/g, "");
+    normalizarCfop(data.cfop);
 
   if (!descricao) {
     return {
@@ -83,11 +88,11 @@ export async function updateNaturezaOperacao(
     };
   }
 
-  if (cfop.length !== 4) {
+  if (!cfopValido(cfop)) {
     return {
       success: false,
       message:
-        "O CFOP deve possuir 4 números.",
+        "O CFOP deve possuir 4 ou 6 números.",
     };
   }
 
