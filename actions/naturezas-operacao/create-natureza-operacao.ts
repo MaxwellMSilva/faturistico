@@ -71,7 +71,7 @@ export async function createNaturezaOperacao(
     return {
       success: false,
       message:
-        "O CFOP deve possuir 4 números.",
+        "O CFOP deve possuir 4 ou 6 números.",
     };
   }
 
@@ -120,7 +120,6 @@ export async function createNaturezaOperacao(
           ativo:
             data.ativo,
         },
-
         select: {
           id: true,
         },
