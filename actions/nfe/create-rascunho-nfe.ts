@@ -30,6 +30,23 @@ type CreateRascunhoNfeResult =
       message: string;
     };
 
+function combinarInformacoesComplementares(
+  padrao?: string | null,
+  informada?: string | null
+) {
+  const partes = [
+    padrao?.trim(),
+    informada?.trim(),
+  ].filter(
+    (valor): valor is string =>
+      Boolean(valor)
+  );
+
+  return partes.length > 0
+    ? partes.join("\n")
+    : null;
+}
+
 export async function createRascunhoNfe(
   data: CreateRascunhoNfeData
 ): Promise<CreateRascunhoNfeResult> {
@@ -64,6 +81,7 @@ export async function createRascunhoNfe(
         id: data.clienteId,
         empresaId:
           data.empresaId,
+        ativo: true,
       },
 
       select: {
@@ -84,6 +102,8 @@ export async function createRascunhoNfe(
 
       select: {
         id: true,
+        informacoesComplementaresPadrao:
+          true,
       },
     }),
 
@@ -103,7 +123,7 @@ export async function createRascunhoNfe(
     return {
       success: false,
       message:
-        "Cliente não encontrado nesta empresa.",
+        "Cliente ativo não encontrado nesta empresa.",
     };
   }
 
@@ -111,7 +131,7 @@ export async function createRascunhoNfe(
     return {
       success: false,
       message:
-        "Natureza de operação inválida.",
+        "Natureza de operação ativa não encontrada nesta empresa.",
     };
   }
 
@@ -122,6 +142,13 @@ export async function createRascunhoNfe(
         "Configure os dados fiscais da empresa antes de criar a NF-e.",
     };
   }
+
+  const informacoesComplementares =
+    combinarInformacoesComplementares(
+      natureza
+        .informacoesComplementaresPadrao,
+      data.informacoesComplementares
+    );
 
   try {
     const nota =
@@ -169,10 +196,7 @@ export async function createRascunhoNfe(
               valorOutros: 0,
               valorTotal: 0,
 
-              informacoesComplementares:
-                data
-                  .informacoesComplementares
-                  ?.trim() || null,
+              informacoesComplementares,
             },
 
             select: {
