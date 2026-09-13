@@ -11,7 +11,7 @@ import {
 import { getCte } from "@/actions/cte/get-cte";
 import { getDadosFormCte } from "@/actions/cte/get-dados-form-cte";
 import { CteActions } from "@/components/cte/cte-actions";
-import { CteForm } from "@/components/cte/cte-form";
+import { CteForm } from "@/components/cte/cte-form-configurado";
 import {
   contextoPossuiPrivilegioEmpresa,
   validarPrivilegioEmpresa,
