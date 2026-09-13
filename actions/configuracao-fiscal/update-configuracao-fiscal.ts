@@ -7,9 +7,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-
 import { criptografar } from "@/lib/seguranca/criptografia";
-
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 type AmbienteFiscal =
@@ -23,36 +21,43 @@ type RegimeTributario =
 
 type UpdateConfiguracaoFiscalData = {
   empresaId: string;
-
   ambiente: AmbienteFiscal;
-
-  regimeTributario:
-    RegimeTributario;
-
+  regimeTributario: RegimeTributario;
   serieNfe: number;
   serieNfce: number;
-
+  serieCte?: number;
+  rntrc?: string;
   idCsc?: string;
   csc?: string;
-
   tokenNuvemFiscal?: string;
 };
 
 type UpdateConfiguracaoFiscalResult =
-  | {
-      success: true;
-    }
-  | {
-      success: false;
-      message: string;
-    };
+  | { success: true }
+  | { success: false; message: string };
 
 function textoOpcional(
   valor?: string
 ) {
   const texto = valor?.trim();
-
   return texto || null;
+}
+
+function normalizarRntrc(
+  valor?: string
+) {
+  const texto =
+    valor?.trim().toUpperCase() ?? "";
+
+  if (!texto) {
+    return null;
+  }
+
+  if (texto === "ISENTO") {
+    return texto;
+  }
+
+  return texto.replace(/\D/g, "");
 }
 
 export async function updateConfiguracaoFiscal(
@@ -63,37 +68,44 @@ export async function updateConfiguracaoFiscal(
     PrivilegioEmpresa.CONFIGURACOES_EDITAR
   );
 
-  if (
-    !Number.isInteger(
-      data.serieNfe
-    ) ||
-    data.serieNfe <= 0
-  ) {
-    return {
-      success: false,
-      message:
-        "A série da NF-e deve ser um número inteiro maior que zero.",
-    };
+  const series = [
+    [data.serieNfe, "NF-e"],
+    [data.serieNfce, "NFC-e"],
+    [data.serieCte ?? 1, "CT-e"],
+  ] as const;
+
+  for (const [serie, documento] of series) {
+    if (
+      !Number.isInteger(serie) ||
+      serie <= 0 ||
+      serie > 999
+    ) {
+      return {
+        success: false,
+        message: `A série da ${documento} deve ser um número inteiro entre 1 e 999.`,
+      };
+    }
   }
 
+  const rntrc =
+    normalizarRntrc(data.rntrc);
+
   if (
-    !Number.isInteger(
-      data.serieNfce
-    ) ||
-    data.serieNfce <= 0
+    rntrc &&
+    rntrc !== "ISENTO" &&
+    rntrc.length !== 8
   ) {
     return {
       success: false,
       message:
-        "A série da NFC-e deve ser um número inteiro maior que zero.",
+        "O RNTRC deve possuir 8 dígitos ou ser informado como ISENTO.",
     };
   }
 
   const configuracaoAtual =
     await prisma.configuracaoFiscal.findUnique({
       where: {
-        empresaId:
-          data.empresaId,
+        empresaId: data.empresaId,
       },
     });
 
@@ -106,77 +118,46 @@ export async function updateConfiguracaoFiscal(
   try {
     await prisma.configuracaoFiscal.upsert({
       where: {
-        empresaId:
-          data.empresaId,
+        empresaId: data.empresaId,
       },
-
       create: {
-        empresaId:
-          data.empresaId,
-
-        ambiente:
-          data.ambiente,
-
+        empresaId: data.empresaId,
+        ambiente: data.ambiente,
         regimeTributario:
           data.regimeTributario,
-
-        serieNfe:
-          data.serieNfe,
-
-        serieNfce:
-          data.serieNfce,
-
+        serieNfe: data.serieNfe,
+        serieNfce: data.serieNfce,
+        serieCte: data.serieCte ?? 1,
+        rntrc,
         idCsc:
-          textoOpcional(
-            data.idCsc
-          ),
-
+          textoOpcional(data.idCsc),
         cscCriptografado:
           novoCsc
-            ? criptografar(
-                novoCsc
-              )
+            ? criptografar(novoCsc)
             : null,
-
         tokenNuvemFiscalCriptografado:
           novoToken
-            ? criptografar(
-                novoToken
-              )
+            ? criptografar(novoToken)
             : null,
       },
-
       update: {
-        ambiente:
-          data.ambiente,
-
+        ambiente: data.ambiente,
         regimeTributario:
           data.regimeTributario,
-
-        serieNfe:
-          data.serieNfe,
-
-        serieNfce:
-          data.serieNfce,
-
+        serieNfe: data.serieNfe,
+        serieNfce: data.serieNfce,
+        serieCte: data.serieCte ?? 1,
+        rntrc,
         idCsc:
-          textoOpcional(
-            data.idCsc
-          ),
-
+          textoOpcional(data.idCsc),
         cscCriptografado:
           novoCsc
-            ? criptografar(
-                novoCsc
-              )
+            ? criptografar(novoCsc)
             : configuracaoAtual
                 ?.cscCriptografado,
-
         tokenNuvemFiscalCriptografado:
           novoToken
-            ? criptografar(
-                novoToken
-              )
+            ? criptografar(novoToken)
             : configuracaoAtual
                 ?.tokenNuvemFiscalCriptografado,
       },
@@ -185,10 +166,11 @@ export async function updateConfiguracaoFiscal(
     revalidatePath(
       `/empresa/${data.empresaId}/configuracoes`
     );
+    revalidatePath(
+      `/empresa/${data.empresaId}/cte`
+    );
 
-    return {
-      success: true,
-    };
+    return { success: true };
   } catch (error) {
     console.error(
       "Erro ao salvar configuração fiscal:",
