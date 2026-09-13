@@ -3,7 +3,7 @@ import {
 } from "@prisma/client";
 
 import { getDadosFormCte } from "@/actions/cte/get-dados-form-cte";
-import { CteForm } from "@/components/cte/cte-form";
+import { CteForm } from "@/components/cte/cte-form-configurado";
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 export const dynamic = "force-dynamic";
