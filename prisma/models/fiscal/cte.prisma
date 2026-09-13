@@ -1,6 +1,8 @@
 enum StatusCte {
   RASCUNHO
   VALIDANDO
+  VALIDADO
+  PROCESSANDO
   AUTORIZADO
   REJEITADO
   CANCELADO
@@ -49,6 +51,28 @@ enum UnidadeMedidaCte {
   MMBTU
 }
 
+enum GrupoIcmsCte {
+  ICMS00
+  ICMS20
+  ICMS45
+  ICMS60
+  ICMS90
+  ICMS_OUTRA_UF
+  ICMSSN
+}
+
+enum TipoEventoCte {
+  CANCELAMENTO
+  CARTA_CORRECAO
+  VINCULACAO_PAGAMENTO
+}
+
+enum StatusEventoCte {
+  PENDENTE
+  AUTORIZADO
+  REJEITADO
+}
+
 model ConhecimentoTransporte {
   id String @id @default(cuid())
 
@@ -67,8 +91,8 @@ model ConhecimentoTransporte {
 
   dataEmissao DateTime @default(now())
 
-  cfop              String
-  naturezaOperacao  String
+  cfop             String
+  naturezaOperacao String
 
   codigoMunicipioEnvio String
   municipioEnvio       String
@@ -87,29 +111,80 @@ model ConhecimentoTransporte {
   valorPrestacao Decimal @default(0)
   valorReceber   Decimal @default(0)
 
-  valorCarga          Decimal @default(0)
-  produtoPredominante String
+  valorCarga                 Decimal @default(0)
+  produtoPredominante        String
   outrasCaracteristicasCarga String?
+  valorCargaAverbacao        Decimal?
 
   rntrc String?
 
   informacoesAdicionais String?
+  informacoesFisco      String?
+
+  chaveCteReferenciado String?
+
+  // ICMS do serviço de transporte.
+  grupoIcms          GrupoIcmsCte @default(ICMSSN)
+  cstIcms            String       @default("90")
+  percentualReducaoBc Decimal?
+  baseCalculoIcms     Decimal?
+  aliquotaIcms        Decimal?
+  valorIcms           Decimal?
+  valorCreditoIcms    Decimal?
+  baseCalculoStRetido Decimal?
+  aliquotaStRetido    Decimal?
+  valorIcmsStRetido   Decimal?
+  codigoBeneficioFiscal String?
+  valorTotalTributos    Decimal?
+
+  // DIFAL / FCP quando aplicável à prestação interestadual.
+  baseCalculoUfFim Decimal?
+  percentualFcpUfFim Decimal?
+  percentualIcmsUfFim Decimal?
+  percentualIcmsInterestadual Decimal?
+  valorFcpUfFim Decimal?
+  valorIcmsUfFim Decimal?
+  valorIcmsUfInicio Decimal?
+
+  // Reforma Tributária do Consumo (NT 2025.001 / 2026.002).
+  cstIbsCbs        String?
+  classificacaoTributariaIbsCbs String?
+  baseCalculoIbsCbs Decimal?
+  aliquotaIbsUf     Decimal?
+  valorIbsUf        Decimal?
+  aliquotaIbsMunicipio Decimal?
+  valorIbsMunicipio Decimal?
+  valorIbs          Decimal?
+  aliquotaCbs       Decimal?
+  valorCbs          Decimal?
+  valorTotalDfe     Decimal?
 
   numeroAleatorio String?
   chaveAcesso     String?
+  qrCode          String?
 
   protocoloAutorizacao String?
   dataAutorizacao      DateTime?
+  codigoStatusSefaz    String?
+  motivoStatusSefaz    String?
+  versaoAplicacaoSefaz String?
   motivoRejeicao       String?
 
-  xmlGerado     String?
-  xmlAssinado   String?
-  xmlAutorizado String?
+  protocoloCancelamento String?
+  dataCancelamento      DateTime?
 
-  participantes ParticipanteCte[]
-  documentosNfe DocumentoNfeCte[]
+  xmlGerado            String?
+  xmlAssinado          String?
+  xmlAutorizado        String?
+  xmlRetornoSefaz      String?
+  xmlEventoCancelamento String?
+
+  participantes    ParticipanteCte[]
+  documentosNfe    DocumentoNfeCte[]
   quantidadesCarga QuantidadeCargaCte[]
   componentesValor ComponenteValorCte[]
+  pagamentosVinculados PagamentoVinculadoCte[]
+  eventos           EventoCte[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -138,16 +213,16 @@ model ParticipanteCte {
   telefone String?
   email    String?
 
-  logradouro  String
-  numero      String
-  complemento String?
-  bairro      String
-  codigoMunicipio String
-  municipio       String
-  cep             String?
-  uf              String
-  codigoPais      String @default("1058")
-  pais            String @default("BRASIL")
+  logradouro       String
+  numero           String
+  complemento      String?
+  bairro           String
+  codigoMunicipio  String
+  municipio        String
+  cep              String?
+  uf               String
+  codigoPais       String @default("1058")
+  pais             String @default("BRASIL")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -199,4 +274,48 @@ model ComponenteValorCte {
   createdAt DateTime @default(now())
 
   @@index([cteId])
+}
+
+model PagamentoVinculadoCte {
+  id String @id @default(cuid())
+
+  cteId String
+  cte   ConhecimentoTransporte @relation(fields: [cteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  numeroPagamento Int
+  idTransacao     String
+  tipoMeioPagamento String
+  cnpjRecebedor      String
+  cnpjBasePsp        String
+
+  createdAt DateTime @default(now())
+
+  @@unique([cteId, numeroPagamento])
+  @@unique([cteId, idTransacao])
+  @@index([cteId])
+}
+
+model EventoCte {
+  id String @id @default(cuid())
+
+  cteId String
+  cte   ConhecimentoTransporte @relation(fields: [cteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  tipo      TipoEventoCte
+  sequencia Int @default(1)
+  status    StatusEventoCte @default(PENDENTE)
+
+  codigoStatus String?
+  motivo       String?
+  protocolo    String?
+
+  xmlEnvio   String?
+  xmlRetorno String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cteId, tipo, sequencia])
+  @@index([cteId])
+  @@index([cteId, tipo])
 }
