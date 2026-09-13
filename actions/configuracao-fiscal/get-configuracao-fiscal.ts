@@ -1,21 +1,26 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import {
+  PrivilegioEmpresa,
+} from "@prisma/client";
 
-import { validarAcessoEmpresa } from "@/lib/empresa/validar-acesso-empresa";
+import { prisma } from "@/lib/prisma";
+import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
 export async function getConfiguracaoFiscal(
   empresaId: string
 ) {
-  await validarAcessoEmpresa(
-    empresaId
+  await validarPrivilegioEmpresa(
+    empresaId,
+    PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR,
+    {
+      exigirEmpresaAtiva: false,
+    }
   );
 
   const configuracao =
     await prisma.configuracaoFiscal.findUnique({
-      where: {
-        empresaId,
-      },
+      where: { empresaId },
     });
 
   if (!configuracao) {
@@ -24,30 +29,20 @@ export async function getConfiguracaoFiscal(
 
   return {
     id: configuracao.id,
-
-    ambiente:
-      configuracao.ambiente,
-
+    ambiente: configuracao.ambiente,
     regimeTributario:
       configuracao.regimeTributario,
-
-    serieNfe:
-      configuracao.serieNfe,
-
-    serieNfce:
-      configuracao.serieNfce,
-
-    idCsc:
-      configuracao.idCsc,
-
+    serieNfe: configuracao.serieNfe,
+    serieNfce: configuracao.serieNfce,
+    serieCte: configuracao.serieCte,
+    rntrc: configuracao.rntrc,
+    idCsc: configuracao.idCsc,
     possuiCsc: Boolean(
       configuracao.cscCriptografado
     ),
-
-    possuiTokenNuvemFiscal:
-      Boolean(
-        configuracao
-          .tokenNuvemFiscalCriptografado
-      ),
+    possuiTokenNuvemFiscal: Boolean(
+      configuracao
+        .tokenNuvemFiscalCriptografado
+    ),
   };
 }
