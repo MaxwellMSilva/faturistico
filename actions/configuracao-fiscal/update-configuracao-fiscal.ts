@@ -49,21 +49,6 @@ type TipoServicoCte =
   | "REDESPACHO_INTERMEDIARIO"
   | "VINCULADO_MULTIMODAL";
 
-type TipoEmissaoMdfe =
-  | "NORMAL"
-  | "CONTINGENCIA";
-
-type ModalMdfe =
-  | "RODOVIARIO"
-  | "AEREO"
-  | "AQUAVIARIO"
-  | "FERROVIARIO";
-
-type TipoEmitenteMdfe =
-  | "PRESTADOR_SERVICO_TRANSPORTE"
-  | "TRANSPORTADOR_CARGA_PROPRIA"
-  | "PRESTADOR_SERVICO_CTE_GLOBALIZADO";
-
 type UpdateConfiguracaoFiscalData = {
   empresaId: string;
 
@@ -88,16 +73,6 @@ type UpdateConfiguracaoFiscalData = {
   numeracaoManualCte: boolean;
   atualizarUltimoNumeroCte?: boolean;
   ultimoNumeroCte?: number;
-
-  modeloMdfe: number;
-  ambienteMdfe: AmbienteFiscal;
-  tipoEmissaoMdfe: TipoEmissaoMdfe;
-  modalMdfe: ModalMdfe;
-  tipoEmitenteMdfe: TipoEmitenteMdfe;
-  serieMdfe: number;
-  numeracaoManualMdfe: boolean;
-  atualizarUltimoNumeroMdfe?: boolean;
-  ultimoNumeroMdfe?: number;
 
   idCsc?: string;
   csc?: string;
@@ -144,24 +119,6 @@ const TIPOS_SERVICO_CTE = new Set<TipoServicoCte>([
   "REDESPACHO",
   "REDESPACHO_INTERMEDIARIO",
   "VINCULADO_MULTIMODAL",
-]);
-
-const TIPOS_EMISSAO_MDFE = new Set<TipoEmissaoMdfe>([
-  "NORMAL",
-  "CONTINGENCIA",
-]);
-
-const MODAIS_MDFE = new Set<ModalMdfe>([
-  "RODOVIARIO",
-  "AEREO",
-  "AQUAVIARIO",
-  "FERROVIARIO",
-]);
-
-const TIPOS_EMITENTE_MDFE = new Set<TipoEmitenteMdfe>([
-  "PRESTADOR_SERVICO_TRANSPORTE",
-  "TRANSPORTADOR_CARGA_PROPRIA",
-  "PRESTADOR_SERVICO_CTE_GLOBALIZADO",
 ]);
 
 function textoOpcional(
@@ -288,65 +245,6 @@ export async function updateConfiguracaoFiscal(
     };
   }
 
-  if (data.modeloMdfe !== 58) {
-    return {
-      success: false,
-      message:
-        "Os parâmetros de MDF-e aceitam somente o modelo 58.",
-    };
-  }
-
-  if (
-    !Number.isInteger(data.serieMdfe) ||
-    data.serieMdfe < 0 ||
-    data.serieMdfe > 999
-  ) {
-    return {
-      success: false,
-      message:
-        "A série do MDF-e deve estar entre 0 e 999.",
-    };
-  }
-
-  if (!TIPOS_EMISSAO_MDFE.has(data.tipoEmissaoMdfe)) {
-    return {
-      success: false,
-      message:
-        "O tipo de emissão do MDF-e é inválido.",
-    };
-  }
-
-  if (!MODAIS_MDFE.has(data.modalMdfe)) {
-    return {
-      success: false,
-      message: "O modal do MDF-e é inválido.",
-    };
-  }
-
-  if (!TIPOS_EMITENTE_MDFE.has(data.tipoEmitenteMdfe)) {
-    return {
-      success: false,
-      message:
-        "O tipo de emitente do MDF-e é inválido.",
-    };
-  }
-
-  if (
-    data.atualizarUltimoNumeroMdfe &&
-    (
-      !Number.isInteger(data.ultimoNumeroMdfe) ||
-      data.ultimoNumeroMdfe === undefined ||
-      data.ultimoNumeroMdfe < 0 ||
-      data.ultimoNumeroMdfe > 999_999_999
-    )
-  ) {
-    return {
-      success: false,
-      message:
-        "O último número do MDF-e deve estar entre 0 e 999999999.",
-    };
-  }
-
   const configuracaoAtual =
     await prisma.configuracaoFiscal.findUnique({
       where: {
@@ -380,14 +278,6 @@ export async function updateConfiguracaoFiscal(
       : configuracaoAtual?.serieCte ===
           data.serieCte
         ? configuracaoAtual.ultimoNumeroCte
-        : 0;
-
-  const ultimoNumeroMdfe =
-    data.atualizarUltimoNumeroMdfe
-      ? data.ultimoNumeroMdfe!
-      : configuracaoAtual?.serieMdfe ===
-          data.serieMdfe
-        ? configuracaoAtual.ultimoNumeroMdfe
         : 0;
 
   try {
@@ -440,29 +330,6 @@ export async function updateConfiguracaoFiscal(
 
             numeracaoManualCte:
               data.numeracaoManualCte,
-
-            modeloMdfe:
-              data.modeloMdfe,
-
-            ambienteMdfe:
-              data.ambienteMdfe,
-
-            tipoEmissaoMdfe:
-              data.tipoEmissaoMdfe,
-
-            modalMdfe:
-              data.modalMdfe,
-
-            tipoEmitenteMdfe:
-              data.tipoEmitenteMdfe,
-
-            serieMdfe:
-              data.serieMdfe,
-
-            ultimoNumeroMdfe,
-
-            numeracaoManualMdfe:
-              data.numeracaoManualMdfe,
 
             idCsc:
               textoOpcional(
@@ -518,29 +385,6 @@ export async function updateConfiguracaoFiscal(
 
             numeracaoManualCte:
               data.numeracaoManualCte,
-
-            modeloMdfe:
-              data.modeloMdfe,
-
-            ambienteMdfe:
-              data.ambienteMdfe,
-
-            tipoEmissaoMdfe:
-              data.tipoEmissaoMdfe,
-
-            modalMdfe:
-              data.modalMdfe,
-
-            tipoEmitenteMdfe:
-              data.tipoEmitenteMdfe,
-
-            serieMdfe:
-              data.serieMdfe,
-
-            ultimoNumeroMdfe,
-
-            numeracaoManualMdfe:
-              data.numeracaoManualMdfe,
 
             idCsc:
               textoOpcional(
