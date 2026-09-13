@@ -39,6 +39,7 @@ type Configuracao = {
   ambiente: AmbienteFiscal;
   regimeTributario: RegimeTributario;
   serieNfe: number;
+  ultimoNumeroNfe: number;
   serieNfce: number;
   idCsc: string | null;
   possuiCsc: boolean;
@@ -62,6 +63,10 @@ function criarEstadoInicial(
       ("SIMPLES_NACIONAL" as RegimeTributario),
     serieNfe: String(
       configuracao?.serieNfe ?? 1
+    ),
+    atualizarUltimoNumeroNfe: false,
+    ultimoNumeroNfe: String(
+      configuracao?.ultimoNumeroNfe ?? 0
     ),
     serieNfce: String(
       configuracao?.serieNfce ?? 1
@@ -122,6 +127,44 @@ export function ConfiguracaoFiscalForm({
     limparMensagens();
   }
 
+  function atualizarSerieNfe(
+    valor: string
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      serieNfe: valor,
+      atualizarUltimoNumeroNfe: false,
+      ultimoNumeroNfe: "",
+    }));
+
+    limparMensagens();
+  }
+
+  function alternarUltimoNumeroNfe(
+    marcado: boolean
+  ) {
+    const mesmaSerie =
+      configuracao &&
+      String(configuracao.serieNfe) ===
+        form.serieNfe;
+
+    setForm((anterior) => ({
+      ...anterior,
+      atualizarUltimoNumeroNfe: marcado,
+      ultimoNumeroNfe: marcado
+        ? anterior.ultimoNumeroNfe ||
+          String(
+            mesmaSerie
+              ? configuracao?.ultimoNumeroNfe ??
+                  0
+              : 0
+          )
+        : anterior.ultimoNumeroNfe,
+    }));
+
+    limparMensagens();
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -132,6 +175,8 @@ export function ConfiguracaoFiscalForm({
       Number(form.serieNfe);
     const numeroSerieNfce =
       Number(form.serieNfce);
+    const ultimoNumeroNfe =
+      Number(form.ultimoNumeroNfe);
     const idCsc = form.idCsc.trim();
     const csc = form.csc.trim();
     const tokenNuvemFiscal =
@@ -143,6 +188,20 @@ export function ConfiguracaoFiscalForm({
     ) {
       setErro(
         "Informe uma série válida para a NF-e."
+      );
+      return;
+    }
+
+    if (
+      form.atualizarUltimoNumeroNfe &&
+      (
+        !Number.isInteger(ultimoNumeroNfe) ||
+        ultimoNumeroNfe < 0 ||
+        ultimoNumeroNfe > 999_999_999
+      )
+    ) {
+      setErro(
+        "Informe um último número de NF-e entre 0 e 999999999."
       );
       return;
     }
@@ -186,6 +245,12 @@ export function ConfiguracaoFiscalForm({
             form.regimeTributario,
           serieNfe: numeroSerieNfe,
           serieNfce: numeroSerieNfce,
+          atualizarUltimoNumeroNfe:
+            form.atualizarUltimoNumeroNfe,
+          ultimoNumeroNfe:
+            form.atualizarUltimoNumeroNfe
+              ? ultimoNumeroNfe
+              : undefined,
           idCsc,
           csc,
           tokenNuvemFiscal,
@@ -198,6 +263,7 @@ export function ConfiguracaoFiscalForm({
 
       setForm((anterior) => ({
         ...anterior,
+        atualizarUltimoNumeroNfe: false,
         csc: "",
         tokenNuvemFiscal: "",
       }));
@@ -223,6 +289,12 @@ export function ConfiguracaoFiscalForm({
 
   const producao =
     form.ambiente === "PRODUCAO";
+
+  const serieNfeAtual =
+    configuracao
+      ? String(configuracao.serieNfe) ===
+        form.serieNfe
+      : false;
 
   return (
     <form
@@ -374,26 +446,97 @@ export function ConfiguracaoFiscalForm({
             label="Série da NF-e"
             descricao="Série utilizada na numeração das NF-e emitidas por esta empresa."
             value={form.serieNfe}
-            onChange={(valor) =>
-              atualizarCampo(
-                "serieNfe",
-                valor
-              )
-            }
+            onChange={atualizarSerieNfe}
             disabled={carregando}
           />
         </div>
 
-        <div className="mt-5 rounded-xl border bg-muted/20 px-4 py-3">
-          <p className="text-sm font-medium">
-            Numeração automática
-          </p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            O número da NF-e continua sendo
-            controlado automaticamente pelo
-            sistema de acordo com a série
-            configurada.
-          </p>
+        <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+          <div className="flex items-start gap-3">
+            <input
+              id="atualizarUltimoNumeroNfe"
+              type="checkbox"
+              checked={
+                form.atualizarUltimoNumeroNfe
+              }
+              onChange={(event) =>
+                alternarUltimoNumeroNfe(
+                  event.target.checked
+                )
+              }
+              disabled={carregando}
+              className="mt-1 h-4 w-4 rounded border"
+            />
+
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="atualizarUltimoNumeroNfe"
+                className="cursor-pointer text-sm font-medium"
+              >
+                Informar último número de NF-e
+              </label>
+
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Use esta opção para ajustar a
+                sequência de numeração. O próximo
+                rascunho utilizará o número
+                seguinte ao informado.
+              </p>
+
+              {serieNfeAtual && (
+                <p className="mt-2 text-xs font-medium text-muted-foreground">
+                  Último número registrado na série
+                  {" "}{configuracao?.serieNfe}: {" "}
+                  {configuracao?.ultimoNumeroNfe ?? 0}
+                </p>
+              )}
+
+              {!serieNfeAtual &&
+                configuracao && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    A série foi alterada. Se ela já
+                    possui numeração anterior,
+                    marque a opção e informe o
+                    último número utilizado.
+                  </p>
+                )}
+
+              {form.atualizarUltimoNumeroNfe && (
+                <div className="mt-4 max-w-sm space-y-2">
+                  <label
+                    htmlFor="ultimoNumeroNfe"
+                    className="text-sm font-medium"
+                  >
+                    Último número de NF-e
+                  </label>
+
+                  <Input
+                    id="ultimoNumeroNfe"
+                    type="number"
+                    min={0}
+                    max={999999999}
+                    step={1}
+                    inputMode="numeric"
+                    value={form.ultimoNumeroNfe}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "ultimoNumeroNfe",
+                        event.target.value
+                      )
+                    }
+                    className="h-11"
+                    disabled={carregando}
+                    required
+                  />
+
+                  <p className="text-xs text-muted-foreground">
+                    Ex.: informando 1500, a próxima
+                    NF-e criada será a 1501.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
