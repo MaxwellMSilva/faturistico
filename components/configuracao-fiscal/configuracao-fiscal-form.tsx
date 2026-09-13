@@ -14,6 +14,7 @@ import {
   CloudCog,
   Eye,
   EyeOff,
+  FileText,
   Landmark,
   LoaderCircle,
   ReceiptText,
@@ -22,7 +23,6 @@ import {
 } from "lucide-react";
 
 import { updateConfiguracaoFiscal } from "@/actions/configuracao-fiscal/update-configuracao-fiscal";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -37,70 +37,49 @@ type RegimeTributario =
 
 type Configuracao = {
   ambiente: AmbienteFiscal;
-
-  regimeTributario:
-    RegimeTributario;
-
+  regimeTributario: RegimeTributario;
   serieNfe: number;
+  ultimoNumeroNfe: number;
   serieNfce: number;
-
   idCsc: string | null;
-
   possuiCsc: boolean;
-
-  possuiTokenNuvemFiscal:
-    boolean;
+  possuiTokenNuvemFiscal: boolean;
 };
 
 type Props = {
   empresaId: string;
-
-  configuracao:
-    | Configuracao
-    | null;
+  configuracao: Configuracao | null;
 };
 
 function criarEstadoInicial(
-  configuracao:
-    | Configuracao
-    | null
+  configuracao: Configuracao | null
 ) {
   return {
     ambiente:
       configuracao?.ambiente ??
       ("HOMOLOGACAO" as AmbienteFiscal),
-
     regimeTributario:
-      configuracao
-        ?.regimeTributario ??
+      configuracao?.regimeTributario ??
       ("SIMPLES_NACIONAL" as RegimeTributario),
-
-    serieNfe:
-      String(
-        configuracao?.serieNfe ??
-          1
-      ),
-
-    serieNfce:
-      String(
-        configuracao?.serieNfce ??
-          1
-      ),
-
-    idCsc:
-      configuracao?.idCsc ??
-      "",
-
+    serieNfe: String(
+      configuracao?.serieNfe ?? 1
+    ),
+    atualizarUltimoNumeroNfe: false,
+    ultimoNumeroNfe: String(
+      configuracao?.ultimoNumeroNfe ?? 0
+    ),
+    serieNfce: String(
+      configuracao?.serieNfce ?? 1
+    ),
+    idCsc: configuracao?.idCsc ?? "",
     csc: "",
-
     tokenNuvemFiscal: "",
   };
 }
 
-type FormConfiguracao =
-  ReturnType<
-    typeof criarEstadoInicial
-  >;
+type FormConfiguracao = ReturnType<
+  typeof criarEstadoInicial
+>;
 
 export function ConfiguracaoFiscalForm({
   empresaId,
@@ -110,39 +89,22 @@ export function ConfiguracaoFiscalForm({
 
   const [form, setForm] =
     useState<FormConfiguracao>(
-      criarEstadoInicial(
-        configuracao
-      )
+      criarEstadoInicial(configuracao)
     );
 
-  const [
-    carregando,
-    setCarregando,
-  ] = useState(false);
-
-  const [
-    mostrarCsc,
-    setMostrarCsc,
-  ] = useState(false);
-
-  const [
-    mostrarToken,
-    setMostrarToken,
-  ] = useState(false);
-
-  const [erro, setErro] =
+  const [carregando, setCarregando] =
+    useState(false);
+  const [mostrarCsc, setMostrarCsc] =
+    useState(false);
+  const [mostrarToken, setMostrarToken] =
+    useState(false);
+  const [erro, setErro] = useState("");
+  const [mensagem, setMensagem] =
     useState("");
-
-  const [
-    mensagem,
-    setMensagem,
-  ] = useState("");
 
   useEffect(() => {
     setForm(
-      criarEstadoInicial(
-        configuracao
-      )
+      criarEstadoInicial(configuracao)
     );
   }, [configuracao]);
 
@@ -165,51 +127,92 @@ export function ConfiguracaoFiscalForm({
     limparMensagens();
   }
 
+  function atualizarSerieNfe(
+    valor: string
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      serieNfe: valor,
+      atualizarUltimoNumeroNfe: false,
+      ultimoNumeroNfe: "",
+    }));
+
+    limparMensagens();
+  }
+
+  function alternarUltimoNumeroNfe(
+    marcado: boolean
+  ) {
+    const mesmaSerie =
+      configuracao &&
+      String(configuracao.serieNfe) ===
+        form.serieNfe;
+
+    setForm((anterior) => ({
+      ...anterior,
+      atualizarUltimoNumeroNfe: marcado,
+      ultimoNumeroNfe: marcado
+        ? anterior.ultimoNumeroNfe ||
+          String(
+            mesmaSerie
+              ? configuracao?.ultimoNumeroNfe ??
+                  0
+              : 0
+          )
+        : anterior.ultimoNumeroNfe,
+    }));
+
+    limparMensagens();
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
-
     limparMensagens();
 
     const numeroSerieNfe =
       Number(form.serieNfe);
-
     const numeroSerieNfce =
       Number(form.serieNfce);
-
-    const idCsc =
-      form.idCsc.trim();
-
-    const csc =
-      form.csc.trim();
-
+    const ultimoNumeroNfe =
+      Number(form.ultimoNumeroNfe);
+    const idCsc = form.idCsc.trim();
+    const csc = form.csc.trim();
     const tokenNuvemFiscal =
       form.tokenNuvemFiscal.trim();
 
     if (
-      !Number.isInteger(
-        numeroSerieNfe
-      ) ||
+      !Number.isInteger(numeroSerieNfe) ||
       numeroSerieNfe <= 0
     ) {
       setErro(
         "Informe uma série válida para a NF-e."
       );
-
       return;
     }
 
     if (
-      !Number.isInteger(
-        numeroSerieNfce
-      ) ||
+      form.atualizarUltimoNumeroNfe &&
+      (
+        !Number.isInteger(ultimoNumeroNfe) ||
+        ultimoNumeroNfe < 0 ||
+        ultimoNumeroNfe > 999_999_999
+      )
+    ) {
+      setErro(
+        "Informe um último número de NF-e entre 0 e 999999999."
+      );
+      return;
+    }
+
+    if (
+      !Number.isInteger(numeroSerieNfce) ||
       numeroSerieNfce <= 0
     ) {
       setErro(
         "Informe uma série válida para a NFC-e."
       );
-
       return;
     }
 
@@ -217,7 +220,6 @@ export function ConfiguracaoFiscalForm({
       setErro(
         "Informe o identificador do CSC."
       );
-
       return;
     }
 
@@ -229,7 +231,6 @@ export function ConfiguracaoFiscalForm({
       setErro(
         "Para cadastrar o CSC pela primeira vez, informe o ID e o código CSC."
       );
-
       return;
     }
 
@@ -239,55 +240,45 @@ export function ConfiguracaoFiscalForm({
       const resultado =
         await updateConfiguracaoFiscal({
           empresaId,
-
-          ambiente:
-            form.ambiente,
-
+          ambiente: form.ambiente,
           regimeTributario:
             form.regimeTributario,
-
-          serieNfe:
-            numeroSerieNfe,
-
-          serieNfce:
-            numeroSerieNfce,
-
+          serieNfe: numeroSerieNfe,
+          serieNfce: numeroSerieNfce,
+          atualizarUltimoNumeroNfe:
+            form.atualizarUltimoNumeroNfe,
+          ultimoNumeroNfe:
+            form.atualizarUltimoNumeroNfe
+              ? ultimoNumeroNfe
+              : undefined,
           idCsc,
-
           csc,
-
           tokenNuvemFiscal,
         });
 
       if (!resultado.success) {
-        setErro(
-          resultado.message
-        );
-
+        setErro(resultado.message);
         return;
       }
 
       setForm((anterior) => ({
         ...anterior,
-
+        atualizarUltimoNumeroNfe: false,
         csc: "",
         tokenNuvemFiscal: "",
       }));
 
       setMostrarCsc(false);
       setMostrarToken(false);
-
       setMensagem(
         "Configuração fiscal salva com sucesso."
       );
-
       router.refresh();
     } catch (error) {
       console.error(
         "Erro ao salvar configuração fiscal:",
         error
       );
-
       setErro(
         "Não foi possível salvar a configuração fiscal. Tente novamente."
       );
@@ -297,21 +288,24 @@ export function ConfiguracaoFiscalForm({
   }
 
   const producao =
-    form.ambiente ===
-    "PRODUCAO";
+    form.ambiente === "PRODUCAO";
+
+  const serieNfeAtual =
+    configuracao
+      ? String(configuracao.serieNfe) ===
+        form.serieNfe
+      : false;
 
   return (
     <form
       onSubmit={handleSubmit}
       className="space-y-6"
     >
-      {/* Emissão fiscal */}
-
       <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
         <CabecalhoSecao
           icone={Landmark}
           titulo="Emissão fiscal"
-          descricao="Configure o ambiente, o regime tributário e a numeração dos documentos."
+          descricao="Configure os parâmetros gerais utilizados na emissão dos documentos fiscais da empresa."
         />
 
         <div className="grid gap-5 md:grid-cols-2">
@@ -339,15 +333,14 @@ export function ConfiguracaoFiscalForm({
               <option value="HOMOLOGACAO">
                 Homologação
               </option>
-
               <option value="PRODUCAO">
                 Produção
               </option>
             </select>
 
             <p className="text-xs text-muted-foreground">
-              Use homologação enquanto
-              estiver realizando testes.
+              Use homologação enquanto estiver
+              realizando testes.
             </p>
           </div>
 
@@ -361,9 +354,7 @@ export function ConfiguracaoFiscalForm({
 
             <select
               id="regimeTributario"
-              value={
-                form.regimeTributario
-              }
+              value={form.regimeTributario}
               onChange={(event) =>
                 atualizarCampo(
                   "regimeTributario",
@@ -377,50 +368,20 @@ export function ConfiguracaoFiscalForm({
               <option value="SIMPLES_NACIONAL">
                 Simples Nacional
               </option>
-
               <option value="SIMPLES_NACIONAL_EXCESSO_SUBLIMITE">
-                Simples Nacional — excesso
-                de sublimite
+                Simples Nacional — excesso de
+                sublimite
               </option>
-
               <option value="REGIME_NORMAL">
                 Regime Normal
               </option>
             </select>
 
             <p className="text-xs text-muted-foreground">
-              O regime define o uso de CST
-              ou CSOSN nos itens da nota.
+              O regime define o uso de CST ou
+              CSOSN nos itens da nota.
             </p>
           </div>
-
-          <CampoSerie
-            id="serieNfe"
-            label="Série da NF-e"
-            descricao="Série utilizada para o modelo 55."
-            value={form.serieNfe}
-            onChange={(valor) =>
-              atualizarCampo(
-                "serieNfe",
-                valor
-              )
-            }
-            disabled={carregando}
-          />
-
-          <CampoSerie
-            id="serieNfce"
-            label="Série da NFC-e"
-            descricao="Série utilizada para o modelo 65."
-            value={form.serieNfce}
-            onChange={(valor) =>
-              atualizarCampo(
-                "serieNfce",
-                valor
-              )
-            }
-            disabled={carregando}
-          />
         </div>
 
         {producao && (
@@ -434,25 +395,156 @@ export function ConfiguracaoFiscalForm({
               <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                 Ambiente de produção
               </p>
-
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 Os documentos enviados neste
-                ambiente terão validade
-                fiscal. Revise o cadastro da
-                empresa antes da transmissão.
+                ambiente terão validade fiscal.
+                Revise o cadastro da empresa antes
+                da transmissão.
               </p>
             </div>
           </div>
         )}
       </section>
 
-      {/* NFC-e */}
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <CabecalhoSecao
+          icone={FileText}
+          titulo="Parâmetros de NF-e"
+          descricao="Configure os parâmetros específicos da Nota Fiscal Eletrônica utilizada no modelo 55."
+          status={
+            configuracao
+              ? "configurado"
+              : "pendente"
+          }
+        />
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="space-y-2">
+            <label
+              htmlFor="modeloNfe"
+              className="text-sm font-medium"
+            >
+              Modelo
+            </label>
+
+            <Input
+              id="modeloNfe"
+              className="h-11"
+              value="55 — NF-e"
+              disabled
+              readOnly
+            />
+
+            <p className="text-xs text-muted-foreground">
+              O Faturístico utiliza o modelo 55
+              para emissão de NF-e.
+            </p>
+          </div>
+
+          <CampoSerie
+            id="serieNfe"
+            label="Série da NF-e"
+            descricao="Série utilizada na numeração das NF-e emitidas por esta empresa."
+            value={form.serieNfe}
+            onChange={atualizarSerieNfe}
+            disabled={carregando}
+          />
+        </div>
+
+        <div className="mt-5 rounded-xl border bg-muted/20 p-4">
+          <div className="flex items-start gap-3">
+            <input
+              id="atualizarUltimoNumeroNfe"
+              type="checkbox"
+              checked={
+                form.atualizarUltimoNumeroNfe
+              }
+              onChange={(event) =>
+                alternarUltimoNumeroNfe(
+                  event.target.checked
+                )
+              }
+              disabled={carregando}
+              className="mt-1 h-4 w-4 rounded border"
+            />
+
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="atualizarUltimoNumeroNfe"
+                className="cursor-pointer text-sm font-medium"
+              >
+                Informar último número de NF-e
+              </label>
+
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Use esta opção para ajustar a
+                sequência de numeração. O próximo
+                rascunho utilizará o número
+                seguinte ao informado.
+              </p>
+
+              {serieNfeAtual && (
+                <p className="mt-2 text-xs font-medium text-muted-foreground">
+                  Último número registrado na série
+                  {" "}{configuracao?.serieNfe}: {" "}
+                  {configuracao?.ultimoNumeroNfe ?? 0}
+                </p>
+              )}
+
+              {!serieNfeAtual &&
+                configuracao && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    A série foi alterada. Se ela já
+                    possui numeração anterior,
+                    marque a opção e informe o
+                    último número utilizado.
+                  </p>
+                )}
+
+              {form.atualizarUltimoNumeroNfe && (
+                <div className="mt-4 max-w-sm space-y-2">
+                  <label
+                    htmlFor="ultimoNumeroNfe"
+                    className="text-sm font-medium"
+                  >
+                    Último número de NF-e
+                  </label>
+
+                  <Input
+                    id="ultimoNumeroNfe"
+                    type="number"
+                    min={0}
+                    max={999999999}
+                    step={1}
+                    inputMode="numeric"
+                    value={form.ultimoNumeroNfe}
+                    onChange={(event) =>
+                      atualizarCampo(
+                        "ultimoNumeroNfe",
+                        event.target.value
+                      )
+                    }
+                    className="h-11"
+                    disabled={carregando}
+                    required
+                  />
+
+                  <p className="text-xs text-muted-foreground">
+                    Ex.: informando 1500, a próxima
+                    NF-e criada será a 1501.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
         <CabecalhoSecao
           icone={ReceiptText}
           titulo="NFC-e e CSC"
-          descricao="Configure o Código de Segurança do Contribuinte utilizado na NFC-e."
+          descricao="Configure a série e o Código de Segurança do Contribuinte utilizados na NFC-e."
           status={
             configuracao?.possuiCsc
               ? "configurado"
@@ -461,6 +553,20 @@ export function ConfiguracaoFiscalForm({
         />
 
         <div className="grid gap-5 md:grid-cols-2">
+          <CampoSerie
+            id="serieNfce"
+            label="Série da NFC-e"
+            descricao="Série utilizada para o modelo 65."
+            value={form.serieNfce}
+            onChange={(valor) =>
+              atualizarCampo(
+                "serieNfce",
+                valor
+              )
+            }
+            disabled={carregando}
+          />
+
           <div className="space-y-2">
             <label
               htmlFor="idCsc"
@@ -506,10 +612,7 @@ export function ConfiguracaoFiscalForm({
               )
             }
             onChange={(valor) =>
-              atualizarCampo(
-                "csc",
-                valor
-              )
+              atualizarCampo("csc", valor)
             }
             disabled={carregando}
           />
@@ -523,8 +626,6 @@ export function ConfiguracaoFiscalForm({
           </p>
         )}
       </section>
-
-      {/* Nuvem Fiscal */}
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
         <CabecalhoSecao
@@ -548,9 +649,7 @@ export function ConfiguracaoFiscalForm({
               ? "Token configurado — preencha para substituir"
               : "Informe o token de integração"
           }
-          value={
-            form.tokenNuvemFiscal
-          }
+          value={form.tokenNuvemFiscal}
           mostrar={mostrarToken}
           onMostrar={() =>
             setMostrarToken(
@@ -567,12 +666,10 @@ export function ConfiguracaoFiscalForm({
         />
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Campo opcional. Deixe vazio para
-          manter o token já armazenado.
+          Campo opcional. Deixe vazio para manter
+          o token já armazenado.
         </p>
       </section>
-
-      {/* Mensagens */}
 
       <div
         aria-live="polite"
@@ -584,7 +681,6 @@ export function ConfiguracaoFiscalForm({
               size={18}
               className="mt-0.5 shrink-0"
             />
-
             <p>{mensagem}</p>
           </div>
         )}
@@ -599,8 +695,6 @@ export function ConfiguracaoFiscalForm({
         )}
       </div>
 
-      {/* Ações */}
-
       <div className="flex justify-end rounded-2xl border bg-card p-5 shadow-sm">
         <Button
           type="submit"
@@ -613,13 +707,11 @@ export function ConfiguracaoFiscalForm({
                 size={17}
                 className="animate-spin"
               />
-
               Salvando...
             </>
           ) : (
             <>
               <Save size={17} />
-
               Salvar configuração
             </>
           )}
@@ -631,13 +723,9 @@ export function ConfiguracaoFiscalForm({
 
 type CabecalhoSecaoProps = {
   icone: typeof Landmark;
-
   titulo: string;
   descricao: string;
-
-  status?:
-    | "configurado"
-    | "pendente";
+  status?: "configurado" | "pendente";
 };
 
 function CabecalhoSecao({
@@ -657,7 +745,6 @@ function CabecalhoSecao({
           <h3 className="font-semibold">
             {titulo}
           </h3>
-
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
             {descricao}
           </p>
@@ -676,11 +763,8 @@ function CabecalhoSecao({
           {status === "configurado" ? (
             <BadgeCheck size={14} />
           ) : (
-            <CircleDashed
-              size={14}
-            />
+            <CircleDashed size={14} />
           )}
-
           {status === "configurado"
             ? "Configurado"
             : "Pendente"}
@@ -695,11 +779,7 @@ type CampoSerieProps = {
   label: string;
   descricao: string;
   value: string;
-
-  onChange: (
-    valor: string
-  ) => void;
-
+  onChange: (valor: string) => void;
   disabled?: boolean;
 };
 
@@ -729,9 +809,7 @@ function CampoSerie({
         inputMode="numeric"
         value={value}
         onChange={(event) =>
-          onChange(
-            event.target.value
-          )
+          onChange(event.target.value)
         }
         disabled={disabled}
         required
@@ -749,15 +827,9 @@ type CampoSecretoProps = {
   label: string;
   placeholder: string;
   value: string;
-
   mostrar: boolean;
-
   onMostrar: () => void;
-
-  onChange: (
-    valor: string
-  ) => void;
-
+  onChange: (valor: string) => void;
   disabled?: boolean;
 };
 
@@ -783,18 +855,12 @@ function CampoSecreto({
       <div className="relative">
         <Input
           id={id}
-          type={
-            mostrar
-              ? "text"
-              : "password"
-          }
+          type={mostrar ? "text" : "password"}
           className="h-11 pr-11"
           placeholder={placeholder}
           value={value}
           onChange={(event) =>
-            onChange(
-              event.target.value
-            )
+            onChange(event.target.value)
           }
           disabled={disabled}
           autoComplete="new-password"
