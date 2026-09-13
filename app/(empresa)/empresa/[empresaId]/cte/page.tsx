@@ -21,6 +21,7 @@ import {
 
 import { getCtes } from "@/actions/cte/get-ctes";
 import { CteDeleteButton } from "@/components/cte/cte-delete-button";
+import { CteImportarXmlButton } from "@/components/cte/cte-importar-xml-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -411,18 +412,24 @@ export default async function CtePage({
         </div>
 
         {podeCriar && (
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                href={`/empresa/${empresaId}/cte/novo`}
-              />
-            }
-            className="h-11"
-          >
-            <Plus size={17} />
-            Novo CT-e
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <CteImportarXmlButton
+              empresaId={empresaId}
+            />
+
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  href={`/empresa/${empresaId}/cte/novo`}
+                />
+              }
+              className="h-11"
+            >
+              <Plus size={17} />
+              Novo CT-e
+            </Button>
+          </div>
         )}
       </div>
 
