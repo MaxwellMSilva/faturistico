@@ -177,6 +177,10 @@ export function CteEmissaoModal({
 
   const [dataEmissao] =
     useState(agoraLocal);
+  const [numeroCte, setNumeroCte] =
+    useState(String(proximoNumeroCte));
+  const [numeroCteEditado, setNumeroCteEditado] =
+    useState(false);
 
   const [tipoServico, setTipoServico] =
     useState<TipoServicoCteForm>("NORMAL");
@@ -449,6 +453,20 @@ export function CteEmissaoModal({
     event.preventDefault();
     setErro("");
 
+    const numeroInformado = Number(numeroCte);
+
+    if (
+      !numeroCte ||
+      !Number.isInteger(numeroInformado) ||
+      numeroInformado < 1 ||
+      numeroInformado > 999_999_999
+    ) {
+      setErro(
+        "Informe um número de CT-e entre 1 e 999999999."
+      );
+      return;
+    }
+
     if (!configuracao) {
       setErro(
         "Configure os parâmetros fiscais antes de emitir CT-e."
@@ -568,6 +586,10 @@ export function CteEmissaoModal({
 
       const resultado = await salvarCte({
         empresaId,
+        numero:
+          numeroCteEditado
+            ? numeroInformado
+            : undefined,
         tipoServico,
         cfop,
         naturezaOperacao,
@@ -816,11 +838,18 @@ export function CteEmissaoModal({
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_.7fr_.7fr_.5fr_1.4fr]">
               <Campo label="Número CT-e">
                 <Input
-                  value={String(
-                    proximoNumeroCte
-                  ).padStart(9, "0")}
-                  readOnly
-                  className="h-10 bg-muted/40"
+                  value={numeroCte}
+                  onChange={(event) => {
+                    setNumeroCte(
+                      numeros(
+                        event.target.value
+                      ).slice(0, 9)
+                    );
+                    setNumeroCteEditado(true);
+                  }}
+                  inputMode="numeric"
+                  maxLength={9}
+                  className="h-10"
                 />
               </Campo>
               <Campo label="Modelo">
