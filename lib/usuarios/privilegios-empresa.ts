@@ -15,642 +15,385 @@ export type GrupoPrivilegioEmpresa = {
   privilegios: ItemPrivilegioEmpresa[];
 };
 
-/*
- * Árvore exibida nos formulários de
- * criação e edição de usuários.
- */
-
-export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] =
-  [
-    {
-      id: "dashboard",
-
-      titulo: "Dashboard",
-
-      descricao:
-        "Acesso à visão geral da empresa.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.DASHBOARD_VISUALIZAR,
-
-          titulo:
-            "Visualizar dashboard",
-
-          descricao:
-            "Permite consultar os indicadores e informações gerais da empresa.",
-        },
-      ],
-    },
-
-    {
-      id: "clientes",
-
-      titulo: "Clientes",
-
-      descricao:
-        "Controle do cadastro de clientes.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.CLIENTES_VISUALIZAR,
-
-          titulo:
-            "Visualizar clientes",
-
-          descricao:
-            "Permite consultar a lista e os dados dos clientes.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.CLIENTES_CRIAR,
-
-          titulo:
-            "Cadastrar clientes",
-
-          descricao:
-            "Permite adicionar novos clientes.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.CLIENTES_EDITAR,
-
-          titulo:
-            "Editar clientes",
-
-          descricao:
-            "Permite alterar os dados dos clientes.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.CLIENTES_ALTERAR_STATUS,
-
-          titulo:
-            "Ativar e inativar clientes",
-
-          descricao:
-            "Permite ativar ou inativar clientes cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.CLIENTES_EXCLUIR,
-
-          titulo:
-            "Excluir clientes",
-
-          descricao:
-            "Permite excluir clientes quando não houver impedimentos.",
-        },
-      ],
-    },
-
-    {
-      id: "produtos",
-
-      titulo: "Produtos",
-
-      descricao:
-        "Controle do cadastro de produtos.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
-
-          titulo:
-            "Visualizar produtos",
-
-          descricao:
-            "Permite consultar os produtos cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.PRODUTOS_CRIAR,
-
-          titulo:
-            "Cadastrar produtos",
-
-          descricao:
-            "Permite cadastrar novos produtos.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.PRODUTOS_EDITAR,
-
-          titulo:
-            "Editar produtos",
-
-          descricao:
-            "Permite alterar produtos cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.PRODUTOS_ALTERAR_STATUS,
-
-          titulo:
-            "Ativar e inativar produtos",
-
-          descricao:
-            "Permite ativar ou inativar produtos cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.PRODUTOS_EXCLUIR,
-
-          titulo:
-            "Excluir produtos",
-
-          descricao:
-            "Permite excluir produtos quando não houver impedimentos.",
-        },
-      ],
-    },
-
-    {
-      id: "naturezas-operacao",
-
-      titulo:
-        "Naturezas de operação",
-
-      descricao:
-        "Controle das operações fiscais utilizadas nas notas.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
-
-          titulo:
-            "Visualizar naturezas",
-
-          descricao:
-            "Permite consultar as naturezas de operação.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NATUREZAS_CRIAR,
-
-          titulo:
-            "Cadastrar naturezas",
-
-          descricao:
-            "Permite cadastrar novas naturezas de operação.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NATUREZAS_EDITAR,
-
-          titulo:
-            "Editar naturezas",
-
-          descricao:
-            "Permite alterar naturezas de operação.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NATUREZAS_ALTERAR_STATUS,
-
-          titulo:
-            "Ativar e inativar naturezas",
-
-          descricao:
-            "Permite ativar ou inativar naturezas de operação.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NATUREZAS_EXCLUIR,
-
-          titulo:
-            "Excluir naturezas",
-
-          descricao:
-            "Permite excluir naturezas quando não houver impedimentos.",
-        },
-      ],
-    },
-
-    {
-      id: "transportadores",
-
-      titulo: "Transportadores",
-
-      descricao:
-        "Controle dos transportadores da empresa.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-
-          titulo:
-            "Visualizar transportadores",
-
-          descricao:
-            "Permite consultar transportadores cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.TRANSPORTADORES_CRIAR,
-
-          titulo:
-            "Cadastrar transportadores",
-
-          descricao:
-            "Permite cadastrar novos transportadores.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.TRANSPORTADORES_EDITAR,
-
-          titulo:
-            "Editar transportadores",
-
-          descricao:
-            "Permite alterar os dados dos transportadores.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS,
-
-          titulo:
-            "Ativar e inativar transportadores",
-
-          descricao:
-            "Permite ativar ou inativar transportadores cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.TRANSPORTADORES_EXCLUIR,
-
-          titulo:
-            "Excluir transportadores",
-
-          descricao:
-            "Permite excluir transportadores quando não houver impedimentos.",
-        },
-      ],
-    },
-
-    {
-      id: "veiculos",
-
-      titulo: "Veículos",
-
-      descricao:
-        "Controle de placas e veículos utilizados no transporte.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.VEICULOS_VISUALIZAR,
-
-          titulo:
-            "Visualizar veículos",
-
-          descricao:
-            "Permite consultar veículos cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.VEICULOS_CRIAR,
-
-          titulo:
-            "Cadastrar veículos",
-
-          descricao:
-            "Permite cadastrar novos veículos.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.VEICULOS_EDITAR,
-
-          titulo:
-            "Editar veículos",
-
-          descricao:
-            "Permite alterar veículos cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.VEICULOS_ALTERAR_STATUS,
-
-          titulo:
-            "Ativar e inativar veículos",
-
-          descricao:
-            "Permite ativar ou inativar veículos cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.VEICULOS_EXCLUIR,
-
-          titulo:
-            "Excluir veículos",
-
-          descricao:
-            "Permite excluir veículos quando não houver impedimentos.",
-        },
-      ],
-    },
-
-    {
-      id: "motoristas",
-
-      titulo: "Motoristas",
-
-      descricao:
-        "Controle dos motoristas vinculados à empresa.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
-
-          titulo:
-            "Visualizar motoristas",
-
-          descricao:
-            "Permite consultar motoristas cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.MOTORISTAS_CRIAR,
-
-          titulo:
-            "Cadastrar motoristas",
-
-          descricao:
-            "Permite cadastrar novos motoristas.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.MOTORISTAS_EDITAR,
-
-          titulo:
-            "Editar motoristas",
-
-          descricao:
-            "Permite alterar os dados dos motoristas.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.MOTORISTAS_ALTERAR_STATUS,
-
-          titulo:
-            "Ativar e inativar motoristas",
-
-          descricao:
-            "Permite ativar ou inativar motoristas cadastrados.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.MOTORISTAS_EXCLUIR,
-
-          titulo:
-            "Excluir motoristas",
-
-          descricao:
-            "Permite excluir motoristas quando não houver impedimentos.",
-        },
-      ],
-    },
-
-    {
-      id: "nfe",
-
-      titulo: "NF-e",
-
-      descricao:
-        "Controle da criação, validação e emissão das notas fiscais.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.NFE_VISUALIZAR,
-
-          titulo:
-            "Visualizar NF-e",
-
-          descricao:
-            "Permite consultar notas fiscais e seus detalhes.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NFE_CRIAR,
-
-          titulo:
-            "Criar NF-e",
-
-          descricao:
-            "Permite criar novos rascunhos de NF-e.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NFE_EDITAR,
-
-          titulo:
-            "Editar NF-e",
-
-          descricao:
-            "Permite alterar notas fiscais em situação editável.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NFE_EXCLUIR_RASCUNHO,
-
-          titulo:
-            "Excluir rascunhos",
-
-          descricao:
-            "Permite excluir NF-e que ainda estejam como rascunho.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NFE_VALIDAR,
-
-          titulo:
-            "Validar NF-e",
-
-          descricao:
-            "Permite executar a validação fiscal da nota.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NFE_EMITIR,
-
-          titulo:
-            "Emitir NF-e",
-
-          descricao:
-            "Permite transmitir a NF-e para autorização.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.NFE_CANCELAR,
-
-          titulo:
-            "Cancelar NF-e",
-
-          descricao:
-            "Permite solicitar o cancelamento de uma NF-e autorizada.",
-        },
-      ],
-    },
-
-    {
-      id: "configuracoes",
-
-      titulo:
-        "Configurações fiscais",
-
-      descricao:
-        "Acesso ao ambiente, regime tributário, séries e integrações.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR,
-
-          titulo:
-            "Visualizar configurações",
-
-          descricao:
-            "Permite consultar as configurações fiscais da empresa.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.CONFIGURACOES_EDITAR,
-
-          titulo:
-            "Editar configurações",
-
-          descricao:
-            "Permite alterar as configurações fiscais da empresa.",
-        },
-      ],
-    },
-
-    {
-      id: "certificado",
-
-      titulo:
-        "Certificado digital",
-
-      descricao:
-        "Controle do certificado A1 utilizado na emissão fiscal.",
-
-      privilegios: [
-        {
-          valor:
-            PrivilegioEmpresa.CERTIFICADO_VISUALIZAR,
-
-          titulo:
-            "Visualizar certificado",
-
-          descricao:
-            "Permite consultar os dados e a validade do certificado.",
-        },
-
-        {
-          valor:
-            PrivilegioEmpresa.CERTIFICADO_SUBSTITUIR,
-
-          titulo:
-            "Substituir certificado",
-
-          descricao:
-            "Permite enviar ou substituir o certificado digital da empresa.",
-        },
-      ],
-    },
-  ];
+function item(
+  valor: PrivilegioEmpresa,
+  titulo: string,
+  descricao: string
+): ItemPrivilegioEmpresa {
+  return {
+    valor,
+    titulo,
+    descricao,
+  };
+}
+
+const P = PrivilegioEmpresa;
 
 /*
- * O perfil VISUALIZADOR não precisa
- * possuir registros na tabela de
- * privilégios.
- *
- * Ele recebe automaticamente somente
- * os privilégios de consulta abaixo.
+ * Árvore exibida nos formulários de criação e edição de usuários.
  */
+export const arvorePrivilegiosEmpresa: GrupoPrivilegioEmpresa[] = [
+  {
+    id: "dashboard",
+    titulo: "Dashboard",
+    descricao:
+      "Acesso à visão geral da empresa.",
+    privilegios: [
+      item(
+        P.DASHBOARD_VISUALIZAR,
+        "Visualizar dashboard",
+        "Permite consultar os indicadores e informações gerais da empresa."
+      ),
+    ],
+  },
+  {
+    id: "clientes",
+    titulo: "Clientes",
+    descricao:
+      "Controle do cadastro de clientes.",
+    privilegios: [
+      item(
+        P.CLIENTES_VISUALIZAR,
+        "Visualizar clientes",
+        "Permite consultar a lista e os dados dos clientes."
+      ),
+      item(
+        P.CLIENTES_CRIAR,
+        "Cadastrar clientes",
+        "Permite adicionar novos clientes."
+      ),
+      item(
+        P.CLIENTES_EDITAR,
+        "Editar clientes",
+        "Permite alterar os dados dos clientes."
+      ),
+      item(
+        P.CLIENTES_ALTERAR_STATUS,
+        "Ativar e inativar clientes",
+        "Permite ativar ou inativar clientes cadastrados."
+      ),
+      item(
+        P.CLIENTES_EXCLUIR,
+        "Excluir clientes",
+        "Permite excluir clientes quando não houver impedimentos."
+      ),
+    ],
+  },
+  {
+    id: "produtos",
+    titulo: "Produtos",
+    descricao:
+      "Controle do cadastro de produtos.",
+    privilegios: [
+      item(
+        P.PRODUTOS_VISUALIZAR,
+        "Visualizar produtos",
+        "Permite consultar os produtos cadastrados."
+      ),
+      item(
+        P.PRODUTOS_CRIAR,
+        "Cadastrar produtos",
+        "Permite cadastrar novos produtos."
+      ),
+      item(
+        P.PRODUTOS_EDITAR,
+        "Editar produtos",
+        "Permite alterar produtos cadastrados."
+      ),
+      item(
+        P.PRODUTOS_ALTERAR_STATUS,
+        "Ativar e inativar produtos",
+        "Permite ativar ou inativar produtos cadastrados."
+      ),
+      item(
+        P.PRODUTOS_EXCLUIR,
+        "Excluir produtos",
+        "Permite excluir produtos quando não houver impedimentos."
+      ),
+    ],
+  },
+  {
+    id: "naturezas-operacao",
+    titulo: "Naturezas de operação",
+    descricao:
+      "Controle das operações fiscais utilizadas nas notas.",
+    privilegios: [
+      item(
+        P.NATUREZAS_VISUALIZAR,
+        "Visualizar naturezas",
+        "Permite consultar as naturezas de operação."
+      ),
+      item(
+        P.NATUREZAS_CRIAR,
+        "Cadastrar naturezas",
+        "Permite cadastrar novas naturezas de operação."
+      ),
+      item(
+        P.NATUREZAS_EDITAR,
+        "Editar naturezas",
+        "Permite alterar naturezas de operação."
+      ),
+      item(
+        P.NATUREZAS_ALTERAR_STATUS,
+        "Ativar e inativar naturezas",
+        "Permite ativar ou inativar naturezas de operação."
+      ),
+      item(
+        P.NATUREZAS_EXCLUIR,
+        "Excluir naturezas",
+        "Permite excluir naturezas quando não houver impedimentos."
+      ),
+    ],
+  },
+  {
+    id: "transportadores",
+    titulo: "Transportadores",
+    descricao:
+      "Controle dos transportadores da empresa.",
+    privilegios: [
+      item(
+        P.TRANSPORTADORES_VISUALIZAR,
+        "Visualizar transportadores",
+        "Permite consultar transportadores cadastrados."
+      ),
+      item(
+        P.TRANSPORTADORES_CRIAR,
+        "Cadastrar transportadores",
+        "Permite cadastrar novos transportadores."
+      ),
+      item(
+        P.TRANSPORTADORES_EDITAR,
+        "Editar transportadores",
+        "Permite alterar os dados dos transportadores."
+      ),
+      item(
+        P.TRANSPORTADORES_ALTERAR_STATUS,
+        "Ativar e inativar transportadores",
+        "Permite ativar ou inativar transportadores cadastrados."
+      ),
+      item(
+        P.TRANSPORTADORES_EXCLUIR,
+        "Excluir transportadores",
+        "Permite excluir transportadores quando não houver impedimentos."
+      ),
+    ],
+  },
+  {
+    id: "veiculos",
+    titulo: "Veículos",
+    descricao:
+      "Controle de placas e veículos utilizados no transporte.",
+    privilegios: [
+      item(
+        P.VEICULOS_VISUALIZAR,
+        "Visualizar veículos",
+        "Permite consultar veículos cadastrados."
+      ),
+      item(
+        P.VEICULOS_CRIAR,
+        "Cadastrar veículos",
+        "Permite cadastrar novos veículos."
+      ),
+      item(
+        P.VEICULOS_EDITAR,
+        "Editar veículos",
+        "Permite alterar veículos cadastrados."
+      ),
+      item(
+        P.VEICULOS_ALTERAR_STATUS,
+        "Ativar e inativar veículos",
+        "Permite ativar ou inativar veículos cadastrados."
+      ),
+      item(
+        P.VEICULOS_EXCLUIR,
+        "Excluir veículos",
+        "Permite excluir veículos quando não houver impedimentos."
+      ),
+    ],
+  },
+  {
+    id: "motoristas",
+    titulo: "Motoristas",
+    descricao:
+      "Controle dos motoristas vinculados à empresa.",
+    privilegios: [
+      item(
+        P.MOTORISTAS_VISUALIZAR,
+        "Visualizar motoristas",
+        "Permite consultar motoristas cadastrados."
+      ),
+      item(
+        P.MOTORISTAS_CRIAR,
+        "Cadastrar motoristas",
+        "Permite cadastrar novos motoristas."
+      ),
+      item(
+        P.MOTORISTAS_EDITAR,
+        "Editar motoristas",
+        "Permite alterar os dados dos motoristas."
+      ),
+      item(
+        P.MOTORISTAS_ALTERAR_STATUS,
+        "Ativar e inativar motoristas",
+        "Permite ativar ou inativar motoristas cadastrados."
+      ),
+      item(
+        P.MOTORISTAS_EXCLUIR,
+        "Excluir motoristas",
+        "Permite excluir motoristas quando não houver impedimentos."
+      ),
+    ],
+  },
+  {
+    id: "nfe",
+    titulo: "NF-e",
+    descricao:
+      "Controle da criação, validação e emissão das notas fiscais.",
+    privilegios: [
+      item(
+        P.NFE_VISUALIZAR,
+        "Visualizar NF-e",
+        "Permite consultar notas fiscais e seus detalhes."
+      ),
+      item(
+        P.NFE_CRIAR,
+        "Criar NF-e",
+        "Permite criar novos rascunhos de NF-e."
+      ),
+      item(
+        P.NFE_EDITAR,
+        "Editar NF-e",
+        "Permite alterar notas fiscais em situação editável."
+      ),
+      item(
+        P.NFE_EXCLUIR_RASCUNHO,
+        "Excluir rascunhos",
+        "Permite excluir NF-e que ainda estejam como rascunho."
+      ),
+      item(
+        P.NFE_VALIDAR,
+        "Validar NF-e",
+        "Permite executar a validação fiscal da nota."
+      ),
+      item(
+        P.NFE_EMITIR,
+        "Emitir NF-e",
+        "Permite transmitir a NF-e para autorização."
+      ),
+      item(
+        P.NFE_CANCELAR,
+        "Cancelar NF-e",
+        "Permite solicitar o cancelamento de uma NF-e autorizada."
+      ),
+    ],
+  },
+  {
+    id: "cte",
+    titulo: "CT-e",
+    descricao:
+      "Controle da criação, validação, emissão e eventos do Conhecimento de Transporte Eletrônico.",
+    privilegios: [
+      item(
+        P.CTE_VISUALIZAR,
+        "Visualizar CT-e",
+        "Permite consultar CT-e, detalhes, XML e DACTE."
+      ),
+      item(
+        P.CTE_CRIAR,
+        "Criar CT-e",
+        "Permite criar novos rascunhos de CT-e."
+      ),
+      item(
+        P.CTE_EDITAR,
+        "Editar CT-e",
+        "Permite alterar CT-e em situação editável."
+      ),
+      item(
+        P.CTE_EXCLUIR_RASCUNHO,
+        "Excluir rascunhos",
+        "Permite excluir CT-e que ainda estejam como rascunho."
+      ),
+      item(
+        P.CTE_VALIDAR,
+        "Validar CT-e",
+        "Permite validar os dados fiscais e gerar o XML 4.00."
+      ),
+      item(
+        P.CTE_EMITIR,
+        "Emitir CT-e",
+        "Permite assinar e transmitir o CT-e para autorização da SEFAZ."
+      ),
+      item(
+        P.CTE_CANCELAR,
+        "Cancelar CT-e",
+        "Permite solicitar o cancelamento de CT-e autorizado."
+      ),
+    ],
+  },
+  {
+    id: "configuracoes",
+    titulo: "Configurações fiscais",
+    descricao:
+      "Acesso ao ambiente, regime tributário, séries e integrações.",
+    privilegios: [
+      item(
+        P.CONFIGURACOES_VISUALIZAR,
+        "Visualizar configurações",
+        "Permite consultar as configurações fiscais da empresa."
+      ),
+      item(
+        P.CONFIGURACOES_EDITAR,
+        "Editar configurações",
+        "Permite alterar as configurações fiscais da empresa."
+      ),
+    ],
+  },
+  {
+    id: "certificado",
+    titulo: "Certificado digital",
+    descricao:
+      "Controle do certificado A1 utilizado na emissão fiscal.",
+    privilegios: [
+      item(
+        P.CERTIFICADO_VISUALIZAR,
+        "Visualizar certificado",
+        "Permite consultar os dados e a validade do certificado."
+      ),
+      item(
+        P.CERTIFICADO_SUBSTITUIR,
+        "Substituir certificado",
+        "Permite enviar ou substituir o certificado digital da empresa."
+      ),
+    ],
+  },
+];
 
+/*
+ * O perfil VISUALIZADOR recebe somente privilégios de consulta.
+ */
 export const privilegiosVisualizador =
   new Set<PrivilegioEmpresa>([
-    PrivilegioEmpresa.DASHBOARD_VISUALIZAR,
-
-    PrivilegioEmpresa.CLIENTES_VISUALIZAR,
-
-    PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
-
-    PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
-
-    PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-
-    PrivilegioEmpresa.VEICULOS_VISUALIZAR,
-
-    PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
-
-    PrivilegioEmpresa.NFE_VISUALIZAR,
-
-    PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR,
-
-    PrivilegioEmpresa.CERTIFICADO_VISUALIZAR,
+    P.DASHBOARD_VISUALIZAR,
+    P.CLIENTES_VISUALIZAR,
+    P.PRODUTOS_VISUALIZAR,
+    P.NATUREZAS_VISUALIZAR,
+    P.TRANSPORTADORES_VISUALIZAR,
+    P.VEICULOS_VISUALIZAR,
+    P.MOTORISTAS_VISUALIZAR,
+    P.NFE_VISUALIZAR,
+    P.CTE_VISUALIZAR,
+    P.CONFIGURACOES_VISUALIZAR,
+    P.CERTIFICADO_VISUALIZAR,
   ]);
-
-/*
- * Todos os privilégios disponíveis.
- *
- * Será utilizado para validação dos
- * dados recebidos dos formulários.
- */
 
 export const todosPrivilegiosEmpresa =
   arvorePrivilegiosEmpresa.flatMap(
     (grupo) =>
       grupo.privilegios.map(
-        (item) => item.valor
+        (privilegio) =>
+          privilegio.valor
       )
   );
-
-/*
- * Dependências automáticas.
- *
- * Para modificar um cadastro, o usuário
- * também precisa visualizar o módulo.
- */
 
 export const dependenciasPrivilegios: Partial<
   Record<
@@ -658,199 +401,94 @@ export const dependenciasPrivilegios: Partial<
     PrivilegioEmpresa[]
   >
 > = {
-  [PrivilegioEmpresa.CLIENTES_CRIAR]: [
-    PrivilegioEmpresa.CLIENTES_VISUALIZAR,
+  [P.CLIENTES_CRIAR]: [P.CLIENTES_VISUALIZAR],
+  [P.CLIENTES_EDITAR]: [P.CLIENTES_VISUALIZAR],
+  [P.CLIENTES_ALTERAR_STATUS]: [P.CLIENTES_VISUALIZAR],
+  [P.CLIENTES_EXCLUIR]: [P.CLIENTES_VISUALIZAR],
+
+  [P.PRODUTOS_CRIAR]: [P.PRODUTOS_VISUALIZAR],
+  [P.PRODUTOS_EDITAR]: [P.PRODUTOS_VISUALIZAR],
+  [P.PRODUTOS_ALTERAR_STATUS]: [P.PRODUTOS_VISUALIZAR],
+  [P.PRODUTOS_EXCLUIR]: [P.PRODUTOS_VISUALIZAR],
+
+  [P.NATUREZAS_CRIAR]: [P.NATUREZAS_VISUALIZAR],
+  [P.NATUREZAS_EDITAR]: [P.NATUREZAS_VISUALIZAR],
+  [P.NATUREZAS_ALTERAR_STATUS]: [P.NATUREZAS_VISUALIZAR],
+  [P.NATUREZAS_EXCLUIR]: [P.NATUREZAS_VISUALIZAR],
+
+  [P.TRANSPORTADORES_CRIAR]: [P.TRANSPORTADORES_VISUALIZAR],
+  [P.TRANSPORTADORES_EDITAR]: [P.TRANSPORTADORES_VISUALIZAR],
+  [P.TRANSPORTADORES_ALTERAR_STATUS]: [P.TRANSPORTADORES_VISUALIZAR],
+  [P.TRANSPORTADORES_EXCLUIR]: [P.TRANSPORTADORES_VISUALIZAR],
+
+  [P.VEICULOS_CRIAR]: [P.VEICULOS_VISUALIZAR],
+  [P.VEICULOS_EDITAR]: [P.VEICULOS_VISUALIZAR],
+  [P.VEICULOS_ALTERAR_STATUS]: [P.VEICULOS_VISUALIZAR],
+  [P.VEICULOS_EXCLUIR]: [P.VEICULOS_VISUALIZAR],
+
+  [P.MOTORISTAS_CRIAR]: [P.MOTORISTAS_VISUALIZAR],
+  [P.MOTORISTAS_EDITAR]: [P.MOTORISTAS_VISUALIZAR],
+  [P.MOTORISTAS_ALTERAR_STATUS]: [P.MOTORISTAS_VISUALIZAR],
+  [P.MOTORISTAS_EXCLUIR]: [P.MOTORISTAS_VISUALIZAR],
+
+  [P.NFE_CRIAR]: [P.NFE_VISUALIZAR],
+  [P.NFE_EDITAR]: [P.NFE_VISUALIZAR],
+  [P.NFE_EXCLUIR_RASCUNHO]: [P.NFE_VISUALIZAR],
+  [P.NFE_VALIDAR]: [P.NFE_VISUALIZAR],
+  [P.NFE_EMITIR]: [
+    P.NFE_VISUALIZAR,
+    P.NFE_VALIDAR,
   ],
+  [P.NFE_CANCELAR]: [P.NFE_VISUALIZAR],
 
-  [PrivilegioEmpresa.CLIENTES_EDITAR]: [
-    PrivilegioEmpresa.CLIENTES_VISUALIZAR,
+  [P.CTE_CRIAR]: [P.CTE_VISUALIZAR],
+  [P.CTE_EDITAR]: [P.CTE_VISUALIZAR],
+  [P.CTE_EXCLUIR_RASCUNHO]: [P.CTE_VISUALIZAR],
+  [P.CTE_VALIDAR]: [P.CTE_VISUALIZAR],
+  [P.CTE_EMITIR]: [
+    P.CTE_VISUALIZAR,
+    P.CTE_VALIDAR,
   ],
+  [P.CTE_CANCELAR]: [P.CTE_VISUALIZAR],
 
-  [PrivilegioEmpresa.CLIENTES_ALTERAR_STATUS]:
-    [
-      PrivilegioEmpresa.CLIENTES_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.CLIENTES_EXCLUIR]: [
-    PrivilegioEmpresa.CLIENTES_VISUALIZAR,
+  [P.CONFIGURACOES_EDITAR]: [
+    P.CONFIGURACOES_VISUALIZAR,
   ],
-
-  [PrivilegioEmpresa.PRODUTOS_CRIAR]: [
-    PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
+  [P.CERTIFICADO_SUBSTITUIR]: [
+    P.CERTIFICADO_VISUALIZAR,
   ],
-
-  [PrivilegioEmpresa.PRODUTOS_EDITAR]: [
-    PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.PRODUTOS_ALTERAR_STATUS]:
-    [
-      PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.PRODUTOS_EXCLUIR]: [
-    PrivilegioEmpresa.PRODUTOS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.NATUREZAS_CRIAR]: [
-    PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.NATUREZAS_EDITAR]: [
-    PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.NATUREZAS_ALTERAR_STATUS]:
-    [
-      PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.NATUREZAS_EXCLUIR]: [
-    PrivilegioEmpresa.NATUREZAS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.TRANSPORTADORES_CRIAR]:
-    [
-      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.TRANSPORTADORES_EDITAR]:
-    [
-      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.TRANSPORTADORES_ALTERAR_STATUS]:
-    [
-      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.TRANSPORTADORES_EXCLUIR]:
-    [
-      PrivilegioEmpresa.TRANSPORTADORES_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.VEICULOS_CRIAR]: [
-    PrivilegioEmpresa.VEICULOS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.VEICULOS_EDITAR]: [
-    PrivilegioEmpresa.VEICULOS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.VEICULOS_ALTERAR_STATUS]:
-    [
-      PrivilegioEmpresa.VEICULOS_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.VEICULOS_EXCLUIR]: [
-    PrivilegioEmpresa.VEICULOS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.MOTORISTAS_CRIAR]: [
-    PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.MOTORISTAS_EDITAR]: [
-    PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.MOTORISTAS_ALTERAR_STATUS]:
-    [
-      PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.MOTORISTAS_EXCLUIR]:
-    [
-      PrivilegioEmpresa.MOTORISTAS_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.NFE_CRIAR]: [
-    PrivilegioEmpresa.NFE_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.NFE_EDITAR]: [
-    PrivilegioEmpresa.NFE_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.NFE_EXCLUIR_RASCUNHO]:
-    [
-      PrivilegioEmpresa.NFE_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.NFE_VALIDAR]: [
-    PrivilegioEmpresa.NFE_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.NFE_EMITIR]: [
-    PrivilegioEmpresa.NFE_VISUALIZAR,
-    PrivilegioEmpresa.NFE_VALIDAR,
-  ],
-
-  [PrivilegioEmpresa.NFE_CANCELAR]: [
-    PrivilegioEmpresa.NFE_VISUALIZAR,
-  ],
-
-  [PrivilegioEmpresa.CONFIGURACOES_EDITAR]:
-    [
-      PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR,
-    ],
-
-  [PrivilegioEmpresa.CERTIFICADO_SUBSTITUIR]:
-    [
-      PrivilegioEmpresa.CERTIFICADO_VISUALIZAR,
-    ],
 };
 
-/*
- * Acrescenta automaticamente as
- * dependências de cada privilégio.
- */
-
 export function resolverPrivilegiosEmpresa(
-  privilegios:
-    PrivilegioEmpresa[]
+  privilegios: PrivilegioEmpresa[]
 ) {
   const resultado =
     new Set<PrivilegioEmpresa>();
 
   function adicionar(
-    privilegio:
-      PrivilegioEmpresa
+    privilegio: PrivilegioEmpresa
   ) {
-    if (
-      resultado.has(
-        privilegio
-      )
-    ) {
+    if (resultado.has(privilegio)) {
       return;
     }
 
-    resultado.add(
-      privilegio
-    );
+    resultado.add(privilegio);
 
     const dependencias =
       dependenciasPrivilegios[
         privilegio
       ] ?? [];
 
-    dependencias.forEach(
-      adicionar
-    );
+    dependencias.forEach(adicionar);
   }
 
-  privilegios.forEach(
-    adicionar
-  );
+  privilegios.forEach(adicionar);
 
-  return Array.from(
-    resultado
-  );
+  return Array.from(resultado);
 }
 
 export function validarDependenciasPrivilegiosEmpresa(
-  privilegios:
-    PrivilegioEmpresa[]
+  privilegios: PrivilegioEmpresa[]
 ) {
   const selecionados =
     new Set(privilegios);
@@ -871,11 +509,6 @@ export function validarDependenciasPrivilegiosEmpresa(
     }
   );
 }
-
-/*
- * Verifica se o valor recebido pertence
- * ao enum oficial do Prisma.
- */
 
 export function privilegioEmpresaValido(
   valor: string
