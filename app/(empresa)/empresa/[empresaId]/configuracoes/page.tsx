@@ -7,20 +7,18 @@ import { notFound } from "next/navigation";
 import {
   CircleCheck,
   CircleDashed,
+  ClipboardList,
   FileKey2,
-  Landmark,
+  FileText,
   Settings,
   ShieldCheck,
+  Truck,
 } from "lucide-react";
 
 import { getConfiguracaoFiscal } from "@/actions/configuracao-fiscal/get-configuracao-fiscal";
-
 import { getCertificadoAtivo } from "@/actions/certificado/get-certificado-ativo";
-
 import { ConfiguracaoFiscalForm } from "@/components/configuracao-fiscal/configuracao-fiscal-form";
-
 import { CertificadoDigitalForm } from "@/components/certificado/certificado-digital-form";
-
 import { obterPrivilegiosEmpresa } from "@/lib/empresa/obter-privilegios-empresa";
 
 export const dynamic =
@@ -47,6 +45,12 @@ export default async function ConfiguracoesPage({
     permissoes.privilegios.includes(
       PrivilegioEmpresa.CONFIGURACOES_VISUALIZAR
     );
+
+  const podeEditarConfiguracaoFiscal =
+    permissoes.privilegios.includes(
+      PrivilegioEmpresa.CONFIGURACOES_EDITAR
+    ) &&
+    !permissoes.somenteLeitura;
 
   const podeVerCertificado =
     permissoes.privilegios.includes(
@@ -77,16 +81,32 @@ export default async function ConfiguracoesPage({
       : null,
   ]);
 
-  const configuracaoCadastrada =
-    Boolean(configuracao);
+  const nfConfigurada =
+    Boolean(
+      configuracao &&
+        configuracao.serieNfe > 0 &&
+        configuracao.serieNfce > 0
+    );
+
+  const cteConfigurado =
+    Boolean(
+      configuracao &&
+        configuracao.serieCte > 0 &&
+        configuracao.rntrc
+    );
+
+  const mdfeConfigurado =
+    Boolean(
+      configuracao &&
+        configuracao.serieMdfe > 0 &&
+        configuracao.rntrc
+    );
 
   const certificadoCadastrado =
     Boolean(certificado);
 
   return (
     <div className="w-full space-y-8">
-      {/* Cabeçalho */}
-
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Settings size={24} />
@@ -97,128 +117,119 @@ export default async function ConfiguracoesPage({
             Configurações
           </h1>
 
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Configure o ambiente fiscal,
-            a numeração dos documentos e
-            o certificado digital desta
-            empresa.
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Centralize os parâmetros de emissão da NF-e, NFC-e, CT-e e MDF-e, além do certificado digital e das integrações fiscais da empresa.
           </p>
         </div>
       </div>
 
-      {/* Indicadores */}
-
-      <section className="grid gap-4 md:grid-cols-2">
-        {podeVerConfiguracaoFiscal && (
-          <StatusCard
-          titulo="Configuração fiscal"
-          descricao={
-            configuracaoCadastrada
-              ? "Os parâmetros fiscais da empresa estão cadastrados."
-              : "Os parâmetros fiscais ainda precisam ser configurados."
-          }
-          configurado={
-            configuracaoCadastrada
-          }
-          icone={Landmark}
-          />
-        )}
-
-        {podeVerCertificado && (
-          <StatusCard
-          titulo="Certificado digital"
-          descricao={
-            certificadoCadastrado
-              ? "Existe um certificado digital ativo para esta empresa."
-              : "Nenhum certificado digital ativo foi cadastrado."
-          }
-          configurado={
-            certificadoCadastrado
-          }
-          icone={FileKey2}
-          />
-        )}
-      </section>
-
-      {/* Configuração fiscal */}
-
       {podeVerConfiguracaoFiscal && (
-        <section className="space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Landmark size={20} />
-          </div>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatusCard
+            titulo="NF-e / NFC-e"
+            descricao={
+              nfConfigurada
+                ? `Séries ${configuracao?.serieNfe} e ${configuracao?.serieNfce} configuradas.`
+                : "Defina séries, numeração e parâmetros de emissão."
+            }
+            configurado={nfConfigurada}
+            icone={FileText}
+          />
 
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              Configuração fiscal
-            </h2>
+          <StatusCard
+            titulo="CT-e"
+            descricao={
+              cteConfigurado
+                ? `Série ${configuracao?.serieCte} e RNTRC configurados.`
+                : "Defina série, numeração e RNTRC do CT-e."
+            }
+            configurado={cteConfigurado}
+            icone={Truck}
+          />
 
-            <p className="mt-1 text-sm text-muted-foreground">
-              Defina o regime tributário,
-              ambiente, série e parâmetros
-              utilizados na emissão da NF-e.
-            </p>
-          </div>
-        </div>
+          <StatusCard
+            titulo="MDF-e"
+            descricao={
+              mdfeConfigurado
+                ? `Série ${configuracao?.serieMdfe} e RNTRC configurados.`
+                : "Defina série, numeração e parâmetros do manifesto."
+            }
+            configurado={mdfeConfigurado}
+            icone={ClipboardList}
+          />
 
-        <ConfiguracaoFiscalForm
-          empresaId={empresaId}
-          configuracao={
-            configuracao
-          }
-        />
+          {podeVerCertificado && (
+            <StatusCard
+              titulo="Certificado A1"
+              descricao={
+                certificadoCadastrado
+                  ? "Existe um certificado digital ativo para assinatura fiscal."
+                  : "Cadastre o certificado que assinará os documentos."
+              }
+              configurado={
+                certificadoCadastrado
+              }
+              icone={FileKey2}
+            />
+          )}
         </section>
       )}
 
-      {/* Certificado digital */}
+      {podeVerConfiguracaoFiscal && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">
+              Parâmetros de emissão
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Altere aqui todos os parâmetros gerais e específicos utilizados na emissão dos documentos fiscais. As telas de NF-e, CT-e e MDF-e ficam focadas somente na operação dos documentos.
+            </p>
+          </div>
+
+          <ConfiguracaoFiscalForm
+            empresaId={empresaId}
+            configuracao={configuracao}
+            podeEditar={
+              podeEditarConfiguracaoFiscal
+            }
+          />
+        </section>
+      )}
 
       {podeVerCertificado && (
         <section className="space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <ShieldCheck size={20} />
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <ShieldCheck size={20} />
+            </div>
+
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">
+                Certificado digital
+              </h2>
+
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cadastre o certificado A1 utilizado para assinar e transmitir NF-e, CT-e e MDF-e.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              Certificado digital
-            </h2>
+          {!certificadoCadastrado && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                Certificado não cadastrado
+              </p>
 
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cadastre o certificado A1
-              que será utilizado para
-              assinar e transmitir os
-              documentos fiscais.
-            </p>
-          </div>
-        </div>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                O certificado A1 será necessário para assinar e transmitir os documentos fiscais à SEFAZ. Rascunhos podem ser preparados antes do cadastro do certificado.
+              </p>
+            </div>
+          )}
 
-        {!certificadoCadastrado && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-              Certificado não cadastrado
-            </p>
-
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Você pode continuar
-              cadastrando clientes,
-              produtos, naturezas de
-              operação e rascunhos de
-              NF-e. O certificado será
-              necessário apenas para
-              assinar e transmitir os
-              documentos à SEFAZ.
-            </p>
-          </div>
-        )}
-
-        <CertificadoDigitalForm
-          empresaId={empresaId}
-          certificado={
-            certificado
-          }
-        />
+          <CertificadoDigitalForm
+            empresaId={empresaId}
+            certificado={certificado}
+          />
         </section>
       )}
     </div>
@@ -228,9 +239,7 @@ export default async function ConfiguracoesPage({
 type StatusCardProps = {
   titulo: string;
   descricao: string;
-
   configurado: boolean;
-
   icone: typeof Settings;
 };
 
