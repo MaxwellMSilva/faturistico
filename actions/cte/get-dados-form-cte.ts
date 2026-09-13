@@ -2,6 +2,7 @@
 
 import {
   PrivilegioEmpresa,
+  TipoDocumentoFiscal,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ export async function getDadosFormCte(
     empresa,
     clientes,
     configuracao,
+    naturezas,
   ] = await Promise.all([
     prisma.empresa.findUnique({
       where: { id: empresaId },
@@ -73,6 +75,21 @@ export async function getDadosFormCte(
         rntrc: true,
       },
     }),
+    prisma.naturezaOperacao.findMany({
+      where: {
+        empresaId,
+        ativo: true,
+      },
+      orderBy: {
+        descricao: "asc",
+      },
+      select: {
+        id: true,
+        descricao: true,
+        cfop: true,
+        informacoesComplementaresPadrao: true,
+      },
+    }),
   ]);
 
   if (!empresa) {
@@ -81,9 +98,30 @@ export async function getDadosFormCte(
     );
   }
 
+  const serieCte =
+    configuracao?.serieCte ?? 1;
+
+  const sequencia =
+    await prisma.sequenciaFiscal.findUnique({
+      where: {
+        empresaId_tipoDocumento_serie: {
+          empresaId,
+          tipoDocumento:
+            TipoDocumentoFiscal.CTE,
+          serie: serieCte,
+        },
+      },
+      select: {
+        ultimoNumero: true,
+      },
+    });
+
   return {
     empresa,
     clientes,
     configuracao,
+    naturezas,
+    proximoNumeroCte:
+      (sequencia?.ultimoNumero ?? 0) + 1,
   };
 }
