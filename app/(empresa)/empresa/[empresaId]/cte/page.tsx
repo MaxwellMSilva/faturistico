@@ -6,6 +6,7 @@ import {
 
 import {
   ArrowRight,
+  BadgeDollarSign,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
@@ -648,6 +649,17 @@ export default async function CtePage({
                       Abrir CT-e
                     </Button>
 
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full"
+                      disabled
+                      title="A geração de CIOT será conectada em uma próxima etapa."
+                    >
+                      <BadgeDollarSign size={17} />
+                      Gerar CIOT
+                    </Button>
+
                     {podeExcluirCte && (
                       <CteDeleteButton
                         empresaId={empresaId}
@@ -799,6 +811,17 @@ export default async function CtePage({
                               <FileSearch size={16} />
                               Abrir
                               <ArrowRight size={15} />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled
+                              title="A geração de CIOT será conectada em uma próxima etapa."
+                            >
+                              <BadgeDollarSign size={16} />
+                              Gerar CIOT
                             </Button>
 
                             {podeExcluirCte && (
