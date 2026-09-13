@@ -38,14 +38,14 @@ export function CteForm(
     ]);
 
   useEffect(() => {
-    const container =
-      containerRef.current;
-
-    if (!container) {
-      return;
-    }
-
     function bloquearRntrc() {
+      const container =
+        containerRef.current;
+
+      if (!container) {
+        return;
+      }
+
       const campo =
         container.querySelector<HTMLInputElement>(
           'input[placeholder="8 dígitos ou ISENTO"]'
@@ -68,6 +68,13 @@ export function CteForm(
     }
 
     bloquearRntrc();
+
+    const container =
+      containerRef.current;
+
+    if (!container) {
+      return;
+    }
 
     const observer =
       new MutationObserver(
