@@ -22,6 +22,38 @@ export async function getConfiguracaoFiscal(
     return null;
   }
 
+  const [sequenciaNfe, maiorNumeroNfe] =
+    await Promise.all([
+      prisma.sequenciaFiscal.findUnique({
+        where: {
+          empresaId_tipoDocumento_serie: {
+            empresaId,
+            tipoDocumento: "NFE",
+            serie: configuracao.serieNfe,
+          },
+        },
+        select: {
+          ultimoNumero: true,
+        },
+      }),
+
+      prisma.notaFiscal.aggregate({
+        where: {
+          empresaId,
+          tipoDocumento: "NFE",
+          serie: configuracao.serieNfe,
+        },
+        _max: {
+          numero: true,
+        },
+      }),
+    ]);
+
+  const ultimoNumeroNfe = Math.max(
+    sequenciaNfe?.ultimoNumero ?? 0,
+    maiorNumeroNfe._max.numero ?? 0
+  );
+
   return {
     id: configuracao.id,
 
@@ -33,6 +65,8 @@ export async function getConfiguracaoFiscal(
 
     serieNfe:
       configuracao.serieNfe,
+
+    ultimoNumeroNfe,
 
     serieNfce:
       configuracao.serieNfce,
