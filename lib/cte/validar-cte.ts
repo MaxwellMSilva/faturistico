@@ -13,13 +13,12 @@ import {
   validarChaveAcesso,
 } from "@/lib/cte/util";
 
-type CteCompleto =
-  ConhecimentoTransporte & {
-    participantes: ParticipanteCte[];
-    documentosNfe: DocumentoNfeCte[];
-    quantidadesCarga: QuantidadeCargaCte[];
-    componentesValor: ComponenteValorCte[];
-  };
+type CteCompleto = ConhecimentoTransporte & {
+  participantes: ParticipanteCte[];
+  documentosNfe: DocumentoNfeCte[];
+  quantidadesCarga: QuantidadeCargaCte[];
+  componentesValor: ComponenteValorCte[];
+};
 
 type Params = {
   cte: CteCompleto;
@@ -36,6 +35,16 @@ function texto(
   valor: string | null | undefined
 ) {
   return Boolean(valor?.trim());
+}
+
+function numeroInformado(
+  valor: unknown
+) {
+  return (
+    valor !== null &&
+    valor !== undefined &&
+    Number.isFinite(Number(valor))
+  );
 }
 
 export function validarCte({
@@ -103,6 +112,15 @@ export function validarCte({
   }
 
   if (
+    cte.tipoCte !== "NORMAL"
+  ) {
+    adicionar(
+      "tipoCte",
+      "Nesta primeira versão operacional, a transmissão está habilitada para CT-e Normal. Complementar e Substituto podem ser mantidos em rascunho até a implementação dos grupos específicos."
+    );
+  }
+
+  if (
     cte.cfop.replace(/\D/g, "").length !== 4
   ) {
     adicionar(
@@ -118,37 +136,21 @@ export function validarCte({
     );
   }
 
-  if (
-    !texto(cte.codigoMunicipioEnvio) ||
-    !texto(cte.municipioEnvio) ||
-    !texto(cte.ufEnvio)
-  ) {
-    adicionar(
-      "municipioEnvio",
-      "Informe o município de envio do CT-e."
-    );
-  }
-
-  if (
-    !texto(cte.codigoMunicipioInicio) ||
-    !texto(cte.municipioInicio) ||
-    !texto(cte.ufInicio)
-  ) {
-    adicionar(
-      "municipioInicio",
-      "Informe o município de início da prestação."
-    );
-  }
-
-  if (
-    !texto(cte.codigoMunicipioFim) ||
-    !texto(cte.municipioFim) ||
-    !texto(cte.ufFim)
-  ) {
-    adicionar(
-      "municipioFim",
-      "Informe o município de término da prestação."
-    );
+  for (const [campo, codigo, nome, uf] of [
+    ["municipioEnvio", cte.codigoMunicipioEnvio, cte.municipioEnvio, cte.ufEnvio],
+    ["municipioInicio", cte.codigoMunicipioInicio, cte.municipioInicio, cte.ufInicio],
+    ["municipioFim", cte.codigoMunicipioFim, cte.municipioFim, cte.ufFim],
+  ] as const) {
+    if (
+      !texto(codigo) ||
+      !texto(nome) ||
+      !texto(uf)
+    ) {
+      adicionar(
+        campo,
+        "Informe código IBGE, município e UF."
+      );
+    }
   }
 
   if (Number(cte.valorPrestacao) <= 0) {
@@ -282,10 +284,7 @@ export function validarCte({
     }
   }
 
-  if (
-    cte.tipoCte === "NORMAL" &&
-    cte.documentosNfe.length === 0
-  ) {
+  if (cte.documentosNfe.length === 0) {
     adicionar(
       "documentosNfe",
       "Informe ao menos uma NF-e transportada."
@@ -340,49 +339,97 @@ export function validarCte({
     );
   }
 
-  if (
-    cte.tipoCte !== "NORMAL" &&
-    !texto(cte.chaveCteReferenciado)
-  ) {
-    adicionar(
-      "chaveCteReferenciado",
-      "Informe a chave do CT-e referenciado para o tipo selecionado."
-    );
+  const camposIcmsPorGrupo: Record<
+    string,
+    Array<[unknown, string]>
+  > = {
+    ICMS00: [
+      [cte.baseCalculoIcms, "base de cálculo do ICMS"],
+      [cte.aliquotaIcms, "alíquota do ICMS"],
+      [cte.valorIcms, "valor do ICMS"],
+    ],
+    ICMS20: [
+      [cte.percentualReducaoBc, "redução da base de cálculo"],
+      [cte.baseCalculoIcms, "base de cálculo do ICMS"],
+      [cte.aliquotaIcms, "alíquota do ICMS"],
+      [cte.valorIcms, "valor do ICMS"],
+    ],
+    ICMS60: [
+      [cte.baseCalculoStRetido, "base de cálculo do ICMS ST retido"],
+      [cte.aliquotaStRetido, "alíquota do ICMS ST retido"],
+      [cte.valorIcmsStRetido, "valor do ICMS ST retido"],
+    ],
+    ICMS90: [
+      [cte.baseCalculoIcms, "base de cálculo do ICMS"],
+      [cte.aliquotaIcms, "alíquota do ICMS"],
+      [cte.valorIcms, "valor do ICMS"],
+    ],
+    ICMS_OUTRA_UF: [
+      [cte.baseCalculoIcms, "base de cálculo do ICMS de outra UF"],
+      [cte.aliquotaIcms, "alíquota do ICMS de outra UF"],
+      [cte.valorIcms, "valor do ICMS de outra UF"],
+    ],
+  };
+
+  for (const [valor, nome] of
+    camposIcmsPorGrupo[cte.grupoIcms] ?? []) {
+    if (!numeroInformado(valor)) {
+      adicionar(
+        "icms",
+        `Informe ${nome}.`
+      );
+    }
   }
 
   if (
-    texto(cte.chaveCteReferenciado) &&
-    !validarChaveAcesso(
-      cte.chaveCteReferenciado ?? ""
+    cte.grupoIcms === "ICMS45" &&
+    !["40", "41", "51"].includes(
+      somenteNumeros(cte.cstIcms)
     )
   ) {
     adicionar(
-      "chaveCteReferenciado",
-      "A chave do CT-e referenciado é inválida."
+      "cstIcms",
+      "Para ICMS45, o CST deve ser 40, 41 ou 51."
+    );
+  }
+
+  const informouCstIbsCbs =
+    texto(cte.cstIbsCbs);
+  const informouClassificacao =
+    texto(
+      cte.classificacaoTributariaIbsCbs
+    );
+
+  if (
+    informouCstIbsCbs !==
+    informouClassificacao
+  ) {
+    adicionar(
+      "ibsCbs",
+      "CST e classificação tributária do IBS/CBS devem ser informados em conjunto."
     );
   }
 
   if (
-    configuracao?.regimeTributario ===
-      "REGIME_NORMAL"
+    informouCstIbsCbs &&
+    somenteNumeros(cte.cstIbsCbs).length !== 3
   ) {
-    if (!texto(cte.cstIbsCbs)) {
-      adicionar(
-        "cstIbsCbs",
-        "Informe o CST do IBS/CBS."
-      );
-    }
+    adicionar(
+      "cstIbsCbs",
+      "O CST do IBS/CBS deve possuir 3 dígitos."
+    );
+  }
 
-    if (
-      !texto(
-        cte.classificacaoTributariaIbsCbs
-      )
-    ) {
-      adicionar(
-        "classificacaoTributariaIbsCbs",
-        "Informe a classificação tributária do IBS/CBS."
-      );
-    }
+  if (
+    informouClassificacao &&
+    somenteNumeros(
+      cte.classificacaoTributariaIbsCbs
+    ).length !== 6
+  ) {
+    adicionar(
+      "classificacaoTributariaIbsCbs",
+      "A classificação tributária do IBS/CBS deve possuir 6 dígitos."
+    );
   }
 
   return erros;
