@@ -51,6 +51,7 @@ export type PagamentoVinculadoCteForm = {
 export type SalvarCteData = {
   empresaId: string;
   cteId?: string;
+  numero?: number;
 
   tipoServico: TipoServicoCteForm;
   cfop: string;
