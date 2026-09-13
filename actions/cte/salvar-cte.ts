@@ -8,6 +8,7 @@ import {
   PrivilegioEmpresa,
   TipoDocumentoFiscal,
 } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
@@ -193,7 +194,7 @@ export async function salvarCte(
     ],
   ];
 
-  const participantes = [];
+  const participantes: Prisma.ParticipanteCteCreateWithoutCteInput[] = [];
 
   for (const [papel, clienteId] of
     participantesSolicitados) {
