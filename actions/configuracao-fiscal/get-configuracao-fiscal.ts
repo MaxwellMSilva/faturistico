@@ -71,6 +71,33 @@ export async function getConfiguracaoFiscal(
     serieNfce:
       configuracao.serieNfce,
 
+    modeloCte:
+      configuracao.modeloCte,
+
+    ambienteCte:
+      configuracao.ambienteCte,
+
+    finalidadeCte:
+      configuracao.finalidadeCte,
+
+    tipoEmissaoCte:
+      configuracao.tipoEmissaoCte,
+
+    modalCte:
+      configuracao.modalCte,
+
+    tipoServicoCte:
+      configuracao.tipoServicoCte,
+
+    serieCte:
+      configuracao.serieCte,
+
+    ultimoNumeroCte:
+      configuracao.ultimoNumeroCte,
+
+    numeracaoManualCte:
+      configuracao.numeracaoManualCte,
+
     idCsc:
       configuracao.idCsc,
 
