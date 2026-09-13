@@ -13,15 +13,25 @@ model ConfiguracaoFiscal {
   serieNfce Int @default(1)
 
   // Parâmetros do CT-e de transporte de carga (modelo 57).
-  modeloCte         Int             @default(57)
-  ambienteCte       AmbienteFiscal  @default(HOMOLOGACAO)
-  finalidadeCte     String          @default("NORMAL")
-  tipoEmissaoCte    String          @default("NORMAL")
-  modalCte          String          @default("RODOVIARIO")
-  tipoServicoCte    String          @default("NORMAL")
-  serieCte          Int             @default(1)
-  ultimoNumeroCte   Int             @default(0)
-  numeracaoManualCte Boolean         @default(false)
+  modeloCte          Int            @default(57)
+  ambienteCte        AmbienteFiscal @default(HOMOLOGACAO)
+  finalidadeCte      String         @default("NORMAL")
+  tipoEmissaoCte     String         @default("NORMAL")
+  modalCte           String         @default("RODOVIARIO")
+  tipoServicoCte     String         @default("NORMAL")
+  serieCte           Int            @default(1)
+  ultimoNumeroCte    Int            @default(0)
+  numeracaoManualCte Boolean        @default(false)
+
+  // Parâmetros do MDF-e (modelo 58).
+  modeloMdfe          Int            @default(58)
+  ambienteMdfe        AmbienteFiscal @default(HOMOLOGACAO)
+  tipoEmissaoMdfe     String         @default("NORMAL")
+  modalMdfe           String         @default("RODOVIARIO")
+  tipoEmitenteMdfe    String         @default("PRESTADOR_SERVICO_TRANSPORTE")
+  serieMdfe           Int            @default(1)
+  ultimoNumeroMdfe    Int            @default(0)
+  numeracaoManualMdfe Boolean        @default(false)
 
   // Dados usados na NFC-e.
   // Armazenar criptografado, nunca em texto puro.
@@ -36,4 +46,5 @@ model ConfiguracaoFiscal {
 
   @@index([ambiente])
   @@index([ambienteCte])
+  @@index([ambienteMdfe])
 }
