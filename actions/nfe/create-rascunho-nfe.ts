@@ -184,6 +184,7 @@ export async function createRascunhoNfe(
         empresaId: data.empresaId,
         tipoDocumento: "NFE",
         serie: configuracao.serieNfe,
+        pularNumerosJaUtilizados: true,
       });
 
       return tx.notaFiscal.create({
