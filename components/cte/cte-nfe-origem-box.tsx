@@ -13,16 +13,61 @@ import {
 
 import {
   buscarNfePorChaveParaCte,
-  processarXmlNfeParaCte,
 } from "@/actions/cte/iniciar-cte-com-nfe";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type {
-  DadosNfeParaCte,
+import {
+  extrairDadosNfeParaCte,
+  type DadosNfeParaCte,
 } from "@/lib/cte/nfe-origem";
 
 function numeros(valor: string) {
   return valor.replace(/\D/g, "");
+}
+
+function mensagemErroXml(
+  error: unknown
+) {
+  const codigo =
+    error instanceof Error
+      ? error.message
+      : "";
+
+  if (
+    codigo === "XML_NFE_VAZIO" ||
+    codigo === "XML_NFE_INVALIDO"
+  ) {
+    return "O arquivo informado não contém uma NF-e válida.";
+  }
+
+  if (
+    codigo ===
+    "XML_NAO_E_NFE_MODELO_55"
+  ) {
+    return "O XML informado não é de uma NF-e modelo 55.";
+  }
+
+  if (
+    codigo ===
+    "XML_NFE_SEM_PROTOCOLO_AUTORIZACAO"
+  ) {
+    return "Use o XML autorizado da NF-e, contendo o protocolo de autorização.";
+  }
+
+  if (
+    codigo ===
+    "XML_NFE_NAO_AUTORIZADO"
+  ) {
+    return "A NF-e informada não está autorizada.";
+  }
+
+  if (
+    codigo === "CHAVE_NFE_INVALIDA"
+  ) {
+    return "A chave de acesso contida no XML é inválida.";
+  }
+
+  return "Não foi possível ler o XML da NF-e.";
 }
 
 type Props = {
@@ -86,28 +131,15 @@ export function CteNfeOrigemBox({
     try {
       const xml =
         await arquivo.text();
-      const resultado =
-        await processarXmlNfeParaCte({
-          empresaId,
-          xml,
-        });
+      const dados =
+        extrairDadosNfeParaCte(xml);
 
-      if (!resultado.success) {
-        setMensagem({
-          tipo: "erro",
-          texto: resultado.message,
-        });
-        return;
-      }
-
-      onCarregar(resultado.dados);
-      setChave(
-        resultado.dados.chaveAcesso
-      );
+      onCarregar(dados);
+      setChave(dados.chaveAcesso);
       setMensagem({
         tipo: "sucesso",
         texto:
-          `NF-e ${resultado.dados.numeroNfe ?? ""} carregada pelo XML. Confira os dados antes de salvar o CT-e.`,
+          `NF-e ${dados.numeroNfe ?? ""} carregada pelo XML. Confira os dados antes de salvar o CT-e.`,
       });
     } catch (error) {
       console.error(
@@ -116,8 +148,7 @@ export function CteNfeOrigemBox({
       );
       setMensagem({
         tipo: "erro",
-        texto:
-          "Não foi possível ler o XML da NF-e.",
+        texto: mensagemErroXml(error),
       });
     } finally {
       setProcessando(false);
@@ -253,6 +284,10 @@ export function CteNfeOrigemBox({
           Buscar NF-e
         </Button>
       </div>
+
+      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+        A busca pela chave usa o certificado A1 da empresa e o Ambiente Nacional da NF-e. O XML completo só será retornado quando a empresa tiver acesso ao documento.
+      </p>
 
       {mensagem && (
         <div
