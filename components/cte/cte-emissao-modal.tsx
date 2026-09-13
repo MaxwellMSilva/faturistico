@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { salvarCte } from "@/actions/cte/salvar-cte";
+import { CteNfeOrigemBox } from "@/components/cte/cte-nfe-origem-box";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import type {
   TomadorServicoCteForm,
   UnidadeMedidaCteForm,
 } from "@/lib/cte/form-types";
+import type { DadosNfeParaCte } from "@/lib/cte/nfe-origem";
 import { cn } from "@/lib/utils";
 
 type Aba =
@@ -445,6 +447,125 @@ export function CteEmissaoModal({
           : item
       )
     );
+  }
+
+  function aplicarDadosNfe(
+    dados: DadosNfeParaCte
+  ) {
+    const localizarCliente = (
+      documento: string
+    ) => {
+      const documentoLimpo =
+        numeros(documento);
+
+      return clientes.find(
+        (cliente) =>
+          numeros(cliente.cpfCnpj) ===
+          documentoLimpo
+      );
+    };
+
+    const remetente =
+      localizarCliente(
+        dados.emitenteDocumento
+      );
+    const destinatario =
+      localizarCliente(
+        dados.destinatarioDocumento
+      );
+
+    setRemetenteId(
+      remetente?.id ?? ""
+    );
+    setDestinatarioId(
+      destinatario?.id ?? ""
+    );
+
+    if (
+      dados.emitenteCodigoMunicipio
+    ) {
+      setCodigoMunicipioInicio(
+        dados.emitenteCodigoMunicipio
+      );
+    }
+    if (dados.emitenteMunicipio) {
+      setMunicipioInicio(
+        dados.emitenteMunicipio
+      );
+    }
+    if (dados.emitenteUf) {
+      setUfInicio(dados.emitenteUf);
+    }
+
+    if (
+      dados.destinatarioCodigoMunicipio
+    ) {
+      setCodigoMunicipioFim(
+        dados.destinatarioCodigoMunicipio
+      );
+    }
+    if (dados.destinatarioMunicipio) {
+      setMunicipioFim(
+        dados.destinatarioMunicipio
+      );
+    }
+    if (dados.destinatarioUf) {
+      setUfFim(dados.destinatarioUf);
+    }
+
+    if (dados.valorNota > 0) {
+      setValorCarga(
+        String(dados.valorNota)
+      );
+    }
+
+    if (dados.produtoPredominante) {
+      setProdutoPredominante(
+        dados.produtoPredominante
+      );
+    }
+
+    if (
+      dados.pesoBruto !== null &&
+      dados.pesoBruto > 0
+    ) {
+      setCargas([
+        {
+          id: novoId(),
+          unidade: "QUILOGRAMA",
+          tipoMedida: "PESO BRUTO",
+          quantidade: String(
+            dados.pesoBruto
+          ),
+        },
+      ]);
+    } else if (
+      dados.quantidadeVolumes !== null &&
+      dados.quantidadeVolumes > 0
+    ) {
+      setCargas([
+        {
+          id: novoId(),
+          unidade: "UNIDADE",
+          tipoMedida: "VOLUMES",
+          quantidade: String(
+            dados.quantidadeVolumes
+          ),
+        },
+      ]);
+    }
+
+    setChavesNfe((atual) =>
+      Array.from(
+        new Set([
+          dados.chaveAcesso,
+          ...atual.filter(Boolean),
+        ])
+      )
+    );
+
+    setErro("");
+    setAba("identificacao");
   }
 
   async function handleSubmit(
@@ -917,6 +1038,11 @@ export function CteEmissaoModal({
 
             {aba === "identificacao" && (
               <div className="space-y-5">
+                <CteNfeOrigemBox
+                  empresaId={empresaId}
+                  onCarregar={aplicarDadosNfe}
+                />
+
                 <Bloco titulo="Identificação da prestação">
                   <div className="grid gap-4 lg:grid-cols-3">
                     <Campo label="Modal *">
