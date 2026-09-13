@@ -184,7 +184,7 @@ export function CteNfeOrigemBox({
             Iniciar CT-e pela NF-e
           </h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Importe o XML autorizado da NF-e ou consulte pelo número da chave para preencher os dados disponíveis do transporte.
+            Importe o XML autorizado da NF-e ou consulte pela chave para preencher chave, remetente/destinatário já cadastrados, rota, valor da carga, produto predominante e peso/volumes disponíveis.
           </p>
         </div>
 
