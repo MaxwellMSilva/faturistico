@@ -10,6 +10,8 @@ import {
 } from "@prisma/client";
 
 import { getCtes } from "@/actions/cte/get-ctes";
+import { getResumoConfiguracaoCte } from "@/actions/cte/get-resumo-configuracao-cte";
+import { CteConfigCard } from "@/components/cte/cte-config-card";
 import {
   buttonVariants,
 } from "@/components/ui/button";
@@ -110,13 +112,30 @@ export default async function CtePage({
       }
     );
 
-  const podeCriar =
+  const possui = (
+    privilegio: PrivilegioEmpresa
+  ) =>
     contextoPossuiPrivilegioEmpresa(
       contexto,
-      PrivilegioEmpresa.CTE_CRIAR
+      privilegio
     );
 
-  const ctes = await getCtes(empresaId);
+  const podeCriar = possui(
+    PrivilegioEmpresa.CTE_CRIAR
+  );
+
+  const podeEditarConfiguracao =
+    possui(
+      PrivilegioEmpresa.CONFIGURACOES_EDITAR
+    );
+
+  const [ctes, resumo] =
+    await Promise.all([
+      getCtes(empresaId),
+      getResumoConfiguracaoCte(
+        empresaId
+      ),
+    ]);
 
   const termo =
     busca.trim().toLowerCase();
@@ -173,6 +192,25 @@ export default async function CtePage({
           </Link>
         )}
       </div>
+
+      <CteConfigCard
+        empresaId={empresaId}
+        configuracao={
+          resumo.configuracao
+        }
+        possuiCertificado={
+          resumo.possuiCertificado
+        }
+        certificadoExpirado={
+          resumo.certificadoExpirado
+        }
+        validadeCertificado={
+          resumo.validadeCertificado
+        }
+        podeEditarConfiguracao={
+          podeEditarConfiguracao
+        }
+      />
 
       <form className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="relative max-w-xl">
