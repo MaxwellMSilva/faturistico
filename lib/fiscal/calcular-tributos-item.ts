@@ -11,6 +11,7 @@ type CalcularTributosItemData = {
   quantidade: Prisma.Decimal;
   valorUnitario: Prisma.Decimal;
   valorDesconto: Prisma.Decimal;
+  dataEmissao?: Date | null;
 
   // ICMS
 
@@ -33,20 +34,13 @@ type CalcularTributosItemData = {
   // IPI
 
   cstIpi?: string | null;
-
-  codigoEnquadramentoIpi?:
-    | string
-    | null;
-
+  codigoEnquadramentoIpi?: string | null;
   aliquotaIpi?: Prisma.Decimal | null;
 
   // IBS e CBS
 
   cstIbsCbs?: string | null;
-
-  classificacaoTributariaIbsCbs?:
-    | string
-    | null;
+  classificacaoTributariaIbsCbs?: string | null;
 
   aliquotaIbsUf?: Prisma.Decimal | null;
   aliquotaIbsMun?: Prisma.Decimal | null;
@@ -57,18 +51,16 @@ function decimalOuZero(
   valor?: Prisma.Decimal | null
 ) {
   return (
-    valor ??
-    new Prisma.Decimal(0)
+    valor ?? new Prisma.Decimal(0)
   );
 }
 
 function codigoOpcional(
   valor?: string | null
 ) {
-  const codigo =
-    valor
-      ?.replace(/\D/g, "")
-      .trim();
+  const codigo = valor
+    ?.replace(/\D/g, "")
+    .trim();
 
   return codigo || null;
 }
@@ -87,105 +79,78 @@ function validarPercentual(
   }
 }
 
+function maiorQueZero(
+  valor: Prisma.Decimal
+) {
+  return valor.greaterThan(0);
+}
+
 export function calcularTributosItem({
   regimeTributario,
-
   quantidade,
   valorUnitario,
   valorDesconto,
-
+  dataEmissao,
   cstIcms,
   csosnIcms,
-
   reducaoBcIcms,
   aliquotaIcms,
-
   cstPis,
   aliquotaPis,
-
   cstCofins,
   aliquotaCofins,
-
   cstIpi,
   codigoEnquadramentoIpi,
   aliquotaIpi,
-
   cstIbsCbs,
-
   classificacaoTributariaIbsCbs,
-
   aliquotaIbsUf,
   aliquotaIbsMun,
   aliquotaCbs,
 }: CalcularTributosItemData) {
-  const zero =
-    new Prisma.Decimal(0);
+  const zero = new Prisma.Decimal(0);
 
-  if (
-    quantidade.lessThanOrEqualTo(0)
-  ) {
+  if (quantidade.lessThanOrEqualTo(0)) {
     throw new Error(
       "A quantidade deve ser maior que zero."
     );
   }
 
-  if (
-    valorUnitario.lessThan(0)
-  ) {
+  if (valorUnitario.lessThan(0)) {
     throw new Error(
       "O valor unitário não pode ser negativo."
     );
   }
 
-  if (
-    valorDesconto.lessThan(0)
-  ) {
+  if (valorDesconto.lessThan(0)) {
     throw new Error(
       "O desconto não pode ser negativo."
     );
   }
 
   const usaCsosn =
-    regimeTributario ===
-      "SIMPLES_NACIONAL" ||
+    regimeTributario === "SIMPLES_NACIONAL" ||
     regimeTributario ===
       "SIMPLES_NACIONAL_EXCESSO_SUBLIMITE";
 
-  /*
-   * Normalização dos códigos
-   */
-
   const cstIcmsNormalizado =
     codigoOpcional(cstIcms);
-
   const csosnNormalizado =
     codigoOpcional(csosnIcms);
-
   const cstPisNormalizado =
     codigoOpcional(cstPis);
-
   const cstCofinsNormalizado =
     codigoOpcional(cstCofins);
-
   const cstIpiNormalizado =
     codigoOpcional(cstIpi);
-
   const enquadramentoIpiNormalizado =
-    codigoOpcional(
-      codigoEnquadramentoIpi
-    );
-
+    codigoOpcional(codigoEnquadramentoIpi);
   const cstIbsCbsNormalizado =
     codigoOpcional(cstIbsCbs);
-
   const classificacaoIbsCbsNormalizada =
     codigoOpcional(
       classificacaoTributariaIbsCbs
     );
-
-  /*
-   * Validação de ICMS
-   */
 
   if (
     usaCsosn &&
@@ -209,10 +174,6 @@ export function calcularTributosItem({
     );
   }
 
-  /*
-   * Validação de PIS e COFINS
-   */
-
   if (
     !/^\d{2}$/.test(
       cstPisNormalizado ?? ""
@@ -233,180 +194,134 @@ export function calcularTributosItem({
     );
   }
 
-  /*
-   * Percentuais
-   */
-
   const reducaoIcms =
-    decimalOuZero(
-      reducaoBcIcms
-    );
-
+    decimalOuZero(reducaoBcIcms);
   const percentualIcms =
-    decimalOuZero(
-      aliquotaIcms
-    );
-
+    decimalOuZero(aliquotaIcms);
   const percentualPis =
-    decimalOuZero(
-      aliquotaPis
-    );
-
+    decimalOuZero(aliquotaPis);
   const percentualCofins =
-    decimalOuZero(
-      aliquotaCofins
-    );
-
+    decimalOuZero(aliquotaCofins);
   const percentualIpi =
-    decimalOuZero(
-      aliquotaIpi
-    );
+    decimalOuZero(aliquotaIpi);
 
-  const percentualIbsUf =
-    decimalOuZero(
-      aliquotaIbsUf
-    );
+  let percentualIbsUf =
+    decimalOuZero(aliquotaIbsUf);
+  let percentualIbsMun =
+    decimalOuZero(aliquotaIbsMun);
+  let percentualCbs =
+    decimalOuZero(aliquotaCbs);
 
-  const percentualIbsMun =
-    decimalOuZero(
-      aliquotaIbsMun
-    );
+  const anoEmissao =
+    dataEmissao?.getFullYear();
 
-  const percentualCbs =
-    decimalOuZero(
-      aliquotaCbs
-    );
+  /*
+   * Para a tributação integral padrão (CST 000 / cClassTrib 000001),
+   * a NT 2025.002 define em 2026 IBS-UF 0,1%, IBS-Mun 0% e CBS 0,9%.
+   * O sistema não depende da alíquota digitada no cadastro para esse caso.
+   */
+  if (
+    anoEmissao === 2026 &&
+    cstIbsCbsNormalizado === "000" &&
+    classificacaoIbsCbsNormalizada === "000001"
+  ) {
+    percentualIbsUf =
+      new Prisma.Decimal("0.1");
+    percentualIbsMun = zero;
+    percentualCbs =
+      new Prisma.Decimal("0.9");
+  }
 
   validarPercentual(
     "A redução da base de ICMS",
     reducaoIcms
   );
-
   validarPercentual(
     "A alíquota de ICMS",
     percentualIcms
   );
-
   validarPercentual(
     "A alíquota de PIS",
     percentualPis
   );
-
   validarPercentual(
     "A alíquota de COFINS",
     percentualCofins
   );
-
   validarPercentual(
     "A alíquota de IPI",
     percentualIpi
   );
-
   validarPercentual(
     "A alíquota do IBS estadual",
     percentualIbsUf
   );
-
   validarPercentual(
     "A alíquota do IBS municipal",
     percentualIbsMun
   );
-
   validarPercentual(
     "A alíquota da CBS",
     percentualCbs
   );
 
-  /*
-   * Valores comerciais
-   */
-
-  const valorBruto =
-    quantidade
-      .times(valorUnitario)
-      .toDecimalPlaces(2);
+  const valorBruto = quantidade
+    .times(valorUnitario)
+    .toDecimalPlaces(2);
 
   if (
-    valorDesconto.greaterThan(
-      valorBruto
-    )
+    valorDesconto.greaterThan(valorBruto)
   ) {
     throw new Error(
       "O desconto não pode ser maior que o valor bruto do item."
     );
   }
 
-  const valorLiquido =
-    valorBruto
-      .minus(valorDesconto)
-      .toDecimalPlaces(2);
-
-  /*
-   * ICMS
-   */
+  const valorLiquido = valorBruto
+    .minus(valorDesconto)
+    .toDecimalPlaces(2);
 
   const possuiIcms =
-    percentualIcms.greaterThan(0);
+    maiorQueZero(percentualIcms);
 
-  const baseCalculoIcms =
-    possuiIcms
-      ? valorLiquido
-          .times(
-            new Prisma.Decimal(100)
-              .minus(reducaoIcms)
+  const baseCalculoIcms = possuiIcms
+    ? valorLiquido
+        .times(
+          new Prisma.Decimal(100).minus(
+            reducaoIcms
           )
-          .dividedBy(100)
-          .toDecimalPlaces(2)
-      : zero;
+        )
+        .dividedBy(100)
+        .toDecimalPlaces(2)
+    : zero;
 
-  const valorIcms =
-    baseCalculoIcms
-      .times(percentualIcms)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
-
-  /*
-   * PIS
-   */
+  const valorIcms = baseCalculoIcms
+    .times(percentualIcms)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
   const possuiPis =
-    percentualPis.greaterThan(0);
-
-  const baseCalculoPis =
-    possuiPis
-      ? valorLiquido
-      : zero;
-
-  const valorPis =
-    baseCalculoPis
-      .times(percentualPis)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
-
-  /*
-   * COFINS
-   */
+    maiorQueZero(percentualPis);
+  const baseCalculoPis = possuiPis
+    ? valorLiquido
+    : zero;
+  const valorPis = baseCalculoPis
+    .times(percentualPis)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
   const possuiCofins =
-    percentualCofins.greaterThan(0);
-
-  const baseCalculoCofins =
-    possuiCofins
-      ? valorLiquido
-      : zero;
-
-  const valorCofins =
-    baseCalculoCofins
-      .times(percentualCofins)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
-
-  /*
-   * IPI
-   */
+    maiorQueZero(percentualCofins);
+  const baseCalculoCofins = possuiCofins
+    ? valorLiquido
+    : zero;
+  const valorCofins = baseCalculoCofins
+    .times(percentualCofins)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
   const possuiIpi =
-    percentualIpi.greaterThan(0);
+    maiorQueZero(percentualIpi);
 
   if (
     possuiIpi &&
@@ -422,8 +337,7 @@ export function calcularTributosItem({
   if (
     possuiIpi &&
     !/^\d{3}$/.test(
-      enquadramentoIpiNormalizado ??
-        ""
+      enquadramentoIpiNormalizado ?? ""
     )
   ) {
     throw new Error(
@@ -431,34 +345,23 @@ export function calcularTributosItem({
     );
   }
 
-  const baseCalculoIpi =
-    possuiIpi
-      ? valorLiquido
-      : zero;
-
-  const valorIpi =
-    baseCalculoIpi
-      .times(percentualIpi)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
-
-  /*
-   * IBS e CBS
-   *
-   * Nesta etapa, a base simplificada
-   * será o valor líquido do item.
-   */
+  const baseCalculoIpi = possuiIpi
+    ? valorLiquido
+    : zero;
+  const valorIpi = baseCalculoIpi
+    .times(percentualIpi)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
   const possuiAliquotaIbsCbs =
-    percentualIbsUf.greaterThan(0) ||
-    percentualIbsMun.greaterThan(0) ||
-    percentualCbs.greaterThan(0);
+    maiorQueZero(percentualIbsUf) ||
+    maiorQueZero(percentualIbsMun) ||
+    maiorQueZero(percentualCbs);
 
-  const possuiCodigoIbsCbs =
-    Boolean(
-      cstIbsCbsNormalizado ||
+  const possuiCodigoIbsCbs = Boolean(
+    cstIbsCbsNormalizado ||
       classificacaoIbsCbsNormalizada
-    );
+  );
 
   const possuiIbsCbs =
     possuiAliquotaIbsCbs ||
@@ -477,8 +380,7 @@ export function calcularTributosItem({
 
     if (
       !/^\d{6}$/.test(
-        classificacaoIbsCbsNormalizada ??
-          ""
+        classificacaoIbsCbsNormalizada ?? ""
       )
     ) {
       throw new Error(
@@ -487,10 +389,9 @@ export function calcularTributosItem({
     }
 
     if (
-      !classificacaoIbsCbsNormalizada
-        ?.startsWith(
-          cstIbsCbsNormalizado!
-        )
+      !classificacaoIbsCbsNormalizada?.startsWith(
+        cstIbsCbsNormalizado!
+      )
     ) {
       throw new Error(
         "Os três primeiros números do cClassTrib devem coincidir com o CST do IBS/CBS."
@@ -498,145 +399,93 @@ export function calcularTributosItem({
     }
   }
 
-  const baseCalculoIbsCbs =
-    possuiIbsCbs
-      ? valorLiquido
-      : zero;
+  /*
+   * Base RTC conforme a composição da NT 2025.002 para os componentes
+   * que o Faturístico já modela no item: vProd - vDesc - vPIS - vCOFINS
+   * - vICMS. Frete, seguro, II, FCP, DIFAL, monofásico, ISSQN e IS serão
+   * somados/subtraídos nesta mesma função quando seus grupos forem
+   * incorporados ao item da NF-e.
+   */
+  let baseCalculoIbsCbs = possuiIbsCbs
+    ? valorLiquido
+        .minus(valorPis)
+        .minus(valorCofins)
+        .minus(valorIcms)
+        .toDecimalPlaces(2)
+    : zero;
 
-  const valorIbsUf =
-    baseCalculoIbsCbs
-      .times(percentualIbsUf)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
+  if (baseCalculoIbsCbs.lessThan(0)) {
+    baseCalculoIbsCbs = zero;
+  }
 
-  const valorIbsMun =
-    baseCalculoIbsCbs
-      .times(percentualIbsMun)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
+  const valorIbsUf = baseCalculoIbsCbs
+    .times(percentualIbsUf)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
-  const valorIbs =
-    valorIbsUf
-      .plus(valorIbsMun)
-      .toDecimalPlaces(2);
+  const valorIbsMun = baseCalculoIbsCbs
+    .times(percentualIbsMun)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
-  const valorCbs =
-    baseCalculoIbsCbs
-      .times(percentualCbs)
-      .dividedBy(100)
-      .toDecimalPlaces(2);
+  const valorIbs = valorIbsUf
+    .plus(valorIbsMun)
+    .toDecimalPlaces(2);
+
+  const valorCbs = baseCalculoIbsCbs
+    .times(percentualCbs)
+    .dividedBy(100)
+    .toDecimalPlaces(2);
 
   return {
-    /*
-     * Valores comerciais
-     */
-
     valorBruto,
     valorLiquido,
 
-    /*
-     * ICMS
-     */
-
-    cstIcms:
-      usaCsosn
-        ? null
-        : cstIcmsNormalizado,
-
-    csosnIcms:
-      usaCsosn
-        ? csosnNormalizado
-        : null,
-
-    reducaoBcIcms:
-      reducaoIcms,
-
+    cstIcms: usaCsosn
+      ? null
+      : cstIcmsNormalizado,
+    csosnIcms: usaCsosn
+      ? csosnNormalizado
+      : null,
+    reducaoBcIcms: reducaoIcms,
     baseCalculoIcms,
-
-    aliquotaIcms:
-      percentualIcms,
-
+    aliquotaIcms: percentualIcms,
     valorIcms,
 
-    /*
-     * PIS
-     */
-
-    cstPis:
-      cstPisNormalizado,
-
+    cstPis: cstPisNormalizado,
     baseCalculoPis,
-
-    aliquotaPis:
-      percentualPis,
-
+    aliquotaPis: percentualPis,
     valorPis,
 
-    /*
-     * COFINS
-     */
-
-    cstCofins:
-      cstCofinsNormalizado,
-
+    cstCofins: cstCofinsNormalizado,
     baseCalculoCofins,
-
-    aliquotaCofins:
-      percentualCofins,
-
+    aliquotaCofins: percentualCofins,
     valorCofins,
 
-    /*
-     * IPI
-     */
-
-    cstIpi:
-      cstIpiNormalizado,
-
+    cstIpi: cstIpiNormalizado,
     codigoEnquadramentoIpi:
       cstIpiNormalizado
         ? enquadramentoIpiNormalizado ??
           "999"
         : null,
-
     baseCalculoIpi,
-
-    aliquotaIpi:
-      percentualIpi,
-
+    aliquotaIpi: percentualIpi,
     valorIpi,
 
-    /*
-     * IBS e CBS
-     */
-
-    cstIbsCbs:
-      possuiIbsCbs
-        ? cstIbsCbsNormalizado
-        : null,
-
+    cstIbsCbs: possuiIbsCbs
+      ? cstIbsCbsNormalizado
+      : null,
     classificacaoTributariaIbsCbs:
       possuiIbsCbs
         ? classificacaoIbsCbsNormalizada
         : null,
-
     baseCalculoIbsCbs,
-
-    aliquotaIbsUf:
-      percentualIbsUf,
-
+    aliquotaIbsUf: percentualIbsUf,
     valorIbsUf,
-
-    aliquotaIbsMun:
-      percentualIbsMun,
-
+    aliquotaIbsMun: percentualIbsMun,
     valorIbsMun,
-
     valorIbs,
-
-    aliquotaCbs:
-      percentualCbs,
-
+    aliquotaCbs: percentualCbs,
     valorCbs,
   };
 }
