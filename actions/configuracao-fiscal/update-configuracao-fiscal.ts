@@ -32,6 +32,9 @@ type UpdateConfiguracaoFiscalData = {
   serieNfe: number;
   serieNfce: number;
 
+  atualizarUltimoNumeroNfe?: boolean;
+  ultimoNumeroNfe?: number;
+
   idCsc?: string;
   csc?: string;
 
@@ -89,6 +92,24 @@ export async function updateConfiguracaoFiscal(
     };
   }
 
+  if (
+    data.atualizarUltimoNumeroNfe &&
+    (
+      !Number.isInteger(
+        data.ultimoNumeroNfe
+      ) ||
+      data.ultimoNumeroNfe === undefined ||
+      data.ultimoNumeroNfe < 0 ||
+      data.ultimoNumeroNfe > 999_999_999
+    )
+  ) {
+    return {
+      success: false,
+      message:
+        "O último número da NF-e deve estar entre 0 e 999999999.",
+    };
+  }
+
   const configuracaoAtual =
     await prisma.configuracaoFiscal.findUnique({
       where: {
@@ -103,84 +124,140 @@ export async function updateConfiguracaoFiscal(
   const novoToken =
     data.tokenNuvemFiscal?.trim();
 
+  const cscCriptografado =
+    novoCsc
+      ? criptografar(novoCsc)
+      : configuracaoAtual
+          ?.cscCriptografado ?? null;
+
+  const tokenNuvemFiscalCriptografado =
+    novoToken
+      ? criptografar(novoToken)
+      : configuracaoAtual
+          ?.tokenNuvemFiscalCriptografado ??
+        null;
+
   try {
-    await prisma.configuracaoFiscal.upsert({
-      where: {
-        empresaId:
-          data.empresaId,
-      },
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.configuracaoFiscal.upsert({
+          where: {
+            empresaId:
+              data.empresaId,
+          },
 
-      create: {
-        empresaId:
-          data.empresaId,
+          create: {
+            empresaId:
+              data.empresaId,
 
-        ambiente:
-          data.ambiente,
+            ambiente:
+              data.ambiente,
 
-        regimeTributario:
-          data.regimeTributario,
+            regimeTributario:
+              data.regimeTributario,
 
-        serieNfe:
-          data.serieNfe,
+            serieNfe:
+              data.serieNfe,
 
-        serieNfce:
-          data.serieNfce,
+            serieNfce:
+              data.serieNfce,
 
-        idCsc:
-          textoOpcional(
-            data.idCsc
-          ),
+            idCsc:
+              textoOpcional(
+                data.idCsc
+              ),
 
-        cscCriptografado:
-          novoCsc
-            ? criptografar(
-                novoCsc
-              )
-            : null,
+            cscCriptografado:
+              novoCsc
+                ? cscCriptografado
+                : null,
 
-        tokenNuvemFiscalCriptografado:
-          novoToken
-            ? criptografar(
-                novoToken
-              )
-            : null,
-      },
+            tokenNuvemFiscalCriptografado:
+              novoToken
+                ? tokenNuvemFiscalCriptografado
+                : null,
+          },
 
-      update: {
-        ambiente:
-          data.ambiente,
+          update: {
+            ambiente:
+              data.ambiente,
 
-        regimeTributario:
-          data.regimeTributario,
+            regimeTributario:
+              data.regimeTributario,
 
-        serieNfe:
-          data.serieNfe,
+            serieNfe:
+              data.serieNfe,
 
-        serieNfce:
-          data.serieNfce,
+            serieNfce:
+              data.serieNfce,
 
-        idCsc:
-          textoOpcional(
-            data.idCsc
-          ),
+            idCsc:
+              textoOpcional(
+                data.idCsc
+              ),
 
-        cscCriptografado:
-          novoCsc
-            ? criptografar(
-                novoCsc
-              )
-            : configuracaoAtual
-                ?.cscCriptografado,
+            cscCriptografado,
 
-        tokenNuvemFiscalCriptografado:
-          novoToken
-            ? criptografar(
-                novoToken
-              )
-            : configuracaoAtual
-                ?.tokenNuvemFiscalCriptografado,
-      },
-    });
+            tokenNuvemFiscalCriptografado,
+          },
+        });
+
+        if (
+          data.atualizarUltimoNumeroNfe
+        ) {
+          const ultimoNumeroNfe =
+            data.ultimoNumeroNfe!;
+
+          const maiorNumeroExistente =
+            await tx.notaFiscal.aggregate({
+              where: {
+                empresaId:
+                  data.empresaId,
+                tipoDocumento: "NFE",
+                serie: data.serieNfe,
+              },
+              _max: {
+                numero: true,
+              },
+            });
+
+          const maiorNumero =
+            maiorNumeroExistente._max
+              .numero ?? 0;
+
+          if (
+            ultimoNumeroNfe < maiorNumero
+          ) {
+            throw new Error(
+              "ULTIMO_NUMERO_NFE_MENOR_QUE_EXISTENTE"
+            );
+          }
+
+          await tx.sequenciaFiscal.upsert({
+            where: {
+              empresaId_tipoDocumento_serie: {
+                empresaId:
+                  data.empresaId,
+                tipoDocumento: "NFE",
+                serie: data.serieNfe,
+              },
+            },
+            create: {
+              empresaId:
+                data.empresaId,
+              tipoDocumento: "NFE",
+              serie: data.serieNfe,
+              ultimoNumero:
+                ultimoNumeroNfe,
+            },
+            update: {
+              ultimoNumero:
+                ultimoNumeroNfe,
+            },
+          });
+        }
+      }
+    );
 
     revalidatePath(
       `/empresa/${data.empresaId}/configuracoes`
@@ -190,6 +267,18 @@ export async function updateConfiguracaoFiscal(
       success: true,
     };
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message ===
+        "ULTIMO_NUMERO_NFE_MENOR_QUE_EXISTENTE"
+    ) {
+      return {
+        success: false,
+        message:
+          "O último número informado é menor que uma NF-e já cadastrada nesta série.",
+      };
+    }
+
     console.error(
       "Erro ao salvar configuração fiscal:",
       error
