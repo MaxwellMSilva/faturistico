@@ -73,7 +73,7 @@ export async function getClassificacoesRtc(
           reducaoCbs:
             item.reducaoCbs,
           tributacaoRegular:
-            item.tributacaoRegular,
+            item.indGTribRegular,
         })),
     atualizadoEm:
       tabela.atualizadoEm.toISOString(),
