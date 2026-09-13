@@ -1,0 +1,16 @@
+model TabelaRtcCache {
+  chave String @id
+
+  fonte String
+
+  versaoFonte String?
+
+  conteudoJson String
+
+  atualizadoEm DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([atualizadoEm])
+}

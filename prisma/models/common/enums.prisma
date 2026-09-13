@@ -59,6 +59,11 @@ enum IndicadorIeDestinatario {
   NAO_CONTRIBUINTE
 }
 
+enum IndicadorPagamento {
+  A_VISTA
+  A_PRAZO
+}
+
 enum StatusAssinatura {
   PENDENTE
   ATIVA

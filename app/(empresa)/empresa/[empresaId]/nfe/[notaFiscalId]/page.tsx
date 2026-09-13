@@ -6,8 +6,10 @@ import {
 
 import { getNfeDetalhes } from "@/actions/nfe/get-nfe-detalhes";
 import { getDadosTransporteNfe } from "@/actions/nfe/get-dados-transporte-nfe";
+import { getPagamentosNfe } from "@/actions/nfe/get-pagamentos-nfe";
 
 import { NfeRascunhoForm } from "@/components/nfe/nfe-rascunho-form";
+import { NfePagamentosForm } from "@/components/nfe/nfe-pagamentos-form";
 
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
@@ -37,6 +39,7 @@ export default async function NfeDetalhesPage({
   const [
     dados,
     dadosTransporte,
+    dadosPagamentos,
   ] = await Promise.all([
     getNfeDetalhes(
       empresaId,
@@ -47,38 +50,60 @@ export default async function NfeDetalhesPage({
       empresaId,
       notaFiscalId
     ),
+
+    getPagamentosNfe(
+      empresaId,
+      notaFiscalId
+    ),
   ]);
 
   if (
     !dados ||
-    !dadosTransporte
+    !dadosTransporte ||
+    !dadosPagamentos
   ) {
     notFound();
   }
 
   return (
-    <NfeRascunhoForm
-      empresaId={empresaId}
-      nota={dados.nota}
-      produtos={dados.produtos}
-      dadosTransporte={{
-        notaFiscalId,
+    <div className="space-y-6">
+      <NfeRascunhoForm
+        empresaId={empresaId}
+        nota={dados.nota}
+        produtos={dados.produtos}
+        dadosTransporte={{
+          notaFiscalId,
 
-        podeEditar:
-          dadosTransporte.podeEditar,
+          podeEditar:
+            dadosTransporte.podeEditar,
 
-        transporte:
-          dadosTransporte.transporte,
+          transporte:
+            dadosTransporte.transporte,
 
-        transportadores:
-          dadosTransporte.transportadores,
+          transportadores:
+            dadosTransporte.transportadores,
 
-        veiculos:
-          dadosTransporte.veiculos,
+          veiculos:
+            dadosTransporte.veiculos,
 
-        motoristas:
-          dadosTransporte.motoristas,
-      }}
-    />
+          motoristas:
+            dadosTransporte.motoristas,
+        }}
+      />
+
+      <NfePagamentosForm
+        empresaId={empresaId}
+        notaFiscalId={notaFiscalId}
+        valorTotal={
+          dadosPagamentos.valorTotal
+        }
+        podeEditar={
+          dadosPagamentos.podeEditar
+        }
+        pagamentos={
+          dadosPagamentos.pagamentos
+        }
+      />
+    </div>
   );
 }

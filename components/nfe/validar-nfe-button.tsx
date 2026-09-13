@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,10 +9,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import { validarNfe } from "@/actions/nfe/validar-nfe";
-
+import { validarNfeCompleta } from "@/actions/nfe/validar-nfe-completa";
 import { Button } from "@/components/ui/button";
-
 import {
   Dialog,
   DialogContent,
@@ -26,7 +23,6 @@ import {
 type Props = {
   empresaId: string;
   notaFiscalId: string;
-
   disabled?: boolean;
 };
 
@@ -41,30 +37,22 @@ export function ValidarNfeButton({
   notaFiscalId,
   disabled = false,
 }: Props) {
-  const [
-    carregando,
-    setCarregando,
-  ] = useState(false);
-
+  const [carregando, setCarregando] =
+    useState(false);
   const [aberto, setAberto] =
     useState(false);
-
-  const [
-    resultado,
-    setResultado,
-  ] =
+  const [resultado, setResultado] =
     useState<ResultadoValidacao | null>(
       null
     );
 
   async function handleValidar() {
     setResultado(null);
+    setCarregando(true);
 
     try {
-      setCarregando(true);
-
       const resposta =
-        await validarNfe(
+        await validarNfeCompleta(
           empresaId,
           notaFiscalId
         );
@@ -79,14 +67,11 @@ export function ValidarNfeButton({
 
       setResultado({
         success: false,
-
         erros: [
           "Não foi possível validar a NF-e. Tente novamente.",
         ],
-
         avisos: [],
       });
-
       setAberto(true);
     } finally {
       setCarregando(false);
@@ -96,43 +81,25 @@ export function ValidarNfeButton({
   const validada =
     resultado?.success === true;
 
-  const possuiErros =
-    Boolean(
-      resultado?.erros.length
-    );
-
-  const possuiAvisos =
-    Boolean(
-      resultado?.avisos.length
-    );
-
   return (
     <>
       <Button
         type="button"
         onClick={handleValidar}
-        disabled={
-          disabled ||
-          carregando
-        }
+        disabled={disabled || carregando}
         className="h-11 min-w-44"
       >
         {carregando ? (
-          <>
-            <LoaderCircle
-              size={17}
-              className="animate-spin"
-            />
-
-            Validando...
-          </>
+          <LoaderCircle
+            size={17}
+            className="animate-spin"
+          />
         ) : (
-          <>
-            <ShieldCheck size={17} />
-
-            Validar NF-e
-          </>
+          <ShieldCheck size={17} />
         )}
+        {carregando
+          ? "Validando..."
+          : "Validar NF-e"}
       </Button>
 
       <Dialog
@@ -160,9 +127,7 @@ export function ValidarNfeButton({
               ].join(" ")}
             >
               {validada ? (
-                <CheckCircle2
-                  size={24}
-                />
+                <CheckCircle2 size={24} />
               ) : (
                 <CircleX size={24} />
               )}
@@ -176,164 +141,86 @@ export function ValidarNfeButton({
 
             <DialogDescription>
               {validada
-                ? "Os dados atuais do rascunho passaram pelas validações disponíveis no sistema."
-                : "Corrija os problemas indicados antes de prosseguir com a emissão da NF-e."}
+                ? "O rascunho passou pelas validações fiscais disponíveis, incluindo a Reforma Tributária."
+                : "Corrija os erros antes de prosseguir com a emissão da NF-e."}
             </DialogDescription>
           </DialogHeader>
 
-          <div
-            aria-live="polite"
-            className="space-y-5"
-          >
-            {validada &&
-              !possuiAvisos && (
-                <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                  <CheckCircle2
-                    size={19}
-                    className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400"
-                  />
-
-                  <div>
-                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                      Nenhum problema
-                      encontrado
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                      Emitente, destinatário,
-                      natureza de operação,
-                      itens, tributos e totais
-                      foram verificados.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-            {possuiErros && (
+          <div className="space-y-5">
+            {resultado?.erros.length ? (
               <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-                <div className="mb-4 flex items-start gap-3">
-                  <CircleX
-                    size={19}
-                    className="mt-0.5 shrink-0 text-destructive"
-                  />
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-destructive">
-                      Erros encontrados
-                    </h3>
-
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      Estes problemas impedem
-                      o avanço do documento.
-                    </p>
-                  </div>
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-destructive">
+                  <CircleX size={18} />
+                  Erros encontrados
                 </div>
 
-                <ol className="space-y-3">
-                  {resultado?.erros.map(
+                <ol className="space-y-2">
+                  {resultado.erros.map(
                     (erro, indice) => (
                       <li
                         key={`${indice}-${erro}`}
-                        className="flex items-start gap-3 rounded-lg border bg-background px-3 py-3 text-sm"
+                        className="rounded-lg border bg-background px-3 py-2 text-sm leading-6"
                       >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-xs font-semibold text-destructive">
-                          {indice + 1}
+                        <span className="mr-2 font-semibold text-destructive">
+                          {indice + 1}.
                         </span>
-
-                        <span className="leading-6">
-                          {erro}
-                        </span>
+                        {erro}
                       </li>
                     )
                   )}
                 </ol>
               </section>
-            )}
+            ) : null}
 
-            {possuiAvisos && (
+            {resultado?.avisos.length ? (
               <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-                <div className="mb-4 flex items-start gap-3">
-                  <AlertTriangle
-                    size={19}
-                    className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400"
-                  />
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                      Avisos
-                    </h3>
-
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      A validação foi concluída,
-                      mas estes pontos devem ser
-                      observados.
-                    </p>
-                  </div>
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  <AlertTriangle size={18} />
+                  Avisos
                 </div>
 
-                <ol className="space-y-3">
-                  {resultado?.avisos.map(
+                <ul className="space-y-2">
+                  {resultado.avisos.map(
                     (aviso, indice) => (
                       <li
                         key={`${indice}-${aviso}`}
-                        className="flex items-start gap-3 rounded-lg border bg-background px-3 py-3 text-sm"
+                        className="text-sm leading-6 text-muted-foreground"
                       >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                          {indice + 1}
-                        </span>
-
-                        <span className="leading-6">
-                          {aviso}
-                        </span>
+                        • {aviso}
                       </li>
                     )
                   )}
-                </ol>
+                </ul>
               </section>
-            )}
+            ) : null}
 
-            {validada && (
-              <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-                <p className="text-sm font-medium">
-                  Validação interna concluída
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Esta etapa verifica os dados
-                  disponíveis no sistema. A
-                  validação definitiva do XML e
-                  das regras fiscais ocorrerá
-                  posteriormente durante a
-                  assinatura e transmissão à
-                  SEFAZ.
+            {validada &&
+            !resultado?.avisos.length ? (
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                <CheckCircle2
+                  size={19}
+                  className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400"
+                />
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Emitente, destinatário,
+                  operação, itens, tributos,
+                  totais e classificação
+                  IBS/CBS foram verificados.
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              className="h-11"
               onClick={() =>
                 setAberto(false)
               }
             >
               Fechar
             </Button>
-
-            {!validada && (
-              <Button
-                type="button"
-                className="h-11"
-                onClick={() =>
-                  setAberto(false)
-                }
-              >
-                Revisar NF-e
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
