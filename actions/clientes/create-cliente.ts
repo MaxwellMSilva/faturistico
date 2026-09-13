@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { validarDocumentoCliente } from "@/lib/clientes/validar-documento";
 
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
 
@@ -84,14 +85,13 @@ export async function createCliente(
     };
   }
 
-  if (
-    cpfCnpj.length !== 11 &&
-    cpfCnpj.length !== 14
-  ) {
+  const erroDocumento = validarDocumentoCliente(data.tipoPessoa, data.cpfCnpj);
+
+  if (erroDocumento) {
     return {
       success: false,
       message:
-        "Informe um CPF ou CNPJ válido.",
+        erroDocumento,
     };
   }
 

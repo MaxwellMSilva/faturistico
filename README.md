@@ -2,7 +2,13 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Antes de iniciar, copie `.env.example` para `.env` e preencha `NEXTAUTH_SECRET`
+com o valor gerado pelo comando indicado no arquivo. `DATABASE_URL` aponta para
+o banco SQLite `dev.db` na raiz do projeto. Preserve esse arquivo para manter
+as contas existentes.
+
+Execute `npm install` e inicie o servidor. O Prisma Client é gerado automaticamente
+antes de `dev` e `build`.
 
 ```bash
 npm run dev
