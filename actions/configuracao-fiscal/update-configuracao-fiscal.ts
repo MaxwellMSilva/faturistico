@@ -21,6 +21,34 @@ type RegimeTributario =
   | "SIMPLES_NACIONAL_EXCESSO_SUBLIMITE"
   | "REGIME_NORMAL";
 
+type FinalidadeCte =
+  | "NORMAL"
+  | "COMPLEMENTO"
+  | "SUBSTITUICAO";
+
+type TipoEmissaoCte =
+  | "NORMAL"
+  | "REGIME_ESPECIAL_NFF"
+  | "EPEC_SVC"
+  | "CONTINGENCIA_FSDA"
+  | "SVC_RS"
+  | "SVC_SP";
+
+type ModalCte =
+  | "RODOVIARIO"
+  | "AEREO"
+  | "AQUAVIARIO"
+  | "FERROVIARIO"
+  | "DUTOVIARIO"
+  | "MULTIMODAL";
+
+type TipoServicoCte =
+  | "NORMAL"
+  | "SUBCONTRATACAO"
+  | "REDESPACHO"
+  | "REDESPACHO_INTERMEDIARIO"
+  | "VINCULADO_MULTIMODAL";
+
 type UpdateConfiguracaoFiscalData = {
   empresaId: string;
 
@@ -34,6 +62,17 @@ type UpdateConfiguracaoFiscalData = {
 
   atualizarUltimoNumeroNfe?: boolean;
   ultimoNumeroNfe?: number;
+
+  modeloCte: number;
+  ambienteCte: AmbienteFiscal;
+  finalidadeCte: FinalidadeCte;
+  tipoEmissaoCte: TipoEmissaoCte;
+  modalCte: ModalCte;
+  tipoServicoCte: TipoServicoCte;
+  serieCte: number;
+  numeracaoManualCte: boolean;
+  atualizarUltimoNumeroCte?: boolean;
+  ultimoNumeroCte?: number;
 
   idCsc?: string;
   csc?: string;
@@ -49,6 +88,38 @@ type UpdateConfiguracaoFiscalResult =
       success: false;
       message: string;
     };
+
+const FINALIDADES_CTE = new Set<FinalidadeCte>([
+  "NORMAL",
+  "COMPLEMENTO",
+  "SUBSTITUICAO",
+]);
+
+const TIPOS_EMISSAO_CTE = new Set<TipoEmissaoCte>([
+  "NORMAL",
+  "REGIME_ESPECIAL_NFF",
+  "EPEC_SVC",
+  "CONTINGENCIA_FSDA",
+  "SVC_RS",
+  "SVC_SP",
+]);
+
+const MODAIS_CTE = new Set<ModalCte>([
+  "RODOVIARIO",
+  "AEREO",
+  "AQUAVIARIO",
+  "FERROVIARIO",
+  "DUTOVIARIO",
+  "MULTIMODAL",
+]);
+
+const TIPOS_SERVICO_CTE = new Set<TipoServicoCte>([
+  "NORMAL",
+  "SUBCONTRATACAO",
+  "REDESPACHO",
+  "REDESPACHO_INTERMEDIARIO",
+  "VINCULADO_MULTIMODAL",
+]);
 
 function textoOpcional(
   valor?: string
@@ -110,6 +181,70 @@ export async function updateConfiguracaoFiscal(
     };
   }
 
+  if (data.modeloCte !== 57) {
+    return {
+      success: false,
+      message:
+        "Nesta etapa, os parâmetros de CT-e aceitam somente o modelo 57.",
+    };
+  }
+
+  if (
+    !Number.isInteger(data.serieCte) ||
+    data.serieCte < 0 ||
+    data.serieCte > 999
+  ) {
+    return {
+      success: false,
+      message:
+        "A série do CT-e deve estar entre 0 e 999.",
+    };
+  }
+
+  if (!FINALIDADES_CTE.has(data.finalidadeCte)) {
+    return {
+      success: false,
+      message: "A finalidade do CT-e é inválida.",
+    };
+  }
+
+  if (!TIPOS_EMISSAO_CTE.has(data.tipoEmissaoCte)) {
+    return {
+      success: false,
+      message: "O tipo de emissão do CT-e é inválido.",
+    };
+  }
+
+  if (!MODAIS_CTE.has(data.modalCte)) {
+    return {
+      success: false,
+      message: "O modal do CT-e é inválido.",
+    };
+  }
+
+  if (!TIPOS_SERVICO_CTE.has(data.tipoServicoCte)) {
+    return {
+      success: false,
+      message: "O tipo de serviço do CT-e é inválido.",
+    };
+  }
+
+  if (
+    data.atualizarUltimoNumeroCte &&
+    (
+      !Number.isInteger(data.ultimoNumeroCte) ||
+      data.ultimoNumeroCte === undefined ||
+      data.ultimoNumeroCte < 0 ||
+      data.ultimoNumeroCte > 999_999_999
+    )
+  ) {
+    return {
+      success: false,
+      message:
+        "O último número do CT-e deve estar entre 0 e 999999999.",
+    };
+  }
+
   const configuracaoAtual =
     await prisma.configuracaoFiscal.findUnique({
       where: {
@@ -137,6 +272,11 @@ export async function updateConfiguracaoFiscal(
           ?.tokenNuvemFiscalCriptografado ??
         null;
 
+  const ultimoNumeroCte =
+    data.atualizarUltimoNumeroCte
+      ? data.ultimoNumeroCte!
+      : configuracaoAtual?.ultimoNumeroCte ?? 0;
+
   try {
     await prisma.$transaction(
       async (tx) => {
@@ -161,6 +301,32 @@ export async function updateConfiguracaoFiscal(
 
             serieNfce:
               data.serieNfce,
+
+            modeloCte:
+              data.modeloCte,
+
+            ambienteCte:
+              data.ambienteCte,
+
+            finalidadeCte:
+              data.finalidadeCte,
+
+            tipoEmissaoCte:
+              data.tipoEmissaoCte,
+
+            modalCte:
+              data.modalCte,
+
+            tipoServicoCte:
+              data.tipoServicoCte,
+
+            serieCte:
+              data.serieCte,
+
+            ultimoNumeroCte,
+
+            numeracaoManualCte:
+              data.numeracaoManualCte,
 
             idCsc:
               textoOpcional(
@@ -190,6 +356,32 @@ export async function updateConfiguracaoFiscal(
 
             serieNfce:
               data.serieNfce,
+
+            modeloCte:
+              data.modeloCte,
+
+            ambienteCte:
+              data.ambienteCte,
+
+            finalidadeCte:
+              data.finalidadeCte,
+
+            tipoEmissaoCte:
+              data.tipoEmissaoCte,
+
+            modalCte:
+              data.modalCte,
+
+            tipoServicoCte:
+              data.tipoServicoCte,
+
+            serieCte:
+              data.serieCte,
+
+            ultimoNumeroCte,
+
+            numeracaoManualCte:
+              data.numeracaoManualCte,
 
             idCsc:
               textoOpcional(
