@@ -37,17 +37,6 @@ function decimalOpcional(
   return valor;
 }
 
-function normalizarRntrc(
-  valor?: string
-) {
-  const texto =
-    valor?.trim().toUpperCase() ?? "";
-
-  if (!texto) return null;
-  if (texto === "ISENTO") return texto;
-  return somenteNumeros(texto);
-}
-
 export async function salvarCte(
   data: SalvarCteData
 ) {
@@ -337,9 +326,7 @@ export async function salvarCte(
     };
   }
 
-  const rntrc =
-    normalizarRntrc(data.rntrc) ||
-    configuracao.rntrc;
+  const rntrc = configuracao.rntrc;
 
   if (!rntrc) {
     return {
