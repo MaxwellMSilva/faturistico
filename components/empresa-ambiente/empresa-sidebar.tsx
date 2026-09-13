@@ -28,7 +28,6 @@ import {
 } from "react";
 
 import { usePathname } from "next/navigation";
-
 import { signOut } from "next-auth/react";
 
 import { cn } from "@/lib/utils";
@@ -40,11 +39,7 @@ export type EmpresaSidebarProps = {
   usuarioEmail?: string;
   permissao: string;
   privilegios: string[];
-
-  variante?:
-    | "desktop"
-    | "mobile";
-
+  variante?: "desktop" | "mobile";
   onNavigate?: () => void;
 };
 
@@ -61,10 +56,7 @@ type GrupoMenu = {
   itens: ItemMenu[];
 };
 
-const nomesPermissoes: Record<
-  string,
-  string
-> = {
+const nomesPermissoes: Record<string, string> = {
   OWNER: "Proprietário",
   ADMIN: "Administrador",
   PERSONALIZADO: "Personalizado",
@@ -81,18 +73,13 @@ export function EmpresaSidebar({
   variante = "desktop",
   onNavigate,
 }: EmpresaSidebarProps) {
-  const pathname =
-    usePathname();
+  const pathname = usePathname();
 
   const menuUsuarioRef =
-    useRef<HTMLDivElement>(
-      null
-    );
+    useRef<HTMLDivElement>(null);
 
-  const [
-    saindo,
-    setSaindo,
-  ] = useState(false);
+  const [saindo, setSaindo] =
+    useState(false);
 
   const [
     menuUsuarioAberto,
@@ -106,6 +93,13 @@ export function EmpresaSidebar({
     item: ItemMenu
   ) {
     if (!item.ativo) {
+      return true;
+    }
+
+    if (
+      permissao === "OWNER" ||
+      permissao === "ADMIN"
+    ) {
       return true;
     }
 
@@ -127,7 +121,6 @@ export function EmpresaSidebar({
   const grupos: GrupoMenu[] = [
     {
       titulo: "Visão geral",
-
       itens: [
         {
           nome: "Dashboard",
@@ -140,10 +133,8 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
       titulo: "Cadastros",
-
       itens: [
         {
           nome: "Clientes",
@@ -154,7 +145,6 @@ export function EmpresaSidebar({
             "CLIENTES_VISUALIZAR",
           ],
         },
-
         {
           nome: "Produtos",
           href: `${baseUrl}/produtos`,
@@ -164,17 +154,12 @@ export function EmpresaSidebar({
             "PRODUTOS_VISUALIZAR",
           ],
         },
-
         {
           nome:
             "Naturezas de operação",
-
           href:
             `${baseUrl}/naturezas-operacao`,
-
-          icon:
-            ClipboardList,
-
+          icon: ClipboardList,
           ativo: true,
           privilegios: [
             "NATUREZAS_VISUALIZAR",
@@ -182,11 +167,8 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
-      titulo:
-        "Documentos fiscais",
-
+      titulo: "Documentos fiscais",
       itens: [
         {
           nome: "NF-e",
@@ -197,7 +179,15 @@ export function EmpresaSidebar({
             "NFE_VISUALIZAR",
           ],
         },
-
+        {
+          nome: "CT-e",
+          href: `${baseUrl}/cte`,
+          icon: FileText,
+          ativo: true,
+          privilegios: [
+            "CTE_VISUALIZAR",
+          ],
+        },
         {
           nome: "MDF-e",
           href: `${baseUrl}/mdfe`,
@@ -206,42 +196,31 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
       titulo: "Transportes",
-
       itens: [
         {
-          nome:
-            "Transportadores",
-
+          nome: "Transportadores",
           href:
             `${baseUrl}/transportadores`,
-
-          icon:
-            Building2,
-
+          icon: Building2,
           ativo: true,
           privilegios: [
             "TRANSPORTADORES_VISUALIZAR",
           ],
         },
-
         {
           nome: "Veículos",
-          href:
-            `${baseUrl}/veiculos`,
+          href: `${baseUrl}/veiculos`,
           icon: CarFront,
           ativo: true,
           privilegios: [
             "VEICULOS_VISUALIZAR",
           ],
         },
-
         {
           nome: "Motoristas",
-          href:
-            `${baseUrl}/motoristas`,
+          href: `${baseUrl}/motoristas`,
           icon: UserRound,
           ativo: true,
           privilegios: [
@@ -250,21 +229,14 @@ export function EmpresaSidebar({
         },
       ],
     },
-
     {
       titulo: "Gestão",
-
       itens: [
         {
-          nome:
-            "Configurações",
-
+          nome: "Configurações",
           href:
             `${baseUrl}/configuracoes`,
-
-          icon:
-            Settings,
-
+          icon: Settings,
           ativo: true,
           privilegios: [
             "CONFIGURACOES_VISUALIZAR",
@@ -279,10 +251,9 @@ export function EmpresaSidebar({
     grupos
       .map((grupo) => ({
         ...grupo,
-        itens:
-          grupo.itens.filter(
-            podeVerModulo
-          ),
+        itens: grupo.itens.filter(
+          podeVerModulo
+        ),
       }))
       .filter(
         (grupo) =>
@@ -290,9 +261,7 @@ export function EmpresaSidebar({
       );
 
   useEffect(() => {
-    setMenuUsuarioAberto(
-      false
-    );
+    setMenuUsuarioAberto(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -317,9 +286,7 @@ export function EmpresaSidebar({
     function handleTecla(
       event: KeyboardEvent
     ) {
-      if (
-        event.key === "Escape"
-      ) {
+      if (event.key === "Escape") {
         setMenuUsuarioAberto(
           false
         );
@@ -361,17 +328,14 @@ export function EmpresaSidebar({
   }
 
   const empresaExibicao =
-    empresaNome.trim() ||
-    "Empresa";
+    empresaNome.trim() || "Empresa";
 
   const usuarioExibicao =
-    usuarioNome.trim() ||
-    "Usuário";
+    usuarioNome.trim() || "Usuário";
 
   const nomePermissao =
-    nomesPermissoes[
-      permissao
-    ] ?? permissao;
+    nomesPermissoes[permissao] ??
+    permissao;
 
   const emailExibicao =
     usuarioEmail?.trim() ||
@@ -385,14 +349,10 @@ export function EmpresaSidebar({
   async function handleLogout() {
     try {
       setSaindo(true);
-
-      setMenuUsuarioAberto(
-        false
-      );
+      setMenuUsuarioAberto(false);
 
       await signOut({
-        callbackUrl:
-          "/entrar",
+        callbackUrl: "/entrar",
       });
     } catch (error) {
       console.error(
@@ -408,7 +368,6 @@ export function EmpresaSidebar({
     <aside
       className={cn(
         "empresa-sidebar shrink-0 flex-col bg-empresa-sidebar",
-
         variante === "desktop"
           ? "sticky top-0 hidden h-screen w-[248px] lg:flex"
           : "flex h-full w-full"
@@ -416,13 +375,10 @@ export function EmpresaSidebar({
       style={{
         backgroundColor:
           "#0a1628",
-
         backgroundImage:
           "linear-gradient(180deg, #0c1a30 0%, #0a1628 45%, #071018 100%)",
       }}
     >
-      {/* Logo */}
-
       <div className="px-5 pb-5 pt-6">
         <Link
           href="/painel"
@@ -445,8 +401,6 @@ export function EmpresaSidebar({
         </Link>
       </div>
 
-      {/* Navegação */}
-
       <nav
         aria-label="Navegação da empresa"
         className="flex-1 overflow-y-auto px-3 pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -455,9 +409,7 @@ export function EmpresaSidebar({
           {gruposVisiveis.map(
             (grupo) => (
               <section
-                key={
-                  grupo.titulo
-                }
+                key={grupo.titulo}
                 className="space-y-1"
               >
                 <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -474,9 +426,7 @@ export function EmpresaSidebar({
                         item.href
                       );
 
-                    if (
-                      !item.ativo
-                    ) {
+                    if (!item.ativo) {
                       return (
                         <div
                           key={
@@ -487,9 +437,7 @@ export function EmpresaSidebar({
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             <Icone
-                              size={
-                                17
-                              }
+                              size={17}
                               className="shrink-0 text-slate-600"
                             />
 
@@ -509,12 +457,8 @@ export function EmpresaSidebar({
 
                     return (
                       <Link
-                        key={
-                          item.nome
-                        }
-                        href={
-                          item.href
-                        }
+                        key={item.nome}
+                        href={item.href}
                         onClick={
                           onNavigate
                         }
@@ -525,21 +469,16 @@ export function EmpresaSidebar({
                         }
                         className={cn(
                           "group flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
-
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50",
-
                           selecionado
                             ? "bg-[#1e3a5f] text-white shadow-[inset_0_0_0_1px_rgb(96_165_250/0.2)]"
                             : "text-slate-400 hover:bg-[#132337] hover:text-slate-100"
                         )}
                       >
                         <Icone
-                          size={
-                            17
-                          }
+                          size={17}
                           className={cn(
                             "shrink-0",
-
                             selecionado
                               ? "text-blue-300"
                               : "text-slate-500 group-hover:text-slate-300"
@@ -547,9 +486,7 @@ export function EmpresaSidebar({
                         />
 
                         <span className="truncate">
-                          {
-                            item.nome
-                          }
+                          {item.nome}
                         </span>
                       </Link>
                     );
@@ -561,17 +498,12 @@ export function EmpresaSidebar({
         </div>
       </nav>
 
-      {/* Rodapé */}
-
       <div className="border-t border-white/10 bg-[#081220]/80 p-4">
         <button
           type="button"
           className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-slate-400 transition-colors hover:bg-[#132337] hover:text-slate-100"
         >
-          <Headphones
-            size={17}
-          />
-
+          <Headphones size={17} />
           Suporte
         </button>
 
@@ -583,11 +515,8 @@ export function EmpresaSidebar({
           <ArrowLeftRight
             size={15}
           />
-
           Trocar de empresa
         </Link>
-
-        {/* Empresa e usuário */}
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-[#132337]/80 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -596,17 +525,13 @@ export function EmpresaSidebar({
 
           <p
             className="mt-1 truncate text-sm font-semibold text-white"
-            title={
-              empresaExibicao
-            }
+            title={empresaExibicao}
           >
             {empresaExibicao}
           </p>
 
           <div
-            ref={
-              menuUsuarioRef
-            }
+            ref={menuUsuarioRef}
             className="relative mt-3 border-t border-white/10 pt-3"
           >
             {menuUsuarioAberto && (
@@ -620,23 +545,17 @@ export function EmpresaSidebar({
                   onClick={
                     handleLogout
                   }
-                  disabled={
-                    saindo
-                  }
+                  disabled={saindo}
                   className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saindo ? (
                     <LoaderCircle
-                      size={
-                        16
-                      }
+                      size={16}
                       className="animate-spin"
                     />
                   ) : (
                     <LogOut
-                      size={
-                        16
-                      }
+                      size={16}
                     />
                   )}
 
@@ -672,9 +591,7 @@ export function EmpresaSidebar({
                     usuarioExibicao
                   }
                 >
-                  {
-                    usuarioExibicao
-                  }
+                  {usuarioExibicao}
                 </p>
 
                 <p
@@ -683,9 +600,7 @@ export function EmpresaSidebar({
                     emailExibicao
                   }
                 >
-                  {
-                    emailExibicao
-                  }
+                  {emailExibicao}
                 </p>
               </div>
 
@@ -693,7 +608,6 @@ export function EmpresaSidebar({
                 size={16}
                 className={cn(
                   "shrink-0 text-slate-500 transition-transform duration-200",
-
                   menuUsuarioAberto &&
                     "rotate-180 text-slate-300"
                 )}
