@@ -11,6 +11,11 @@ model ConfiguracaoFiscal {
 
   serieNfe  Int @default(1)
   serieNfce Int @default(1)
+  serieCte  Int @default(1)
+
+  // Registro Nacional de Transportadores Rodoviários de Carga
+  // usado na emissão de CT-e modelo 57, modal rodoviário.
+  rntrc String?
 
   // Dados usados na NFC-e.
   // Armazenar criptografado, nunca em texto puro.

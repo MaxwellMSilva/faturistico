@@ -39,6 +39,7 @@ model Empresa {
   clientes          Cliente[]
   produtos          Produto[]
   notasFiscais      NotaFiscal[]
+  conhecimentosTransporte ConhecimentoTransporte[]
   certificados      CertificadoDigital[]
   naturezasOperacao NaturezaOperacao[]
 

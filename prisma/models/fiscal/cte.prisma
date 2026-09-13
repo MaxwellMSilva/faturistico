@@ -1,0 +1,202 @@
+enum StatusCte {
+  RASCUNHO
+  VALIDANDO
+  AUTORIZADO
+  REJEITADO
+  CANCELADO
+}
+
+enum TipoCte {
+  NORMAL
+  COMPLEMENTAR
+  SUBSTITUTO
+}
+
+enum TipoServicoCte {
+  NORMAL
+  SUBCONTRATACAO
+  REDESPACHO
+  REDESPACHO_INTERMEDIARIO
+  SERVICO_VINCULADO_MULTIMODAL
+}
+
+enum ModalCte {
+  RODOVIARIO
+}
+
+enum PapelParticipanteCte {
+  REMETENTE
+  EXPEDIDOR
+  RECEBEDOR
+  DESTINATARIO
+  TOMADOR_OUTROS
+}
+
+enum TomadorServicoCte {
+  REMETENTE
+  EXPEDIDOR
+  RECEBEDOR
+  DESTINATARIO
+  OUTROS
+}
+
+enum UnidadeMedidaCte {
+  METRO_CUBICO
+  QUILOGRAMA
+  TONELADA
+  UNIDADE
+  LITRO
+  MMBTU
+}
+
+model ConhecimentoTransporte {
+  id String @id @default(cuid())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  numero Int
+  serie  Int @default(1)
+
+  modelo String @default("57")
+
+  status      StatusCte      @default(RASCUNHO)
+  tipoCte     TipoCte        @default(NORMAL)
+  tipoServico TipoServicoCte @default(NORMAL)
+  modal       ModalCte       @default(RODOVIARIO)
+
+  dataEmissao DateTime @default(now())
+
+  cfop              String
+  naturezaOperacao  String
+
+  codigoMunicipioEnvio String
+  municipioEnvio       String
+  ufEnvio              String
+
+  codigoMunicipioInicio String
+  municipioInicio       String
+  ufInicio              String
+
+  codigoMunicipioFim String
+  municipioFim       String
+  ufFim              String
+
+  tomadorServico TomadorServicoCte
+
+  valorPrestacao Decimal @default(0)
+  valorReceber   Decimal @default(0)
+
+  valorCarga          Decimal @default(0)
+  produtoPredominante String
+  outrasCaracteristicasCarga String?
+
+  rntrc String?
+
+  informacoesAdicionais String?
+
+  numeroAleatorio String?
+  chaveAcesso     String?
+
+  protocoloAutorizacao String?
+  dataAutorizacao      DateTime?
+  motivoRejeicao       String?
+
+  xmlGerado     String?
+  xmlAssinado   String?
+  xmlAutorizado String?
+
+  participantes ParticipanteCte[]
+  documentosNfe DocumentoNfeCte[]
+  quantidadesCarga QuantidadeCargaCte[]
+  componentesValor ComponenteValorCte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, numero, serie])
+  @@index([empresaId])
+  @@index([empresaId, status])
+  @@index([empresaId, dataEmissao])
+  @@index([chaveAcesso])
+}
+
+model ParticipanteCte {
+  id String @id @default(cuid())
+
+  cteId String
+  cte   ConhecimentoTransporte @relation(fields: [cteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  papel PapelParticipanteCte
+
+  tipoPessoa TipoPessoa
+  cpfCnpj    String
+  inscricaoEstadual String?
+  nome String
+  nomeFantasia String?
+
+  telefone String?
+  email    String?
+
+  logradouro  String
+  numero      String
+  complemento String?
+  bairro      String
+  codigoMunicipio String
+  municipio       String
+  cep             String?
+  uf              String
+  codigoPais      String @default("1058")
+  pais            String @default("BRASIL")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cteId, papel])
+  @@index([cteId])
+  @@index([cpfCnpj])
+}
+
+model DocumentoNfeCte {
+  id String @id @default(cuid())
+
+  cteId String
+  cte   ConhecimentoTransporte @relation(fields: [cteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  chaveAcesso String
+
+  createdAt DateTime @default(now())
+
+  @@unique([cteId, chaveAcesso])
+  @@index([cteId])
+  @@index([chaveAcesso])
+}
+
+model QuantidadeCargaCte {
+  id String @id @default(cuid())
+
+  cteId String
+  cte   ConhecimentoTransporte @relation(fields: [cteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  unidade UnidadeMedidaCte
+  tipoMedida String
+  quantidade Decimal
+
+  createdAt DateTime @default(now())
+
+  @@index([cteId])
+}
+
+model ComponenteValorCte {
+  id String @id @default(cuid())
+
+  cteId String
+  cte   ConhecimentoTransporte @relation(fields: [cteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  nome  String
+  valor Decimal
+
+  createdAt DateTime @default(now())
+
+  @@index([cteId])
+}
