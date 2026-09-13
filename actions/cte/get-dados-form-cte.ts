@@ -19,7 +19,6 @@ export async function getDadosFormCte(
     empresa,
     clientes,
     configuracao,
-    certificado,
   ] = await Promise.all([
     prisma.empresa.findUnique({
       where: { id: empresaId },
@@ -74,23 +73,6 @@ export async function getDadosFormCte(
         rntrc: true,
       },
     }),
-    prisma.certificadoDigital.findFirst({
-      where: {
-        empresaId,
-        ativo: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        id: true,
-        nomeArquivo: true,
-        titular: true,
-        cnpjTitular: true,
-        validadeInicio: true,
-        validadeFim: true,
-      },
-    }),
   ]);
 
   if (!empresa) {
@@ -103,6 +85,5 @@ export async function getDadosFormCte(
     empresa,
     clientes,
     configuracao,
-    certificado,
   };
 }
