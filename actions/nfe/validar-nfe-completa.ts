@@ -7,7 +7,10 @@ import {
   type ValidarNfeResult,
 } from "@/actions/nfe/validar-nfe";
 import { validarPrivilegioEmpresa } from "@/lib/empresa/validar-privilegio-empresa";
-import { obterTabelaClassTribRtc } from "@/lib/fiscal/classificacao-tributaria-rtc";
+import {
+  obterTabelaClassTribRtc,
+  type ClassificacaoTributariaRtc,
+} from "@/lib/fiscal/classificacao-tributaria-rtc";
 import { prisma } from "@/lib/prisma";
 
 function iguais(
@@ -20,6 +23,61 @@ function iguais(
     .lessThanOrEqualTo(
       new Prisma.Decimal("0.0001")
     );
+}
+
+function validarGruposRtcAindaNaoModelados(
+  oficial: ClassificacaoTributariaRtc,
+  prefixo: string,
+  erros: string[]
+) {
+  const grupos: string[] = [];
+
+  if (oficial.indGIBSCBSMono) {
+    grupos.push("tributação monofásica");
+  }
+
+  if (oficial.indGTransfCred) {
+    grupos.push("transferência de crédito");
+  }
+
+  if (oficial.indGAjusteCompet) {
+    grupos.push("ajuste de competência");
+  }
+
+  if (oficial.indGRed) {
+    grupos.push("redução de alíquota");
+  }
+
+  if (oficial.indGDif) {
+    grupos.push("diferimento");
+  }
+
+  if (oficial.indGTribRegular) {
+    grupos.push("tributação regular");
+  }
+
+  if (
+    oficial.indMonoPadrao ||
+    oficial.indMonoReten ||
+    oficial.indMonoRet ||
+    oficial.indMonoDif
+  ) {
+    if (
+      !grupos.includes(
+        "tributação monofásica"
+      )
+    ) {
+      grupos.push("tributação monofásica");
+    }
+  }
+
+  if (grupos.length > 0) {
+    erros.push(
+      `${prefixo} o cClassTrib ${oficial.codigo} exige ${grupos.join(
+        ", "
+      )}. Este tratamento fiscal ainda não pode ser emitido por esta versão da NF-e.`
+    );
+  }
 }
 
 export async function validarNfeCompleta(
@@ -144,6 +202,12 @@ export async function validarNfeCompleta(
             `${prefixo} o CST IBS/CBS deve ser ${oficial.cst} para o cClassTrib ${codigo}.`
           );
         }
+
+        validarGruposRtcAindaNaoModelados(
+          oficial,
+          prefixo,
+          erros
+        );
       }
     );
   }

@@ -14,10 +14,47 @@ export type ClassificacaoTributariaRtc = {
   tipoAliquota: string | null;
   reducaoIbs: number | null;
   reducaoCbs: number | null;
-  tributacaoRegular: boolean | null;
+
+  indGIBSCBS: boolean | null;
+  indGIBSCBSMono: boolean | null;
+  indGTransfCred: boolean | null;
+  indGAjusteCompet: boolean | null;
+  indGRed: boolean | null;
+  indGDif: boolean | null;
+
+  indGTribRegular: boolean | null;
+  indCredPres: boolean | null;
+  indRedutorBc: boolean | null;
+
+  indMonoPadrao: boolean | null;
+  indMonoReten: boolean | null;
+  indMonoRet: boolean | null;
+  indMonoDif: boolean | null;
 };
 
 type ObjetoJson = Record<string, unknown>;
+
+type ContextoCst = Pick<
+  ClassificacaoTributariaRtc,
+  | "indGIBSCBS"
+  | "indGIBSCBSMono"
+  | "indGTransfCred"
+  | "indGAjusteCompet"
+  | "indGRed"
+  | "indGDif"
+> & {
+  cst: string | null;
+};
+
+const CONTEXTO_VAZIO: ContextoCst = {
+  cst: null,
+  indGIBSCBS: null,
+  indGIBSCBSMono: null,
+  indGTransfCred: null,
+  indGAjusteCompet: null,
+  indGRed: null,
+  indGDif: null,
+};
 
 function objetoJson(
   valor: unknown
@@ -77,6 +114,62 @@ function textoPorChaves(
   return texto || null;
 }
 
+function converterBooleano(
+  valor: unknown
+): boolean | null {
+  if (typeof valor === "boolean") {
+    return valor;
+  }
+
+  if (typeof valor === "number") {
+    if (valor === 1) return true;
+    if (valor === 0) return false;
+  }
+
+  if (typeof valor === "string") {
+    const texto = valor
+      .trim()
+      .toLowerCase();
+
+    if (
+      ["1", "true", "sim", "s", "x"].includes(
+        texto
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      ["0", "false", "nao", "não", "n", ""].includes(
+        texto
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return null;
+}
+
+function booleanoPorChaves(
+  objeto: ObjetoJson,
+  chaves: string[]
+) {
+  const procuradas = new Set(
+    chaves.map(normalizarChave)
+  );
+
+  const entrada =
+    entradasNormalizadas(objeto).find(
+      (item) =>
+        procuradas.has(item.chave)
+    );
+
+  return entrada
+    ? converterBooleano(entrada.valor)
+    : null;
+}
+
 function numeroPorPadraoDeChave(
   objeto: ObjetoJson,
   contem: string[]
@@ -108,77 +201,30 @@ function numeroPorPadraoDeChave(
   return null;
 }
 
-function booleanoPorPadraoDeChave(
-  objeto: ObjetoJson,
-  contem: string[]
-) {
-  const termos = contem.map(
-    normalizarChave
-  );
-
-  const entrada =
-    entradasNormalizadas(objeto).find(
-      (item) =>
-        termos.every((termo) =>
-          item.chave.includes(termo)
-        )
-    );
-
-  if (!entrada) {
-    return null;
-  }
-
-  if (
-    typeof entrada.valor === "boolean"
-  ) {
-    return entrada.valor;
-  }
-
-  if (
-    typeof entrada.valor === "number"
-  ) {
-    return entrada.valor !== 0;
-  }
-
-  if (
-    typeof entrada.valor === "string"
-  ) {
-    const texto = entrada.valor
-      .trim()
-      .toLowerCase();
-
-    if (
-      ["1", "true", "sim", "s"].includes(
-        texto
-      )
-    ) {
-      return true;
-    }
-
-    if (
-      ["0", "false", "nao", "não", "n"].includes(
-        texto
-      )
-    ) {
-      return false;
-    }
-  }
-
-  return null;
-}
-
 function detectarPermissaoNfe(
   objeto: ObjetoJson
 ) {
-  const entradas =
-    entradasNormalizadas(objeto);
-
-  const candidatas = entradas.filter(
-    (item) =>
-      item.chave.includes("dfe") ||
-      item.chave.includes("document") ||
-      item.chave.includes("modelo")
+  const explicita = booleanoPorChaves(
+    objeto,
+    [
+      "indNFe",
+      "ind_nfe",
+      "permiteNfe",
+      "nfe",
+    ]
   );
+
+  if (explicita !== null) {
+    return explicita;
+  }
+
+  const candidatas =
+    entradasNormalizadas(objeto).filter(
+      (item) =>
+        item.chave.includes("dfe") ||
+        item.chave.includes("document") ||
+        item.chave.includes("modelo")
+    );
 
   if (candidatas.length === 0) {
     return null;
@@ -193,7 +239,10 @@ function detectarPermissaoNfe(
     .join(" ")
     .toUpperCase();
 
-  if (/\bNFE\b/.test(texto)) {
+  if (
+    /\bNFE\b/.test(texto) ||
+    /\b55\b/.test(texto)
+  ) {
     return true;
   }
 
@@ -262,6 +311,68 @@ function obterCst(
   return cstHerdado;
 }
 
+function primeiroBooleano(
+  ...valores: Array<boolean | null>
+) {
+  return valores.find(
+    (valor) => valor !== null
+  ) ?? null;
+}
+
+function atualizarContextoCst(
+  objeto: ObjetoJson,
+  anterior: ContextoCst
+): ContextoCst {
+  return {
+    cst: obterCst(
+      objeto,
+      anterior.cst
+    ),
+    indGIBSCBS: primeiroBooleano(
+      booleanoPorChaves(objeto, [
+        "ind_gIBSCBS",
+        "indGIBSCBS",
+      ]),
+      anterior.indGIBSCBS
+    ),
+    indGIBSCBSMono: primeiroBooleano(
+      booleanoPorChaves(objeto, [
+        "ind_gIBSCBSMono",
+        "indGIBSCBSMono",
+      ]),
+      anterior.indGIBSCBSMono
+    ),
+    indGTransfCred: primeiroBooleano(
+      booleanoPorChaves(objeto, [
+        "ind_gTransfCred",
+        "indGTransfCred",
+      ]),
+      anterior.indGTransfCred
+    ),
+    indGAjusteCompet: primeiroBooleano(
+      booleanoPorChaves(objeto, [
+        "ind_gAjusteCompet",
+        "indGAjusteCompet",
+      ]),
+      anterior.indGAjusteCompet
+    ),
+    indGRed: primeiroBooleano(
+      booleanoPorChaves(objeto, [
+        "ind_gRed",
+        "indGRed",
+      ]),
+      anterior.indGRed
+    ),
+    indGDif: primeiroBooleano(
+      booleanoPorChaves(objeto, [
+        "ind_gDif",
+        "indGDif",
+      ]),
+      anterior.indGDif
+    ),
+  };
+}
+
 export function extrairClassificacoesRtc(
   payload: unknown
 ): ClassificacaoTributariaRtc[] {
@@ -272,11 +383,11 @@ export function extrairClassificacoesRtc(
 
   function percorrer(
     valor: unknown,
-    cstHerdado: string | null
+    contexto: ContextoCst
   ) {
     if (Array.isArray(valor)) {
       for (const item of valor) {
-        percorrer(item, cstHerdado);
+        percorrer(item, contexto);
       }
       return;
     }
@@ -285,20 +396,22 @@ export function extrairClassificacoesRtc(
       return;
     }
 
-    const cstLocal = obterCst(
-      valor,
-      cstHerdado
-    );
+    const contextoLocal =
+      atualizarContextoCst(
+        valor,
+        contexto
+      );
 
     const codigo =
       obterCodigoClassificacao(
         valor,
-        cstLocal
+        contextoLocal.cst
       );
 
     if (codigo) {
       const cst =
-        cstLocal ?? codigo.slice(0, 3);
+        contextoLocal.cst ??
+        codigo.slice(0, 3);
 
       const descricao =
         textoPorChaves(valor, [
@@ -307,31 +420,7 @@ export function extrairClassificacoesRtc(
           "nome",
           "descricaoClassTrib",
         ]) ??
-        `Classificacao ${codigo}`;
-
-      const tipoAliquota =
-        textoPorChaves(valor, [
-          "tipoAliquota",
-          "tpAliquota",
-        ]);
-
-      const reducaoIbs =
-        numeroPorPadraoDeChave(
-          valor,
-          ["red", "ibs"]
-        );
-
-      const reducaoCbs =
-        numeroPorPadraoDeChave(
-          valor,
-          ["red", "cbs"]
-        );
-
-      const tributacaoRegular =
-        booleanoPorPadraoDeChave(
-          valor,
-          ["tribut", "regular"]
-        );
+        `Classificação ${codigo}`;
 
       encontrados.set(codigo, {
         cst,
@@ -339,10 +428,68 @@ export function extrairClassificacoesRtc(
         descricao,
         permiteNfe:
           detectarPermissaoNfe(valor),
-        tipoAliquota,
-        reducaoIbs,
-        reducaoCbs,
-        tributacaoRegular,
+        tipoAliquota:
+          textoPorChaves(valor, [
+            "tipoAliquota",
+            "tpAliquota",
+          ]),
+        reducaoIbs:
+          numeroPorPadraoDeChave(
+            valor,
+            ["red", "ibs"]
+          ),
+        reducaoCbs:
+          numeroPorPadraoDeChave(
+            valor,
+            ["red", "cbs"]
+          ),
+
+        indGIBSCBS:
+          contextoLocal.indGIBSCBS,
+        indGIBSCBSMono:
+          contextoLocal.indGIBSCBSMono,
+        indGTransfCred:
+          contextoLocal.indGTransfCred,
+        indGAjusteCompet:
+          contextoLocal.indGAjusteCompet,
+        indGRed:
+          contextoLocal.indGRed,
+        indGDif:
+          contextoLocal.indGDif,
+
+        indGTribRegular:
+          booleanoPorChaves(valor, [
+            "ind_gTribRegular",
+            "indGTribRegular",
+            "indTribRegular",
+          ]),
+        indCredPres:
+          booleanoPorChaves(valor, [
+            "ind_CredPres",
+            "indCredPres",
+            "ind_gCredPresOper",
+          ]),
+        indRedutorBc:
+          booleanoPorChaves(valor, [
+            "ind_RedutorBC",
+            "indRedutorBC",
+          ]),
+        indMonoPadrao:
+          booleanoPorChaves(valor, [
+            "indMonoPadrao",
+          ]),
+        indMonoReten:
+          booleanoPorChaves(valor, [
+            "indMonoReten",
+          ]),
+        indMonoRet:
+          booleanoPorChaves(valor, [
+            "indMonoRet",
+          ]),
+        indMonoDif:
+          booleanoPorChaves(valor, [
+            "indMonoDif",
+          ]),
       });
     }
 
@@ -354,13 +501,16 @@ export function extrairClassificacoesRtc(
       ) {
         percorrer(
           filho,
-          cstLocal
+          contextoLocal
         );
       }
     }
   }
 
-  percorrer(payload, null);
+  percorrer(
+    payload,
+    CONTEXTO_VAZIO
+  );
 
   return [...encontrados.values()].sort(
     (a, b) =>
