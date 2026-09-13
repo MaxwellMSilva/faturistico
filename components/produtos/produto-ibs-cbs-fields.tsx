@@ -1,18 +1,27 @@
 "use client";
 
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useParams } from "next/navigation";
+import {
   Landmark,
+  LoaderCircle,
   Percent,
+  RefreshCcw,
 } from "lucide-react";
 
+import { getClassificacoesRtc } from "@/actions/rtc/get-classificacoes-rtc";
+import { sincronizarClassificacoesRtc } from "@/actions/rtc/sincronizar-classificacoes-rtc";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export type ProdutoIbsCbsForm = {
   cstIbsCbs: string;
-
-  classificacaoTributariaIbsCbs:
-    string;
-
+  classificacaoTributariaIbsCbs: string;
   aliquotaIbsUf: string;
   aliquotaIbsMun: string;
   aliquotaCbs: string;
@@ -20,13 +29,21 @@ export type ProdutoIbsCbsForm = {
 
 type Props = {
   form: ProdutoIbsCbsForm;
-
   atualizarCampo: (
     campo: keyof ProdutoIbsCbsForm,
     valor: string
   ) => void;
-
   disabled?: boolean;
+};
+
+type ClassificacaoRtc = {
+  cst: string;
+  codigo: string;
+  descricao: string;
+  tipoAliquota: string | null;
+  reducaoIbs: number | null;
+  reducaoCbs: number | null;
+  tributacaoRegular: boolean | null;
 };
 
 function somenteNumeros(
@@ -38,15 +55,198 @@ function somenteNumeros(
     .slice(0, limite);
 }
 
+function formatarData(
+  valor: string | null
+) {
+  if (!valor) {
+    return null;
+  }
+
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      dateStyle: "short",
+      timeStyle: "short",
+    }
+  ).format(data);
+}
+
 export function ProdutoIbsCbsFields({
   form,
   atualizarCampo,
   disabled = false,
 }: Props) {
+  const params = useParams<{
+    empresaId?: string;
+  }>();
+
+  const empresaId =
+    typeof params?.empresaId === "string"
+      ? params.empresaId
+      : "";
+
+  const [classificacoes, setClassificacoes] =
+    useState<ClassificacaoRtc[]>([]);
+  const [atualizadoEm, setAtualizadoEm] =
+    useState<string | null>(null);
+  const [desatualizada, setDesatualizada] =
+    useState(true);
+  const [carregandoTabela, setCarregandoTabela] =
+    useState(false);
+  const [sincronizando, setSincronizando] =
+    useState(false);
+  const [erroTabela, setErroTabela] =
+    useState("");
+
+  const carregarTabela = useCallback(
+    async () => {
+      if (!empresaId) {
+        return;
+      }
+
+      setCarregandoTabela(true);
+      setErroTabela("");
+
+      try {
+        const resultado =
+          await getClassificacoesRtc(
+            empresaId
+          );
+
+        if (!resultado.success) {
+          setErroTabela(
+            resultado.message
+          );
+          return;
+        }
+
+        setClassificacoes(
+          resultado.classificacoes
+        );
+        setAtualizadoEm(
+          resultado.atualizadoEm
+        );
+        setDesatualizada(
+          resultado.desatualizada
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao carregar tabela RTC:",
+          error
+        );
+
+        setErroTabela(
+          "Não foi possível carregar a tabela oficial de classificação tributária."
+        );
+      } finally {
+        setCarregandoTabela(false);
+      }
+    },
+    [empresaId]
+  );
+
+  useEffect(() => {
+    void carregarTabela();
+  }, [carregarTabela]);
+
+  const classificacaoSelecionada =
+    useMemo(
+      () =>
+        classificacoes.find(
+          (item) =>
+            item.codigo ===
+            form.classificacaoTributariaIbsCbs
+        ) ?? null,
+      [
+        classificacoes,
+        form.classificacaoTributariaIbsCbs,
+      ]
+    );
+
+  async function handleSincronizar() {
+    if (!empresaId) {
+      return;
+    }
+
+    setSincronizando(true);
+    setErroTabela("");
+
+    try {
+      const resultado =
+        await sincronizarClassificacoesRtc(
+          empresaId
+        );
+
+      if (!resultado.success) {
+        setErroTabela(
+          resultado.message
+        );
+        return;
+      }
+
+      await carregarTabela();
+    } catch (error) {
+      console.error(
+        "Erro ao sincronizar tabela RTC:",
+        error
+      );
+
+      setErroTabela(
+        "Não foi possível atualizar a tabela oficial da Reforma Tributária."
+      );
+    } finally {
+      setSincronizando(false);
+    }
+  }
+
+  function selecionarClassificacao(
+    codigo: string
+  ) {
+    const classificacao =
+      classificacoes.find(
+        (item) =>
+          item.codigo === codigo
+      );
+
+    atualizarCampo(
+      "classificacaoTributariaIbsCbs",
+      codigo
+    );
+
+    if (classificacao) {
+      atualizarCampo(
+        "cstIbsCbs",
+        classificacao.cst
+      );
+
+      if (
+        classificacao.cst === "000" &&
+        classificacao.codigo === "000001"
+      ) {
+        atualizarCampo(
+          "aliquotaIbsUf",
+          "0,10"
+        );
+        atualizarCampo(
+          "aliquotaIbsMun",
+          "0"
+        );
+        atualizarCampo(
+          "aliquotaCbs",
+          "0,90"
+        );
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
-
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Landmark size={20} />
@@ -58,14 +258,62 @@ export function ProdutoIbsCbsFields({
           </h3>
 
           <p className="mt-1 text-sm text-muted-foreground">
-            Informe a classificação
-            tributária e as alíquotas
-            aplicáveis ao produto.
+            Classificação tributária e
+            alíquotas da Reforma Tributária
+            do Consumo.
           </p>
         </div>
       </div>
 
-      {/* Códigos */}
+      <div className="rounded-xl border bg-muted/20 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">
+              Tabela oficial CST / cClassTrib
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Fonte: SVRS Conformidade Fácil.
+              {atualizadoEm
+                ? ` Atualizada em ${formatarData(
+                    atualizadoEm
+                  )}.`
+                : " Ainda não sincronizada."}
+              {desatualizada && atualizadoEm
+                ? " Recomenda-se atualizar a tabela."
+                : ""}
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSincronizar}
+            disabled={
+              disabled ||
+              sincronizando ||
+              carregandoTabela
+            }
+          >
+            {sincronizando ? (
+              <LoaderCircle
+                size={15}
+                className="animate-spin"
+              />
+            ) : (
+              <RefreshCcw size={15} />
+            )}
+            Atualizar tabela
+          </Button>
+        </div>
+
+        {erroTabela && (
+          <p className="mt-3 text-xs text-destructive">
+            {erroTabela}
+          </p>
+        )}
+      </div>
 
       <div className="space-y-4">
         <div>
@@ -74,10 +322,47 @@ export function ProdutoIbsCbsFields({
           </h4>
 
           <p className="mt-1 text-xs text-muted-foreground">
-            Os códigos devem ser informados
-            somente com números.
+            Quando a tabela oficial estiver
+            disponível, selecione o cClassTrib
+            em vez de digitar o código.
           </p>
         </div>
+
+        {classificacoes.length > 0 && (
+          <label className="space-y-2">
+            <span className="text-sm font-medium">
+              cClassTrib oficial
+            </span>
+
+            <select
+              className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+              value={
+                form.classificacaoTributariaIbsCbs
+              }
+              onChange={(event) =>
+                selecionarClassificacao(
+                  event.target.value
+                )
+              }
+              disabled={disabled}
+            >
+              <option value="">
+                Selecione uma classificação
+              </option>
+
+              {classificacoes.map(
+                (item) => (
+                  <option
+                    key={item.codigo}
+                    value={item.codigo}
+                  >
+                    {item.codigo} — {item.descricao}
+                  </option>
+                )
+              )}
+            </select>
+          </label>
+        )}
 
         <div className="grid gap-5 md:grid-cols-2">
           <label className="space-y-2">
@@ -121,8 +406,7 @@ export function ProdutoIbsCbsFields({
               maxLength={6}
               autoComplete="off"
               value={
-                form
-                  .classificacaoTributariaIbsCbs
+                form.classificacaoTributariaIbsCbs
               }
               onChange={(event) =>
                 atualizarCampo(
@@ -141,9 +425,17 @@ export function ProdutoIbsCbsFields({
             </span>
           </label>
         </div>
-      </div>
 
-      {/* Alíquotas */}
+        {classificacaoSelecionada && (
+          <div className="rounded-lg border px-4 py-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {classificacaoSelecionada.codigo}
+            </span>
+            {" — "}
+            {classificacaoSelecionada.descricao}
+          </div>
+        )}
+      </div>
 
       <div className="space-y-4 border-t pt-5">
         <div className="flex items-start gap-3">
@@ -157,8 +449,10 @@ export function ProdutoIbsCbsFields({
             </h4>
 
             <p className="mt-1 text-xs text-muted-foreground">
-              Informe os percentuais
-              utilizando ponto ou vírgula.
+              Em 2026, a tributação integral
+              padrão utiliza IBS estadual de
+              0,10%, IBS municipal de 0% e
+              CBS de 0,90%.
             </p>
           </div>
         </div>
@@ -167,9 +461,7 @@ export function ProdutoIbsCbsFields({
           <CampoPercentual
             label="IBS estadual"
             placeholder="0,00"
-            value={
-              form.aliquotaIbsUf
-            }
+            value={form.aliquotaIbsUf}
             onChange={(valor) =>
               atualizarCampo(
                 "aliquotaIbsUf",
@@ -182,9 +474,7 @@ export function ProdutoIbsCbsFields({
           <CampoPercentual
             label="IBS municipal"
             placeholder="0,00"
-            value={
-              form.aliquotaIbsMun
-            }
+            value={form.aliquotaIbsMun}
             onChange={(valor) =>
               atualizarCampo(
                 "aliquotaIbsMun",
@@ -197,9 +487,7 @@ export function ProdutoIbsCbsFields({
           <CampoPercentual
             label="CBS"
             placeholder="0,00"
-            value={
-              form.aliquotaCbs
-            }
+            value={form.aliquotaCbs}
             onChange={(valor) =>
               atualizarCampo(
                 "aliquotaCbs",
@@ -211,16 +499,14 @@ export function ProdutoIbsCbsFields({
         </div>
       </div>
 
-      {/* Aviso */}
-
       <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
         <p className="text-xs leading-5 text-muted-foreground">
-          Nesta etapa, o sistema valida o
-          formato do CST IBS/CBS e do
-          cClassTrib. A compatibilidade entre
-          os códigos será validada
-          posteriormente utilizando a tabela
-          oficial.
+          A classificação sincronizada é usada
+          como referência oficial. Operações com
+          redução, diferimento, monofasia,
+          crédito presumido ou tributação regular
+          terão seus grupos específicos tratados
+          na etapa de emissão da NF-e.
         </p>
       </div>
     </div>
@@ -231,11 +517,7 @@ type CampoPercentualProps = {
   label: string;
   placeholder: string;
   value: string;
-
-  onChange: (
-    valor: string
-  ) => void;
-
+  onChange: (valor: string) => void;
   disabled?: boolean;
 };
 
@@ -260,9 +542,7 @@ function CampoPercentual({
           autoComplete="off"
           value={value}
           onChange={(event) =>
-            onChange(
-              event.target.value
-            )
+            onChange(event.target.value)
           }
           disabled={disabled}
         />
