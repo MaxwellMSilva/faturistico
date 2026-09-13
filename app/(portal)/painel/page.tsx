@@ -160,6 +160,7 @@ export default async function PainelPage() {
         <div className="mt-5 flex flex-wrap gap-3">
           <Button
             className="h-10"
+            nativeButton={false}
             render={
               <Link href="/empresas" />
             }
@@ -173,6 +174,7 @@ export default async function PainelPage() {
             <Button
               variant="outline"
               className="h-10"
+              nativeButton={false}
               render={
                 <Link href="/empresas/nova" />
               }
