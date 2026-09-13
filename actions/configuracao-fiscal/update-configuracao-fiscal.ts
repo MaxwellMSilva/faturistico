@@ -275,7 +275,10 @@ export async function updateConfiguracaoFiscal(
   const ultimoNumeroCte =
     data.atualizarUltimoNumeroCte
       ? data.ultimoNumeroCte!
-      : configuracaoAtual?.ultimoNumeroCte ?? 0;
+      : configuracaoAtual?.serieCte ===
+          data.serieCte
+        ? configuracaoAtual.ultimoNumeroCte
+        : 0;
 
   try {
     await prisma.$transaction(
