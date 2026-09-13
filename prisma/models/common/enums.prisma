@@ -85,6 +85,7 @@ enum TipoDocumentoFiscal {
   NFE
   NFCE
   CTE
+  MDFE
 }
 
 enum TipoEventoFiscal {

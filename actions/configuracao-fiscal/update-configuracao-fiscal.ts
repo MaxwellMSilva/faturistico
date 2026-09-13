@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import {
   PrivilegioEmpresa,
+  TipoDocumentoFiscal,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
@@ -23,18 +24,37 @@ type UpdateConfiguracaoFiscalData = {
   empresaId: string;
   ambiente: AmbienteFiscal;
   regimeTributario: RegimeTributario;
+
   serieNfe: number;
+  proximoNumeroNfe: number;
+
   serieNfce: number;
-  serieCte?: number;
+  proximoNumeroNfce: number;
+
+  serieCte: number;
+  proximoNumeroCte: number;
+
+  serieMdfe: number;
+  proximoNumeroMdfe: number;
+
   rntrc?: string;
+
   idCsc?: string;
   csc?: string;
+
   tokenNuvemFiscal?: string;
 };
 
 type UpdateConfiguracaoFiscalResult =
   | { success: true }
   | { success: false; message: string };
+
+type Numeracao = {
+  tipoDocumento: TipoDocumentoFiscal;
+  documento: string;
+  serie: number;
+  proximoNumero: number;
+};
 
 function textoOpcional(
   valor?: string
@@ -68,21 +88,63 @@ export async function updateConfiguracaoFiscal(
     PrivilegioEmpresa.CONFIGURACOES_EDITAR
   );
 
-  const series = [
-    [data.serieNfe, "NF-e"],
-    [data.serieNfce, "NFC-e"],
-    [data.serieCte ?? 1, "CT-e"],
-  ] as const;
+  const numeracoes: Numeracao[] = [
+    {
+      tipoDocumento:
+        TipoDocumentoFiscal.NFE,
+      documento: "NF-e",
+      serie: data.serieNfe,
+      proximoNumero:
+        data.proximoNumeroNfe,
+    },
+    {
+      tipoDocumento:
+        TipoDocumentoFiscal.NFCE,
+      documento: "NFC-e",
+      serie: data.serieNfce,
+      proximoNumero:
+        data.proximoNumeroNfce,
+    },
+    {
+      tipoDocumento:
+        TipoDocumentoFiscal.CTE,
+      documento: "CT-e",
+      serie: data.serieCte,
+      proximoNumero:
+        data.proximoNumeroCte,
+    },
+    {
+      tipoDocumento:
+        TipoDocumentoFiscal.MDFE,
+      documento: "MDF-e",
+      serie: data.serieMdfe,
+      proximoNumero:
+        data.proximoNumeroMdfe,
+    },
+  ];
 
-  for (const [serie, documento] of series) {
+  for (const item of numeracoes) {
     if (
-      !Number.isInteger(serie) ||
-      serie <= 0 ||
-      serie > 999
+      !Number.isInteger(item.serie) ||
+      item.serie <= 0 ||
+      item.serie > 999
     ) {
       return {
         success: false,
-        message: `A série da ${documento} deve ser um número inteiro entre 1 e 999.`,
+        message: `A série da ${item.documento} deve ser um número inteiro entre 1 e 999.`,
+      };
+    }
+
+    if (
+      !Number.isInteger(
+        item.proximoNumero
+      ) ||
+      item.proximoNumero <= 0 ||
+      item.proximoNumero > 999_999_999
+    ) {
+      return {
+        success: false,
+        message: `O próximo número da ${item.documento} deve estar entre 1 e 999999999.`,
       };
     }
   }
@@ -102,12 +164,55 @@ export async function updateConfiguracaoFiscal(
     };
   }
 
-  const configuracaoAtual =
-    await prisma.configuracaoFiscal.findUnique({
+  const [
+    configuracaoAtual,
+    sequenciasAtuais,
+  ] = await Promise.all([
+    prisma.configuracaoFiscal.findUnique({
       where: {
         empresaId: data.empresaId,
       },
-    });
+    }),
+    prisma.sequenciaFiscal.findMany({
+      where: {
+        empresaId: data.empresaId,
+        OR: numeracoes.map(
+          (item) => ({
+            tipoDocumento:
+              item.tipoDocumento,
+            serie: item.serie,
+          })
+        ),
+      },
+      select: {
+        tipoDocumento: true,
+        serie: true,
+        ultimoNumero: true,
+      },
+    }),
+  ]);
+
+  for (const item of numeracoes) {
+    const sequencia =
+      sequenciasAtuais.find(
+        (atual) =>
+          atual.tipoDocumento ===
+            item.tipoDocumento &&
+          atual.serie === item.serie
+      );
+
+    if (
+      sequencia &&
+      item.proximoNumero <=
+        sequencia.ultimoNumero
+    ) {
+      return {
+        success: false,
+        message:
+          `O próximo número da ${item.documento} não pode ser menor ou igual ao último número utilizado (${sequencia.ultimoNumero}).`,
+      };
+    }
+  }
 
   const novoCsc =
     data.csc?.trim();
@@ -116,58 +221,95 @@ export async function updateConfiguracaoFiscal(
     data.tokenNuvemFiscal?.trim();
 
   try {
-    await prisma.configuracaoFiscal.upsert({
-      where: {
-        empresaId: data.empresaId,
-      },
-      create: {
-        empresaId: data.empresaId,
-        ambiente: data.ambiente,
-        regimeTributario:
-          data.regimeTributario,
-        serieNfe: data.serieNfe,
-        serieNfce: data.serieNfce,
-        serieCte: data.serieCte ?? 1,
-        rntrc,
-        idCsc:
-          textoOpcional(data.idCsc),
-        cscCriptografado:
-          novoCsc
-            ? criptografar(novoCsc)
-            : null,
-        tokenNuvemFiscalCriptografado:
-          novoToken
-            ? criptografar(novoToken)
-            : null,
-      },
-      update: {
-        ambiente: data.ambiente,
-        regimeTributario:
-          data.regimeTributario,
-        serieNfe: data.serieNfe,
-        serieNfce: data.serieNfce,
-        serieCte: data.serieCte ?? 1,
-        rntrc,
-        idCsc:
-          textoOpcional(data.idCsc),
-        cscCriptografado:
-          novoCsc
-            ? criptografar(novoCsc)
-            : configuracaoAtual
-                ?.cscCriptografado,
-        tokenNuvemFiscalCriptografado:
-          novoToken
-            ? criptografar(novoToken)
-            : configuracaoAtual
-                ?.tokenNuvemFiscalCriptografado,
-      },
-    });
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.configuracaoFiscal.upsert({
+          where: {
+            empresaId: data.empresaId,
+          },
+          create: {
+            empresaId: data.empresaId,
+            ambiente: data.ambiente,
+            regimeTributario:
+              data.regimeTributario,
+            serieNfe: data.serieNfe,
+            serieNfce: data.serieNfce,
+            serieCte: data.serieCte,
+            serieMdfe: data.serieMdfe,
+            rntrc,
+            idCsc:
+              textoOpcional(data.idCsc),
+            cscCriptografado:
+              novoCsc
+                ? criptografar(novoCsc)
+                : null,
+            tokenNuvemFiscalCriptografado:
+              novoToken
+                ? criptografar(novoToken)
+                : null,
+          },
+          update: {
+            ambiente: data.ambiente,
+            regimeTributario:
+              data.regimeTributario,
+            serieNfe: data.serieNfe,
+            serieNfce: data.serieNfce,
+            serieCte: data.serieCte,
+            serieMdfe: data.serieMdfe,
+            rntrc,
+            idCsc:
+              textoOpcional(data.idCsc),
+            cscCriptografado:
+              novoCsc
+                ? criptografar(novoCsc)
+                : configuracaoAtual
+                    ?.cscCriptografado,
+            tokenNuvemFiscalCriptografado:
+              novoToken
+                ? criptografar(novoToken)
+                : configuracaoAtual
+                    ?.tokenNuvemFiscalCriptografado,
+          },
+        });
+
+        for (const item of numeracoes) {
+          await tx.sequenciaFiscal.upsert({
+            where: {
+              empresaId_tipoDocumento_serie: {
+                empresaId: data.empresaId,
+                tipoDocumento:
+                  item.tipoDocumento,
+                serie: item.serie,
+              },
+            },
+            create: {
+              empresaId: data.empresaId,
+              tipoDocumento:
+                item.tipoDocumento,
+              serie: item.serie,
+              ultimoNumero:
+                item.proximoNumero - 1,
+            },
+            update: {
+              ultimoNumero:
+                item.proximoNumero - 1,
+            },
+          });
+        }
+      }
+    );
 
     revalidatePath(
       `/empresa/${data.empresaId}/configuracoes`
     );
     revalidatePath(
+      `/empresa/${data.empresaId}/nfe`
+    );
+    revalidatePath(
       `/empresa/${data.empresaId}/cte`
+    );
+    revalidatePath(
+      `/empresa/${data.empresaId}/mdfe`
     );
 
     return { success: true };

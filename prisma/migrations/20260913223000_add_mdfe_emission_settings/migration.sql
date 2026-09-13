@@ -1,0 +1,2 @@
+ALTER TABLE "ConfiguracaoFiscal"
+ADD COLUMN "serieMdfe" INTEGER NOT NULL DEFAULT 1;
