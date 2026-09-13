@@ -1,12 +1,10 @@
 "use client";
 
 import {
-  useRef,
+  useEffect,
   useState,
-  type ChangeEvent,
 } from "react";
 import {
-  FileUp,
   LoaderCircle,
   Search,
 } from "lucide-react";
@@ -16,58 +14,16 @@ import {
 } from "@/actions/cte/iniciar-cte-com-nfe";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  extrairDadosNfeParaCte,
-  type DadosNfeParaCte,
+import type {
+  DadosNfeParaCte,
 } from "@/lib/cte/nfe-origem";
 
 function numeros(valor: string) {
   return valor.replace(/\D/g, "");
 }
 
-function mensagemErroXml(
-  error: unknown
-) {
-  const codigo =
-    error instanceof Error
-      ? error.message
-      : "";
-
-  if (
-    codigo === "XML_NFE_VAZIO" ||
-    codigo === "XML_NFE_INVALIDO"
-  ) {
-    return "O arquivo informado não contém uma NF-e válida.";
-  }
-
-  if (
-    codigo ===
-    "XML_NAO_E_NFE_MODELO_55"
-  ) {
-    return "O XML informado não é de uma NF-e modelo 55.";
-  }
-
-  if (
-    codigo ===
-    "XML_NFE_SEM_PROTOCOLO_AUTORIZACAO"
-  ) {
-    return "Use o XML autorizado da NF-e, contendo o protocolo de autorização.";
-  }
-
-  if (
-    codigo ===
-    "XML_NFE_NAO_AUTORIZADO"
-  ) {
-    return "A NF-e informada não está autorizada.";
-  }
-
-  if (
-    codigo === "CHAVE_NFE_INVALIDA"
-  ) {
-    return "A chave de acesso contida no XML é inválida.";
-  }
-
-  return "Não foi possível ler o XML da NF-e.";
+function chaveStorage(empresaId: string) {
+  return `faturistico:cte:nfe-origem:${empresaId}`;
 }
 
 type Props = {
@@ -81,8 +37,6 @@ export function CteNfeOrigemBox({
   empresaId,
   onCarregar,
 }: Props) {
-  const inputArquivo =
-    useRef<HTMLInputElement>(null);
   const [chave, setChave] =
     useState("");
   const [processando, setProcessando] =
@@ -93,67 +47,106 @@ export function CteNfeOrigemBox({
       texto: string;
     } | null>(null);
 
-  async function importarXml(
-    event: ChangeEvent<HTMLInputElement>
-  ) {
-    const arquivo =
-      event.target.files?.[0];
+  useEffect(() => {
+    const storageKey =
+      chaveStorage(empresaId);
+    const armazenado =
+      sessionStorage.getItem(storageKey);
 
-    event.target.value = "";
+    if (!armazenado) return;
 
-    if (!arquivo) return;
-
-    if (
-      !arquivo.name
-        .toLowerCase()
-        .endsWith(".xml")
-    ) {
-      setMensagem({
-        tipo: "erro",
-        texto:
-          "Selecione um arquivo XML de NF-e.",
-      });
-      return;
-    }
-
-    if (arquivo.size > 10_000_000) {
-      setMensagem({
-        tipo: "erro",
-        texto:
-          "O XML excede o limite de 10 MB.",
-      });
-      return;
-    }
-
-    setProcessando(true);
-    setMensagem(null);
+    sessionStorage.removeItem(storageKey);
 
     try {
-      const xml =
-        await arquivo.text();
-      const dados =
-        extrairDadosNfeParaCte(xml);
+      const importadas = JSON.parse(
+        armazenado
+      ) as DadosNfeParaCte[];
 
-      onCarregar(dados);
-      setChave(dados.chaveAcesso);
+      if (
+        !Array.isArray(importadas) ||
+        importadas.length === 0
+      ) {
+        return;
+      }
+
+      const [principal, ...demais] =
+        importadas;
+
+      for (const nota of demais) {
+        onCarregar({
+          ...nota,
+          valorNota: 0,
+          produtoPredominante: "",
+          pesoBruto: null,
+          quantidadeVolumes: null,
+        });
+      }
+
+      const valorTotal =
+        importadas.reduce(
+          (total, nota) =>
+            total + nota.valorNota,
+          0
+        );
+
+      const pesos = importadas
+        .map((nota) => nota.pesoBruto)
+        .filter(
+          (valor): valor is number =>
+            valor !== null && valor > 0
+        );
+
+      const volumes = importadas
+        .map(
+          (nota) =>
+            nota.quantidadeVolumes
+        )
+        .filter(
+          (valor): valor is number =>
+            valor !== null && valor > 0
+        );
+
+      onCarregar({
+        ...principal,
+        valorNota: valorTotal,
+        pesoBruto:
+          pesos.length > 0
+            ? pesos.reduce(
+                (total, valor) =>
+                  total + valor,
+                0
+              )
+            : null,
+        quantidadeVolumes:
+          volumes.length > 0
+            ? volumes.reduce(
+                (total, valor) =>
+                  total + valor,
+                0
+              )
+            : null,
+      });
+
+      setChave(principal.chaveAcesso);
       setMensagem({
         tipo: "sucesso",
         texto:
-          `NF-e ${dados.numeroNfe ?? ""} carregada pelo XML. Confira os dados antes de salvar o CT-e.`,
+          importadas.length === 1
+            ? "1 NF-e foi carregada pelo XML. Confira os dados antes de salvar o CT-e."
+            : `${importadas.length} NF-e foram carregadas pelos XMLs e vinculadas ao CT-e. Confira os dados antes de salvar.`,
       });
     } catch (error) {
       console.error(
-        "Erro ao importar XML da NF-e:",
+        "Erro ao aplicar XMLs importados no CT-e:",
         error
       );
       setMensagem({
         tipo: "erro",
-        texto: mensagemErroXml(error),
+        texto:
+          "Não foi possível aplicar os XMLs importados ao cadastro do CT-e.",
       });
-    } finally {
-      setProcessando(false);
     }
-  }
+  }, [empresaId, onCarregar]);
 
   async function buscarPorChave() {
     const chaveLimpa =
@@ -209,43 +202,13 @@ export function CteNfeOrigemBox({
 
   return (
     <section className="rounded-2xl border border-primary/20 bg-primary/[0.03] p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <h2 className="text-sm font-semibold">
-            Iniciar CT-e pela NF-e
-          </h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            Importe o XML autorizado da NF-e ou consulte pela chave para preencher chave, remetente/destinatário já cadastrados, rota, valor da carga, produto predominante e peso/volumes disponíveis.
-          </p>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <input
-            ref={inputArquivo}
-            type="file"
-            accept=".xml,text/xml,application/xml"
-            className="hidden"
-            onChange={importarXml}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            disabled={processando}
-            onClick={() =>
-              inputArquivo.current?.click()
-            }
-          >
-            {processando ? (
-              <LoaderCircle
-                size={16}
-                className="animate-spin"
-              />
-            ) : (
-              <FileUp size={16} />
-            )}
-            Importar XML
-          </Button>
-        </div>
+      <div>
+        <h2 className="text-sm font-semibold">
+          Buscar NF-e pela chave
+        </h2>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
+          Informe a chave de acesso para consultar a NF-e e aproveitar os dados disponíveis no CT-e.
+        </p>
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
