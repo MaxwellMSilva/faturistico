@@ -58,8 +58,9 @@ model NotaFiscal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  itens   ItemNotaFiscal[]
-  eventos EventoFiscal[]
+  itens      ItemNotaFiscal[]
+  pagamentos PagamentoNotaFiscal[]
+  eventos    EventoFiscal[]
 
   transporte TransporteNotaFiscal?
 
