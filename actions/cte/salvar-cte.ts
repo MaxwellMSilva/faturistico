@@ -50,6 +50,19 @@ export async function salvarCte(
   );
 
   if (
+    data.numero !== undefined &&
+    (!Number.isInteger(data.numero) ||
+      data.numero < 1 ||
+      data.numero > 999_999_999)
+  ) {
+    return {
+      success: false as const,
+      message:
+        "Informe um número de CT-e entre 1 e 999999999.",
+    };
+  }
+
+  if (
     somenteNumeros(data.cfop).length !== 4
   ) {
     return {
@@ -380,14 +393,75 @@ export async function salvarCte(
               ).padStart(8, "0");
           } else {
             serie = configuracao.serieCte;
-            numero =
-              await obterProximoNumero({
-                tx,
-                empresaId: data.empresaId,
-                tipoDocumento:
-                  TipoDocumentoFiscal.CTE,
-                serie,
-              });
+
+            if (data.numero !== undefined) {
+              const numeroJaUtilizado =
+                await tx.conhecimentoTransporte.findFirst({
+                  where: {
+                    empresaId: data.empresaId,
+                    serie,
+                    numero: data.numero,
+                  },
+                  select: { id: true },
+                });
+
+              if (numeroJaUtilizado) {
+                throw new Error(
+                  "CTE_NUMERO_JA_UTILIZADO"
+                );
+              }
+
+              numero = data.numero;
+
+              const sequencia =
+                await tx.sequenciaFiscal.findUnique({
+                  where: {
+                    empresaId_tipoDocumento_serie: {
+                      empresaId: data.empresaId,
+                      tipoDocumento:
+                        TipoDocumentoFiscal.CTE,
+                      serie,
+                    },
+                  },
+                  select: {
+                    id: true,
+                    ultimoNumero: true,
+                  },
+                });
+
+              if (!sequencia) {
+                await tx.sequenciaFiscal.create({
+                  data: {
+                    empresaId: data.empresaId,
+                    tipoDocumento:
+                      TipoDocumentoFiscal.CTE,
+                    serie,
+                    ultimoNumero: numero,
+                  },
+                });
+              } else if (
+                numero > sequencia.ultimoNumero
+              ) {
+                await tx.sequenciaFiscal.update({
+                  where: {
+                    id: sequencia.id,
+                  },
+                  data: {
+                    ultimoNumero: numero,
+                  },
+                });
+              }
+            } else {
+              numero =
+                await obterProximoNumero({
+                  tx,
+                  empresaId: data.empresaId,
+                  tipoDocumento:
+                    TipoDocumentoFiscal.CTE,
+                  serie,
+                });
+            }
+
             numeroAleatorio = String(
               randomInt(0, 100_000_000)
             ).padStart(8, "0");
@@ -706,7 +780,11 @@ export async function salvarCte(
       error instanceof Error &&
       error.message === "CTE_NAO_EDITAVEL"
         ? "Este CT-e já não pode ser editado."
-        : "Não foi possível salvar o CT-e.";
+        : error instanceof Error &&
+            error.message ===
+              "CTE_NUMERO_JA_UTILIZADO"
+          ? "Este número de CT-e já está sendo utilizado nesta série. Informe outro número."
+          : "Não foi possível salvar o CT-e.";
 
     return {
       success: false as const,
