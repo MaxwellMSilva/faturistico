@@ -20,6 +20,7 @@ import {
   ReceiptText,
   Save,
   ShieldAlert,
+  Truck,
 } from "lucide-react";
 
 import { updateConfiguracaoFiscal } from "@/actions/configuracao-fiscal/update-configuracao-fiscal";
@@ -35,12 +36,51 @@ type RegimeTributario =
   | "SIMPLES_NACIONAL_EXCESSO_SUBLIMITE"
   | "REGIME_NORMAL";
 
+type FinalidadeCte =
+  | "NORMAL"
+  | "COMPLEMENTO"
+  | "SUBSTITUICAO";
+
+type TipoEmissaoCte =
+  | "NORMAL"
+  | "REGIME_ESPECIAL_NFF"
+  | "EPEC_SVC"
+  | "CONTINGENCIA_FSDA"
+  | "SVC_RS"
+  | "SVC_SP";
+
+type ModalCte =
+  | "RODOVIARIO"
+  | "AEREO"
+  | "AQUAVIARIO"
+  | "FERROVIARIO"
+  | "DUTOVIARIO"
+  | "MULTIMODAL";
+
+type TipoServicoCte =
+  | "NORMAL"
+  | "SUBCONTRATACAO"
+  | "REDESPACHO"
+  | "REDESPACHO_INTERMEDIARIO"
+  | "VINCULADO_MULTIMODAL";
+
 type Configuracao = {
   ambiente: AmbienteFiscal;
   regimeTributario: RegimeTributario;
   serieNfe: number;
   ultimoNumeroNfe: number;
   serieNfce: number;
+
+  modeloCte: number;
+  ambienteCte: AmbienteFiscal;
+  finalidadeCte: string;
+  tipoEmissaoCte: string;
+  modalCte: string;
+  tipoServicoCte: string;
+  serieCte: number;
+  ultimoNumeroCte: number;
+  numeracaoManualCte: boolean;
+
   idCsc: string | null;
   possuiCsc: boolean;
   possuiTokenNuvemFiscal: boolean;
@@ -71,6 +111,34 @@ function criarEstadoInicial(
     serieNfce: String(
       configuracao?.serieNfce ?? 1
     ),
+
+    ambienteCte:
+      configuracao?.ambienteCte ??
+      configuracao?.ambiente ??
+      ("HOMOLOGACAO" as AmbienteFiscal),
+    finalidadeCte:
+      (configuracao?.finalidadeCte ??
+        "NORMAL") as FinalidadeCte,
+    tipoEmissaoCte:
+      (configuracao?.tipoEmissaoCte ??
+        "NORMAL") as TipoEmissaoCte,
+    modalCte:
+      (configuracao?.modalCte ??
+        "RODOVIARIO") as ModalCte,
+    tipoServicoCte:
+      (configuracao?.tipoServicoCte ??
+        "NORMAL") as TipoServicoCte,
+    serieCte: String(
+      configuracao?.serieCte ?? 1
+    ),
+    numeracaoManualCte:
+      configuracao?.numeracaoManualCte ??
+      false,
+    atualizarUltimoNumeroCte: false,
+    ultimoNumeroCte: String(
+      configuracao?.ultimoNumeroCte ?? 0
+    ),
+
     idCsc: configuracao?.idCsc ?? "",
     csc: "",
     tokenNuvemFiscal: "",
@@ -140,6 +208,19 @@ export function ConfiguracaoFiscalForm({
     limparMensagens();
   }
 
+  function atualizarSerieCte(
+    valor: string
+  ) {
+    setForm((anterior) => ({
+      ...anterior,
+      serieCte: valor,
+      atualizarUltimoNumeroCte: false,
+      ultimoNumeroCte: "",
+    }));
+
+    limparMensagens();
+  }
+
   function alternarUltimoNumeroNfe(
     marcado: boolean
   ) {
@@ -165,6 +246,31 @@ export function ConfiguracaoFiscalForm({
     limparMensagens();
   }
 
+  function alternarUltimoNumeroCte(
+    marcado: boolean
+  ) {
+    const mesmaSerie =
+      configuracao &&
+      String(configuracao.serieCte) ===
+        form.serieCte;
+
+    setForm((anterior) => ({
+      ...anterior,
+      atualizarUltimoNumeroCte: marcado,
+      ultimoNumeroCte: marcado
+        ? anterior.ultimoNumeroCte ||
+          String(
+            mesmaSerie
+              ? configuracao?.ultimoNumeroCte ??
+                  0
+              : 0
+          )
+        : anterior.ultimoNumeroCte,
+    }));
+
+    limparMensagens();
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -177,6 +283,10 @@ export function ConfiguracaoFiscalForm({
       Number(form.serieNfce);
     const ultimoNumeroNfe =
       Number(form.ultimoNumeroNfe);
+    const numeroSerieCte =
+      Number(form.serieCte);
+    const ultimoNumeroCte =
+      Number(form.ultimoNumeroCte);
     const idCsc = form.idCsc.trim();
     const csc = form.csc.trim();
     const tokenNuvemFiscal =
@@ -216,6 +326,31 @@ export function ConfiguracaoFiscalForm({
       return;
     }
 
+    if (
+      !Number.isInteger(numeroSerieCte) ||
+      numeroSerieCte < 0 ||
+      numeroSerieCte > 999
+    ) {
+      setErro(
+        "Informe uma série de CT-e entre 0 e 999."
+      );
+      return;
+    }
+
+    if (
+      form.atualizarUltimoNumeroCte &&
+      (
+        !Number.isInteger(ultimoNumeroCte) ||
+        ultimoNumeroCte < 0 ||
+        ultimoNumeroCte > 999_999_999
+      )
+    ) {
+      setErro(
+        "Informe um último número de CT-e entre 0 e 999999999."
+      );
+      return;
+    }
+
     if (csc && !idCsc) {
       setErro(
         "Informe o identificador do CSC."
@@ -251,6 +386,26 @@ export function ConfiguracaoFiscalForm({
             form.atualizarUltimoNumeroNfe
               ? ultimoNumeroNfe
               : undefined,
+
+          modeloCte: 57,
+          ambienteCte: form.ambienteCte,
+          finalidadeCte:
+            form.finalidadeCte,
+          tipoEmissaoCte:
+            form.tipoEmissaoCte,
+          modalCte: form.modalCte,
+          tipoServicoCte:
+            form.tipoServicoCte,
+          serieCte: numeroSerieCte,
+          numeracaoManualCte:
+            form.numeracaoManualCte,
+          atualizarUltimoNumeroCte:
+            form.atualizarUltimoNumeroCte,
+          ultimoNumeroCte:
+            form.atualizarUltimoNumeroCte
+              ? ultimoNumeroCte
+              : undefined,
+
           idCsc,
           csc,
           tokenNuvemFiscal,
@@ -264,6 +419,7 @@ export function ConfiguracaoFiscalForm({
       setForm((anterior) => ({
         ...anterior,
         atualizarUltimoNumeroNfe: false,
+        atualizarUltimoNumeroCte: false,
         csc: "",
         tokenNuvemFiscal: "",
       }));
@@ -294,6 +450,12 @@ export function ConfiguracaoFiscalForm({
     configuracao
       ? String(configuracao.serieNfe) ===
         form.serieNfe
+      : false;
+
+  const serieCteAtual =
+    configuracao
+      ? String(configuracao.serieCte) ===
+        form.serieCte
       : false;
 
   return (
@@ -542,6 +704,393 @@ export function ConfiguracaoFiscalForm({
 
       <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
         <CabecalhoSecao
+          icone={Truck}
+          titulo="Parâmetros de CT-e"
+          descricao="Deixe definidos os padrões que serão utilizados na futura emissão do CT-e de transporte de carga."
+          status={
+            configuracao
+              ? "configurado"
+              : "pendente"
+          }
+        />
+
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-2">
+            <label
+              htmlFor="modeloCte"
+              className="text-sm font-medium"
+            >
+              Modelo CT-e
+            </label>
+
+            <Input
+              id="modeloCte"
+              className="h-11"
+              value="57 — CT-e"
+              disabled
+              readOnly
+            />
+
+            <p className="text-xs text-muted-foreground">
+              O padrão desta etapa é o CT-e de
+              transporte de carga modelo 57.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="ambienteCte"
+              className="text-sm font-medium"
+            >
+              Ambiente CT-e
+            </label>
+
+            <select
+              id="ambienteCte"
+              value={form.ambienteCte}
+              onChange={(event) =>
+                atualizarCampo(
+                  "ambienteCte",
+                  event.target
+                    .value as AmbienteFiscal
+                )
+              }
+              className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+              disabled={carregando}
+            >
+              <option value="HOMOLOGACAO">
+                Homologação
+              </option>
+              <option value="PRODUCAO">
+                Produção
+              </option>
+            </select>
+
+            <p className="text-xs text-muted-foreground">
+              Pode ser configurado separadamente
+              do ambiente geral da NF-e.
+            </p>
+          </div>
+
+          <CampoSerie
+            id="serieCte"
+            label="Série do CT-e"
+            descricao="A série 0 também é válida quando a empresa utiliza série única."
+            value={form.serieCte}
+            onChange={atualizarSerieCte}
+            disabled={carregando}
+            min={0}
+            max={999}
+          />
+
+          <div className="space-y-2">
+            <label
+              htmlFor="finalidadeCte"
+              className="text-sm font-medium"
+            >
+              Finalidade CT-e
+            </label>
+
+            <select
+              id="finalidadeCte"
+              value={form.finalidadeCte}
+              onChange={(event) =>
+                atualizarCampo(
+                  "finalidadeCte",
+                  event.target
+                    .value as FinalidadeCte
+                )
+              }
+              className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+              disabled={carregando}
+            >
+              <option value="NORMAL">
+                Normal
+              </option>
+              <option value="COMPLEMENTO">
+                Complemento de valores
+              </option>
+              <option value="SUBSTITUICAO">
+                Substituição
+              </option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="tipoEmissaoCte"
+              className="text-sm font-medium"
+            >
+              Tipo de emissão
+            </label>
+
+            <select
+              id="tipoEmissaoCte"
+              value={form.tipoEmissaoCte}
+              onChange={(event) =>
+                atualizarCampo(
+                  "tipoEmissaoCte",
+                  event.target
+                    .value as TipoEmissaoCte
+                )
+              }
+              className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+              disabled={carregando}
+            >
+              <option value="NORMAL">
+                Normal
+              </option>
+              <option value="REGIME_ESPECIAL_NFF">
+                Regime Especial NFF
+              </option>
+              <option value="EPEC_SVC">
+                EPEC pela SVC
+              </option>
+              <option value="CONTINGENCIA_FSDA">
+                Contingência FS-DA
+              </option>
+              <option value="SVC_RS">
+                SVC-RS
+              </option>
+              <option value="SVC_SP">
+                SVC-SP
+              </option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="modalCte"
+              className="text-sm font-medium"
+            >
+              Modal
+            </label>
+
+            <select
+              id="modalCte"
+              value={form.modalCte}
+              onChange={(event) =>
+                atualizarCampo(
+                  "modalCte",
+                  event.target
+                    .value as ModalCte
+                )
+              }
+              className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+              disabled={carregando}
+            >
+              <option value="RODOVIARIO">
+                Rodoviário
+              </option>
+              <option value="AEREO">
+                Aéreo
+              </option>
+              <option value="AQUAVIARIO">
+                Aquaviário
+              </option>
+              <option value="FERROVIARIO">
+                Ferroviário
+              </option>
+              <option value="DUTOVIARIO">
+                Dutoviário
+              </option>
+              <option value="MULTIMODAL">
+                Multimodal
+              </option>
+            </select>
+          </div>
+
+          <div className="space-y-2 xl:col-span-2">
+            <label
+              htmlFor="tipoServicoCte"
+              className="text-sm font-medium"
+            >
+              Tipo de serviço
+            </label>
+
+            <select
+              id="tipoServicoCte"
+              value={form.tipoServicoCte}
+              onChange={(event) =>
+                atualizarCampo(
+                  "tipoServicoCte",
+                  event.target
+                    .value as TipoServicoCte
+                )
+              }
+              className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+              disabled={carregando}
+            >
+              <option value="NORMAL">
+                Normal
+              </option>
+              <option value="SUBCONTRATACAO">
+                Subcontratação
+              </option>
+              <option value="REDESPACHO">
+                Redespacho
+              </option>
+              <option value="REDESPACHO_INTERMEDIARIO">
+                Redespacho intermediário
+              </option>
+              <option value="VINCULADO_MULTIMODAL">
+                Serviço vinculado a multimodal
+              </option>
+            </select>
+
+            <p className="text-xs text-muted-foreground">
+              O padrão inicial é serviço normal.
+              Os demais exigirão grupos específicos
+              no XML quando a emissão for criada.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <div className="flex items-start gap-3">
+              <input
+                id="numeracaoManualCte"
+                type="checkbox"
+                checked={form.numeracaoManualCte}
+                onChange={(event) =>
+                  atualizarCampo(
+                    "numeracaoManualCte",
+                    event.target.checked
+                  )
+                }
+                disabled={carregando}
+                className="mt-1 h-4 w-4 rounded border"
+              />
+
+              <div>
+                <label
+                  htmlFor="numeracaoManualCte"
+                  className="cursor-pointer text-sm font-medium"
+                >
+                  Permitir numeração manual
+                </label>
+
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Quando a tela de CT-e for criada,
+                  este parâmetro permitirá editar o
+                  número antes da emissão. Desmarcado,
+                  a numeração será automática.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <div className="flex items-start gap-3">
+              <input
+                id="atualizarUltimoNumeroCte"
+                type="checkbox"
+                checked={
+                  form.atualizarUltimoNumeroCte
+                }
+                onChange={(event) =>
+                  alternarUltimoNumeroCte(
+                    event.target.checked
+                  )
+                }
+                disabled={carregando}
+                className="mt-1 h-4 w-4 rounded border"
+              />
+
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor="atualizarUltimoNumeroCte"
+                  className="cursor-pointer text-sm font-medium"
+                >
+                  Informar último número de CT-e
+                </label>
+
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Use para iniciar a sequência com o
+                  último CT-e já emitido fora do
+                  Faturístico.
+                </p>
+
+                {serieCteAtual && (
+                  <p className="mt-2 text-xs font-medium text-muted-foreground">
+                    Último número registrado na série
+                    {" "}{configuracao?.serieCte}: {" "}
+                    {configuracao?.ultimoNumeroCte ?? 0}
+                  </p>
+                )}
+
+                {!serieCteAtual &&
+                  configuracao && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      A série foi alterada. Se ela já
+                      foi utilizada, informe o último
+                      número emitido nessa série.
+                    </p>
+                  )}
+
+                {form.atualizarUltimoNumeroCte && (
+                  <div className="mt-4 space-y-2">
+                    <label
+                      htmlFor="ultimoNumeroCte"
+                      className="text-sm font-medium"
+                    >
+                      Último CT-e emitido
+                    </label>
+
+                    <Input
+                      id="ultimoNumeroCte"
+                      type="number"
+                      min={0}
+                      max={999999999}
+                      step={1}
+                      inputMode="numeric"
+                      value={form.ultimoNumeroCte}
+                      onChange={(event) =>
+                        atualizarCampo(
+                          "ultimoNumeroCte",
+                          event.target.value
+                        )
+                      }
+                      className="h-11"
+                      disabled={carregando}
+                      required
+                    />
+
+                    <p className="text-xs text-muted-foreground">
+                      Ex.: informando 850, o próximo
+                      número automático será 851.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {form.ambienteCte === "PRODUCAO" && (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <ShieldAlert
+              size={19}
+              className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400"
+            />
+
+            <div>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                CT-e configurado para produção
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Quando o módulo de emissão estiver
+                disponível, esse ambiente produzirá
+                documentos fiscais com validade.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <CabecalhoSecao
           icone={ReceiptText}
           titulo="NFC-e e CSC"
           descricao="Configure a série e o Código de Segurança do Contribuinte utilizados na NFC-e."
@@ -781,6 +1330,8 @@ type CampoSerieProps = {
   value: string;
   onChange: (valor: string) => void;
   disabled?: boolean;
+  min?: number;
+  max?: number;
 };
 
 function CampoSerie({
@@ -790,6 +1341,8 @@ function CampoSerie({
   value,
   onChange,
   disabled = false,
+  min = 1,
+  max,
 }: CampoSerieProps) {
   return (
     <div className="space-y-2">
@@ -804,7 +1357,8 @@ function CampoSerie({
         id={id}
         className="h-11"
         type="number"
-        min={1}
+        min={min}
+        max={max}
         step={1}
         inputMode="numeric"
         value={value}
