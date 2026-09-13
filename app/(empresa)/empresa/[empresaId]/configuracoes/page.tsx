@@ -18,6 +18,7 @@ import { getConfiguracaoFiscal } from "@/actions/configuracao-fiscal/get-configu
 import { getCertificadoAtivo } from "@/actions/certificado/get-certificado-ativo";
 
 import { ConfiguracaoFiscalForm } from "@/components/configuracao-fiscal/configuracao-fiscal-form";
+import { ParametrosMdfeForm } from "@/components/configuracao-fiscal/parametros-mdfe-form";
 
 import { CertificadoDigitalForm } from "@/components/certificado/certificado-digital-form";
 
@@ -157,7 +158,7 @@ export default async function ConfiguracoesPage({
             <p className="mt-1 text-sm text-muted-foreground">
               Defina o regime tributário,
               ambiente, série e parâmetros
-              utilizados na emissão da NF-e.
+              utilizados na emissão dos documentos fiscais.
             </p>
           </div>
         </div>
@@ -167,6 +168,11 @@ export default async function ConfiguracoesPage({
           configuracao={
             configuracao
           }
+        />
+
+        <ParametrosMdfeForm
+          empresaId={empresaId}
+          configuracao={configuracao}
         />
         </section>
       )}
