@@ -86,7 +86,7 @@ export async function getDadosFormCte(
         id: true,
         nomeArquivo: true,
         titular: true,
-        cnpjCpf: true,
+        cnpjTitular: true,
         validadeInicio: true,
         validadeFim: true,
       },
